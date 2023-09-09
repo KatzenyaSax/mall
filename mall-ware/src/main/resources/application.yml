@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.74.128:3306/mall_wms
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.74.128:8848
+        password: nacos
+        username: nacos
+        namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+  application:
+    name: mall-ware
+
+
+
+
+
+
+mybatis-plus:
+  mapper-locations: classpath:/mapper/**/*.xml
+  global-config:
+    db-config:
+      id-type: auto
+
+
+
+server:
+  port: 9900
+
