@@ -1,13 +1,16 @@
 package com.katzenyasax.mall.coupon;
 
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+
+@MapperScan(value = "com.katzenyasax.mall.coupon.dao")
 @SpringBootApplication
-public class MallCouponApplication {
+public class Coupon {
 
     public static void main(String[] args) {
-        SpringApplication.run(MallCouponApplication.class, args);
+        SpringApplication.run(Coupon.class, args);
     }
 
 }

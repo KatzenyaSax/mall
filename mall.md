@@ -435,11 +435,20 @@ springboot遇到循环依赖问题而无法启动时：
                         <version>8.0.33</version>
                     </dependency>
 
+
+              注意一下，用了mybatis plus就不能再用mybatis的任何依赖了
+              除此之外，一定要注意，只需要mybatis-plus-boot-starter这个包，也即是：
+
+                    <!-- https://mvnrepository.com/artifact/com.baomidou/mybatis-plus-boot-starter -->
+                    <!-- 这个是controller里的getById等方法要用的，也是mybatis plus的核心依赖 -->
+                    <!-- 同时处理"Property 'sqlSessionFactory' or 'sqlSessionTemplate' are required"的问题 -->
+                    <!-- 并且出现找不到xml中方法的情况时，第一时间也应想到是不是只依赖了该包 -->
                     <dependency>
-                        <groupId>org.springframework.boot</groupId>
-                        <artifactId>spring-boot-maven-plugin</artifactId>
-                        <version>3.1.3</version>
+                        <groupId>com.baomidou</groupId>
+                        <artifactId>mybatis-plus-boot-starter</artifactId>
+                        <version>3.5.3.2</version>
                     </dependency>
+
 
             2.在product模块的resource下面添加application.yml:
 
@@ -457,7 +466,7 @@ springboot遇到循环依赖问题而无法启动时：
             4.在application.yml配置mybatis plus：
 
                     mybatis-plus:
-                        mapper-locations: classpath:/com.katzenyasax.mall.product.dao
+                        mapper-locations: classpath*:/mapper/**/*.xml
 
             5.yml中增加主键自增：
 
