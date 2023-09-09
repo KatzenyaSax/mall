@@ -712,7 +712,83 @@ member:
 
 
 
-===========
+=========== open feign 微服务间远程调用===================================================================================
+
+依赖为spring-cloud-open-feign，创建项目时引入就行
+还要引入一个依赖：
+
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+                <version>3.1.3</version>
+            </dependency>
+    
+这个是新版本必须的依赖，是nacos的负载均衡
+
+原理就是在一个微服务内通过注解指定要调用的是哪个微服务的哪个方法，指定之后交给open feign让其实现远程调用就可以了
+例如我创建一个TEST服务用于进行测试，这个TEST需要被注册进nacos，和要调用的微服务处于同一命名空间
+也即是在其yml中添加：
+
+            server:
+                port: 4869
+            spring:
+                cloud:
+                    nacos:
+                        discovery:
+                            server-addr: 192.168.74.128:8848
+                            username: nacos
+                            password: nacos
+                            namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+                application:
+                    name: mall-TEST
+
+并且启动类上还要加上
+    
+            @@EnableDiscoveryClient
+
+调用流程为：
+
+            1.创建feign接口，定义在包下的feign子包内：
+
+                    @FeignClient("mall-coupon")
+                    public interface Feign_ShowCoupon {
+                        @RequestMapping("/coupon/coupon/")
+                        public String show();
+                    }
+
+              其中@FeignClient中的是，在nacos注册中心中的服务名，注意不是项目内微服务的名称
+              而@RequestMapping内的则是要调用的方法的全路径名
+
+            2.在TEST启动类上打开open feign功能，即添加注解：
+
+                    @EnableFeignClients(basePackages = "com.katzenyasax.test.feign")
+
+              括号内的是feign包的位置
+
+            3.定义controller，远程调用方法
+
+                @RestController
+                public class Controller_ShowCoupon {
+                    @Resource
+                    Feign_ShowCoupon showCoupon;
+                    @RequestMapping(value = "/showCoupon")
+                    public R GetAllCoupons(){
+                        return R.ok(showCoupon.show());
+                    }
+                }
+                
+            4.测试：
+              输入 localhost:4869/showCoupon，浏览器返回：
+
+                    {"msg":"Coupon","code":0}
+
+              测试成功
+
+
+
+
+
+
 
 
 
