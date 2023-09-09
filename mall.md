@@ -448,6 +448,8 @@ springboot遇到循环依赖问题而无法启动时：
                         <artifactId>mybatis-plus-boot-starter</artifactId>
                         <version>3.5.3.2</version>
                     </dependency>
+              因为这个包是mybatis-plus包的强化版
+    
 
 
             2.在product模块的resource下面添加application.yml:
@@ -622,7 +624,7 @@ member:
 
             1.引入nacos依赖：
 
-                     <!-- 引入 SpringMVC 相关依赖，并实现对其的自动配置 -->
+                    <!-- 引入 SpringMVC 相关依赖，并实现对其的自动配置 -->
                     <dependency>
                         <groupId>org.springframework.boot</groupId>
                         <artifactId>spring-boot-starter-web</artifactId>
@@ -683,7 +685,7 @@ member:
                                     username: nacos
                                     namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333         切记这里应当是命名空间的id，而不是名称
                             application:
-                            name: mall-coupon                                               该服务的名称，这个不加上nacos不过注册
+                                name: mall-coupon                                           该服务的名称，这个不加上nacos不过注册
 
 
 
