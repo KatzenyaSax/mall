@@ -1,0 +1,35 @@
+server:
+  port: 10100
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.74.128:8848
+        username: nacos
+        password: nacos
+        namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+
+    gateway:
+      routes:
+        - id: "gateway-test"
+          uri: "https://www.bilibili.com"
+          predicates:
+            - Path=/*
+
+
+
+  main:
+    web-application-type: reactive
+  application:
+    name: mall-Gateway
+
+
+
+
+
+
+
+
+
+
+

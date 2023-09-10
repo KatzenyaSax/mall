@@ -1,6 +1,6 @@
 spring:
   application:
-    name: mall-TEST
+    name: mall-Gateway
   cloud:
     nacos:
       config:

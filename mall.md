@@ -1,4 +1,29 @@
 
+
+springboot版本：3.1.3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ==========关于数据库==============
 
 使用linux环境部署
@@ -582,7 +607,7 @@ member:
 
 
 
-==========Spring Cloud==========================================================================
+==========Spring Cloud======================================================================================
 
 使用spring cloud alibaba
 
@@ -746,6 +771,13 @@ member:
     
             @@EnableDiscoveryClient
 
+注意TEST不需要数据库，因此在@SpringBootApplication加上：
+
+            (exclude= {DataSourceAutoConfiguration.class})
+
+即排除MybatisPlus强制要求连接数据源的傻逼规定
+
+
 调用流程为：
 
             1.创建feign接口，定义在包下的feign子包内：
@@ -840,6 +872,7 @@ member:
               而且特别注意的是，bootstrap中写过config了，application了就不能再写了，
               也就是discovery和config要分开
               否则@RefreshScope动态刷新不生效
+              name也必须写上
 
             3.在bootstrap中添加：
 
@@ -884,6 +917,127 @@ springboot启动类运行后，会给出对应的服务在nacos配置中心上�
             3.调用nacos配置文件的类打上注解@RefreshScope
     
             4.nacos中心加配置文件，名字要和服务名一致
+
+
+========================================================================================================================
+
+
+
+
+
+========== nacos 配置中心细节 ==========================================================================
+
+I.命名空间
+用来配置隔离的，例如创建开发空间、生产空间等，对应开发环境、生产环境等
+
+
+II.手动加载nacos中的配置文件到微服务
+   在bootstrap加上：
+
+            spring:
+                cloud:
+                    nacos:
+                        config:
+                            extension-configs[0]:
+                                data-id: 配置文件的名称
+                                group: 配置文件的group名
+                                refresh: true 是否开启实时刷新
+
+值得一提的是，extension-config本质上是一个list，因此中括号里面的数代表该加载的配置文件在list中的位置
+这意味着，可以加载多个配置文件到微服务
+
+不过一般情况下，还是把配置文件加载过去吧，免得出现一些bug，保险一点
+
+
+=======================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+========== 网关 =================================================================================================
+
+使用spring cloud提供的Gateway
+基于nacos注册中心和配置中心，因此所有服务都要加入nacos
+
+路由：网关将请求发往服务的过程
+
+断言：网关判断请求应发往哪一个服务的行为
+
+过滤器：网关对请求进行筛选，滤除不合法的请求
+
+
+
+            1.创建网关服务mall-gateway
+              创建时导入gateway依赖
+              pom中依赖mall-common
+
+            2.开启注册发现和nacos配置
+              application上加：
+
+                    server:
+                        port: 10100
+                    spring:
+                        cloud:
+                            nacos:
+                                discovery:
+                                    server-addr: 192.168.74.128:8848
+                                        username: nacos
+                                        password: nacos
+                                        namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+                        main:
+                            web-application-type: reactive
+                        application:
+                            name: mall-Gateway
+
+              其中，spring.main.web-application-type: reactive是定常
+
+              其次注意Gateway不需要数据库，因此在@SpringBootApplication加上：
+              
+                    (exclude= {DataSourceAutoConfiguration.class})
+              
+              即排除MybatisPlus自动配置连接池，强制要求连接数据源的傻逼规定
+
+            3.我们要实现一个功能
+              输入路径/bilibili时，页面跳转到bilibili官网
+              在application中添加：
+
+                    spring:
+                     cloud:
+                      gateway:
+                       routes:
+                        - id: "gateway-test-bilibili"
+                          uri: "https://www.bilibili.com"
+                          predicates:
+                           - Path=/bilibili
+
+              
+            4.测试
+              运行后，可以发现，实际上我们跳转到的地址是：
+
+                    https://www.bilibili.com/bilibili
+
+              也就是说实际上跳转到的是导向的uri，和填写的路径的拼接值
+
+            5.不要断言：
+
+                              predicates:
+                                - Path=/*
+
+              但不是说不要，断言是必须要有的，只不过我们可以在逻辑层面规定实际上是否需要断言
+              那就直接跳转到了首页
+              不过也有缺点，那就是首页没有图片等资源
+
+
+======================================================================================================================
 
 
 

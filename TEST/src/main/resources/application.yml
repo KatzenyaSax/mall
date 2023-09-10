@@ -9,6 +9,7 @@ spring:
         password: nacos
         namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
 
+
   application:
     name: mall-TEST
 
