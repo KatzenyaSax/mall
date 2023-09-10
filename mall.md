@@ -785,8 +785,105 @@ member:
               测试成功
 
 
+========================================================================================================================
 
 
+
+
+
+
+
+
+
+
+
+
+========== nacos 作为配置中心============================================================================================
+
+引入依赖：
+
+            <!-- 将 Nacos 作为注册配置中心 -->
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+            </dependency>
+
+流程：
+
+            1.在微服务的resource加入bootstrap.yml
+              比application.yml的优先级更高，优先读取
+              还要添加读取bootstrap的依赖：
+
+                    <!-- https://mvnrepository.com/artifact/org.webjars/bootstrap -->
+                    <!-- https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-starter-bootstrap -->
+                    <dependency>
+                        <groupId>org.springframework.cloud</groupId>
+                        <artifactId>spring-cloud-starter-bootstrap</artifactId>
+                        <version>4.0.0</version>
+                    </dependency>
+
+
+            2.在bootstrap中添加：
+                        
+                    spring:
+                        application:
+                            name: 注册中心中的服务名
+                        cloud:
+                            nacos:
+                                config:
+                                    server-addr: 192.168.74.128:8848
+                                            username: nacos
+                                            password: nacos
+                                            namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+
+              注意config，不要写出discovery了
+              而且特别注意的是，bootstrap中写过config了，application了就不能再写了，
+              也就是discovery和config要分开
+              否则@RefreshScope动态刷新不生效
+
+            3.在bootstrap中添加：
+
+                    a:
+                        b:
+                            c:
+                                114514
+
+            4.测试：
+
+                    @RestController
+                    public class Controller_ShowDataInBootstrap {
+                        @Value("${a.b.c}")
+                        String data;
+                        @RequestMapping("/showData")
+                        public R showDataInBootstrap(){
+                            return R.ok(data);
+                        }
+                    }
+
+              结果为：
+
+                    {"msg":"114514","code":0}
+
+结果证明是可以正常读取的
+但是这种情况下，每一次更高配置文件都要求重新上线服务，很不方便，因此使用nacos的配置中心
+springboot启动类运行后，会给出对应的服务在nacos配置中心上对应的配置文件的名称
+在nacos配置中心创建这个名称的配置文件，就可以使用nacos管理配置文件了
+
+注意nacos中配置文件的名称是该服务在nacos中的名称，后面加上yml或properties的后缀
+例如TEST模块在nacos中的服务名为mall-TEST，那么配置文件的名称就应该是mall-TEST.properties
+
+除此之外，要实现实时刷新，还需要在调用nacos配置文件的类上方打上注解@RefreshScope：
+
+整个过程可以分为以下几点：
+
+            1.加依赖
+
+            2.加bootstrap，里面配置config
+              application中的config删除
+
+            3.调用nacos配置文件的类打上注解@RefreshScope
+    
+            4.nacos中心加配置文件，名字要和服务名一致
 
 
 
