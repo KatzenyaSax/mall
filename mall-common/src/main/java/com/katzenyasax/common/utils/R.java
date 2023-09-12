@@ -11,6 +11,7 @@ package com.katzenyasax.common.utils;
 import org.apache.http.HttpStatus;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -56,6 +57,8 @@ public class R extends HashMap<String, Object> {
 	public static R ok() {
 		return new R();
 	}
+
+
 
 	public R put(String key, Object value) {
 		super.put(key, value);

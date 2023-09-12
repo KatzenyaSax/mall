@@ -1,10 +1,15 @@
 package com.katzenyasax.mall.product.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+
 import lombok.Data;
 
 /**
@@ -14,6 +19,9 @@ import lombok.Data;
  * @email a18290531268@163.com
  * @date 2023-09-09 13:16:41
  */
+
+
+
 @Data
 @TableName("pms_category")
 public class CategoryEntity implements Serializable {
@@ -39,6 +47,8 @@ public class CategoryEntity implements Serializable {
 	/**
 	 * 是否显示[0-不显示，1显示]
 	 */
+
+	@TableLogic
 	private Integer showStatus;
 	/**
 	 * 排序
@@ -56,5 +66,9 @@ public class CategoryEntity implements Serializable {
 	 * 商品数量
 	 */
 	private Integer productCount;
+
+	//所有子类
+	@TableField(exist = false)
+	private List<CategoryEntity> children=new ArrayList<>();
 
 }

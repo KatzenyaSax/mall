@@ -23,10 +23,18 @@ mybatis-plus:
   global-config:
     db-config:
       id-type: auto
-
-
+      logic-delete-value: 0
+      #不删除
+      logic-not-delete-value: 1
+      #删除
 
 
 server:
   port: 8800
+
+
+
+logging:
+  level:
+    com.katzenyasax.mall: debug
 

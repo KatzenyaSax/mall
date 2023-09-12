@@ -209,15 +209,6 @@ IV.连接
 
 
 
-
-==========maven配置阿里云======================
-
-
-
-
-==============================================
-
-
 ==========配置git=========================================================
 
 安装git
@@ -440,7 +431,7 @@ springboot遇到循环依赖问题而无法启动时：
             lombok
 
 随后在common模块加入com.katzenyasax.common.utils.R等工具包：
-然后从renren fast复制需要的工具包，需要的是Query、R和PageUtils
+从renren fast复制需要的工具包，需要的是Query、R和PageUtils
 复制过去后不再报错
             
 
@@ -467,12 +458,13 @@ springboot遇到循环依赖问题而无法启动时：
                     <!-- https://mvnrepository.com/artifact/com.baomidou/mybatis-plus-boot-starter -->
                     <!-- 这个是controller里的getById等方法要用的，也是mybatis plus的核心依赖 -->
                     <!-- 同时处理"Property 'sqlSessionFactory' or 'sqlSessionTemplate' are required"的问题 -->
-                    <!-- 并且出现找不到xml中方法的情况时，第一时间也应想到是不是只依赖了该包 -->
+                    <!-- 出现找不到xml中方法的情况时，第一时间应想到是否只依赖了该包 -->
                     <dependency>
                         <groupId>com.baomidou</groupId>
                         <artifactId>mybatis-plus-boot-starter</artifactId>
                         <version>3.5.3.2</version>
                     </dependency>
+
               因为这个包是mybatis-plus包的强化版
     
 
@@ -1038,6 +1030,656 @@ II.手动加载nacos中的配置文件到微服务
 
 
 ======================================================================================================================
+
+
+
+
+
+
+
+
+
+
+========== 商品服务I.三级分类：方法 =======================================================================================
+
+首先导入数据到pms_category，表示商品的分类
+商品种类分为3级，要求查出所有的分类，并根据父子关系进行组装
+
+product服务的CategoryController中，没有对应的方法，因此自己定义一个：
+
+            @RequestMapping("/list/tree")
+            public R listTree(){}
+
+我们已经知道了如何查出所有的分类，也就是对应的service中的list方法，但是我们希望的是得到以父子关系组织好了的结果
+所以我们应该在service里定义一个方法listAsTree()，这样一来我们只需要在listTree中返回R的ok()方法得到的数据就行了：
+
+            @RequestMapping("/list/tree")
+            public R listTree(){
+                List<CategoryEntity> categoryEntityList=categoryService.listAsTree();
+                return R.ok().put("success", categoryEntities);
+            }
+
+所以我们应该在service的接口内添加方法：
+
+            List<CategoryEntity> listAsTree();
+
+随后在实现类中重写该方法：
+
+            @Override
+            public List<CategoryEntity> listAsTree() {
+                return null;
+            }
+
+该方法功能是：     1.查出所有分类
+                  2.组装
+
+首先是查出所有分类，我们已经有自动生成的service提供的方法了
+而且我们在重写方法时，不需要再手动注入mapper，因为实现类CategoryServiceImpl继承了ServiceImpl时，对左边的泛型传入了类型CategoryDao
+且ServiceImpl声明了该泛型为baseMapper，其类型也就是传入的CategoryDao，也就是我们需要的mapper
+所以我们直接使用继承下来的baseMapper就可以，不需要再@Autowired一个
+故查出所有分类的方法就是：
+
+            //查出所有分类
+            List<CategoryEntity> entities=baseMapper.selectList(null);
+
+接下来进行父子分类
+首先应当说明的是，pms_category中的所有类别，第一项数字是其父，第二项数字是层级
+重点就是父的数字，它严格对应表上的id，数字为0代表是最高层级
+
+获取一级分类：
+
+            //获取一级子类
+            Stream<CategoryEntity> one=entities.stream();
+            List<CategoryEntity> oneCategory=one.filter(categoryEntity -> categoryEntity.getCatLevel()==1).collect(Collectors.toList());
+
+注意stream是线程安全的，他只能被用一次，不管是进行过滤还是转化成集合
+我们得到了第一层级的分类，如何存储第二层级的分类？
+最简单的方法是直接在bean类加上成员变量，一个集合，用来存储其所有子类:
+
+            //所有子类
+	        @TableField(exist = false)
+	        private List<CategoryEntity> children;
+
+最终方法为：
+
+            @Override
+            public List<CategoryEntity> listAsTree() {
+                //查出所有分类
+                List<CategoryEntity> entities=baseMapper.selectList(null);
+                //组装父子
+                //获取一级子类
+                List<CategoryEntity> oneCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==1)toList();
+                //获取所有二级子类
+                List<CategoryEntity> twoCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==2).toList();
+                //获取所有三级子类
+                List<CategoryEntity> threeCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==3).toList();
+                //从三级子类开始遍历，将三级子类组装到二级子类
+                for(CategoryEntity category3:threeCategory){
+                    for(CategoryEntity category2:twoCategory){
+                        if(category3.getParentCid()==category2.getCatId()){
+                            category2.getChildren().add(category3);
+                        }
+                    }
+                }
+                //从二级子类开始遍历，将二级子类组装到一级子类
+                for(CategoryEntity category2:twoCategory){
+                    for(CategoryEntity category1:oneCategory){
+                        if(category2.getParentCid()==category1.getCatId()){
+                            category1.getChildren().add(category2);
+                        }
+                    }
+                }
+                return oneCategory;
+            }
+
+最终传输到前端的数据格式为：
+
+            {
+            "msg": "success",
+            "code": 0,
+            "success": [
+                {
+                    "catId": 1,
+                    "name": "图书、音像、电子书刊",
+                    "parentCid": 0,
+                    "catLevel": 1,
+                    "showStatus": 1,
+                    "sort": 0,
+                    "icon": null,
+                    "productUnit": null,
+                    "productCount": 0,
+                    "children": [
+                        {
+                            "catId": 22,
+                            "name": "电子书刊",
+
+                    ······
+
+格外注意，msg、code只是通信状况的反馈，success内才是正确的数据
+
+
+===========================================================================================================================
+
+
+
+
+
+========== 商品服务I.三级分类：网关配置 =======================================================================================
+
+首先登录renren fast vue的管理界面
+注意要在vscode中打开，不要用cmd打开
+否则登不上
+
+创建一个一级目录：商品系统
+会发现数据库表：sys_menu多出一项：
+
+            31,0,商品系统,"","",0,editor,1
+
+再在此目录创建一个菜单：商品分类
+我们想要在此处实现的功能是：展示所有的商品分类，一级、二级、三级
+url设置为：/product/category
+该url的完整路径应该为：
+
+            localhost:8800/product/category
+
+请求路径上，系统会自动将其修改为product-category
+所以我们要在前端工程src/views/modules下面创建：/product/category.vue
+使用以下模板：
+
+            {
+                "Print to console": {
+                    "prefix": "vue",
+                    "body": [
+                        "<!-- $1 -->",
+                        "<template>",
+                        "<div class='$2'>$5</div>",
+                        "</template>",
+                        "",
+                        "<script>",
+                        "//这里可以导入其他文件（比如：组件，工具js，第三方插件js，json文件，图片文件等等）",
+                        "//例如：import 《组件名称》 from '《组件路径》';",
+                        "",
+                        "export default {",
+                        "//import引入的组件需要注入到对象中才能使用",
+                        "components: {},",
+                        "data() {",
+                        "//这里存放数据",
+                        "return {",
+                        "",
+                        "};",
+                        "},",
+                        "//监听属性 类似于data概念",
+                        "computed: {},",
+                        "//监控data中的数据变化",
+                        "watch: {},",
+                        "//方法集合",
+                        "methods: {",
+                        "",
+                        "},",
+                        "//生命周期 - 创建完成（可以访问当前this实例）",
+                        "created() {",
+                        "",
+                        "},",
+                        "//生命周期 - 挂载完成（可以访问DOM元素）",
+                        "mounted() {",
+                        "",
+                        "},",
+                        "beforeCreate() {}, //生命周期 - 创建之前",
+                        "beforeMount() {}, //生命周期 - 挂载之前",
+                        "beforeUpdate() {}, //生命周期 - 更新之前",
+                        "updated() {}, //生命周期 - 更新之后",
+                        "beforeDestroy() {}, //生命周期 - 销毁之前",
+                        "destroyed() {}, //生命周期 - 销毁完成",
+                        "activated() {}, //如果页面有keep-alive缓存功能，这个函数会触发",
+                        "}",
+                        "</script>",
+                        "<style scoped>",
+                        "//@import url($3); 引入公共css类",
+                        "$4",
+                        "</style>"
+                    ],
+                    "description": "生成vue模板"
+                },
+                "http-get请求": {
+            	"prefix": "httpget",
+            	"body": [
+            		"this.\\$http({",
+            		"url: this.\\$http.adornUrl(''),",
+            		"method: 'get',",
+            		"params: this.\\$http.adornParams({})",
+            		"}).then(({ data }) => {",
+            		"})"
+            	],
+            	"description": "httpGET请求"
+                },
+                "http-post请求": {
+            	"prefix": "httppost",
+            	"body": [
+            		"this.\\$http({",
+            		"url: this.\\$http.adornUrl(''),",
+            		"method: 'post',",
+            		"data: this.\\$http.adornData(data, false)",
+            		"}).then(({ data }) => { });" 
+            	],
+            	"description": "httpPOST请求"
+                }
+            }
+
+在vscode中，设置成vue.js的模板
+随后根据模板生成category.vue
+便可以操作前端页面
+
+为了显示树形结构，在element:https://element.eleme.cn 中查找树形结构，
+否则el-tree替换div
+复制粘贴，替换data和methods
+运行后发现结构正确
+
+删除data的数据，置为空，接下来要导入真正的数据
+
+
+在method定义方法：
+
+            getMenus(){
+              this.$http({
+                  url: this.$http.adorn('product/category/list/tree'),
+                  method: get
+              }).then(data=>{
+                  console.log("成功获取到数据...",data)
+              })
+            }
+
+并且在周期方法created中，直接this调用该方法
+
+
+
+但是此时该方法有缺陷，那就是他访问的地址默认为：8080/renren-fast
+这显然不是我们想要的地址，我们要的地址是localhost:8800/product/category
+因此我们应该修改
+并且为了满足以后访问更多端口的服务时，我们直接让其地址指向我们设定的网关mall-Gateway：localhost:10100/api
+在前端中：static/config/index.html中修改地址：
+
+              window.SITE_CONFIG['baseUrl'] = 'http://localhost:10100/api';
+
+其中api表示这是前端发送来的请求，用于在请求层面区分是前端请求和后端请求，后期会将其抹除
+这样运行后，请求直接发给了网关，网关直接跳转到其他页面，而没有经过renren-fast，故刷新页面后会被弹出登录，甚至都没有验证码，导致永远无法登录
+对此我们的策略是：请求经过网关时，我们默认让请求转给renren-fast，故我们需要让renren-fast被nacos配置中心发现
+
+配置renren-fast注册：
+
+            1.引入依赖：
+    
+                    <!-- 引入 Spring Cloud Alibaba Nacos Discovery 相关依赖，将 Nacos 作为注册中心 -->
+		            <dependency>
+		            	<groupId>com.alibaba.cloud</groupId>
+		            	<artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+                        <version></version>
+		            </dependency>
+            
+		            <!-- spring cloud 2020版本以后，负载均衡就成了这个包 -->
+		            <!-- 要实现springboot整合nacos、open feign，这个包是必须的 -->
+		            <dependency>
+		            	<groupId>org.springframework.cloud</groupId>
+		            	<artifactId>spring-cloud-starter-loadbalancer</artifactId>
+		            	<version>3.1.3</version>
+		            </dependency>
+
+              一定要考虑负载均衡
+              除此之外，还要考虑每个依赖的版本兼容问题
+              SpringBoot: 2.6.6
+              Alibaba Cloud: 2021.0.1.0
+              
+
+            2.再在application.yml中添加：
+
+                    spring
+                        cloud:
+                            nacos:
+                                config:
+                                    server-addr: 192.168.74.128:8848
+                                    username: nacos
+                                    password: nacos
+                                    namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+                        application:
+                            name: mall-Admin
+
+            2.随后在启动类加上：
+
+                    @EnableDiscoveryClient
+
+            3.重启后就可以被发现了
+
+配置网关，前端请求api默认路由到renren-fast:
+
+                    - id: admin-route
+                      uri: http://localhost:8080
+                      predicates:
+                        - Path= /api/**
+                          filters:
+                            - RewritePath=/api(?<segment>/?.*),/renren-fast/$\{segment}
+
+注意要用http，不能用https
+此时便可以查找到验证码了
+
+首先必须明白，我们的页面是前后联调的，前端会指定一条url指向对应的后端，以此实现前后联调，而且那个url也就是index.js里面的那个
+
+所以整体的运作过程是：我们输入的localhost:8001是前端页面，原本会通过index.js里的url发送一条请求，该请求直接指向后端localhost:8080/renren-fast
+但是我们对其进行更改，发送的请求指向了网关localhost:10100/api
+网关的逻辑是：将/api/xxxx转化为/renren-fast/xxxx，拼接到指定的uri也就是localhost:8080
+因此会跳转到localhost:8080/renren-fast/xxxx
+而我们设置的请求，api后面没有，因此实际上最终跳转的请求为：
+
+            localhost:8080/renren-fast
+
+也就是最开始，前端默认指向的后端地址
+
+不过这样一来会发现，依然无法登录，这是跨域问题未解决
+
+
+
+
+
+
+
+
+
+
+
+
+
+跨域
+
+就是不能使用另一个网站的，非简单方法
+因为前端登录界面，它发出的任何请求都是我们设定的：http://localhost:10100/api
+但是我们不管是要读取数据还是直接访问的后端的域名，实际上为：http://localhost:8080
+二者域名不同，因此会出现无法登录的情况
+
+不过也好解决，过程就是：
+
+            1.浏览器发出一条Option的请求到目标服务器
+
+            2.服务器反馈浏览器是否允许访问、或使用方法
+
+            3.浏览器获得许可后，发出真实请求
+
+            4.服务器根据请求返回数据
+
+可以使用nginx解决跨域，但是有点麻烦
+实际上我们只需要认为使服务器允许option就可以了
+首先应该想到的是网关，在网关里直接处理所有请求，直接放行就可以了:
+在网关创建配置类：
+
+            @Configuration
+            public class Mall_CorsConfiguration {
+                @Bean
+                public CorsWebFilter corsWebFilter(){
+                    UrlBasedCorsConfigurationSource source=new UrlBasedCorsConfigurationSource();
+                    CorsConfiguration corsConfiguration=new CorsConfiguration();
+                    //配置跨域
+                    corsConfiguration.addAllowedHeader("*");            //允许跨域的请求头
+                    corsConfiguration.addAllowedMethod("*");            //允许跨域的请求方式
+                    corsConfiguration.addAllowedOrigin("*");            //允许跨域的
+                    corsConfiguration.setAllowCredentials(true);        //允许携带cookie跨域
+                    source.registerCorsConfiguration("/**",corsConfiguration);
+                    //表示在上述配置下，允许任意请求跨域
+                    return new CorsWebFilter(source);
+                }
+            }
+
+然后把renren-fast配置的跨域：src.main.java.io.renren.config.CorsConfig.java，注释掉接下来
+然后重启管理系统和网关
+
+这样就可以登陆进去了
+
+
+
+
+
+
+
+
+
+
+
+同时，以后前端发送的所有请求：http://localhost:10100/api/
+都相当于是：http://localhost:8080/renren-fast/
+二者为同等效力
+
+
+
+
+============================================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+========== 商品服务I.三级分类：树形分类的前端展示 =======================================================================================
+
+在网关加入：
+
+                    - id: product-route
+                    uri: http://localhost:8800
+                    predicates:
+                      - Path=/api/product/**
+                    filters:
+                      - RewritePath=/api/(?<segment>/?.*),/$\{segment}
+
+并在mall-Product的bootstrap中配置跨域，使用网关中的配置文件
+此时重启gateway，访问：
+
+            http://localhost:10100/api/product/category/list/tree
+
+会返回:
+
+            {"msg":"invalid token","code":401}
+
+表示没有令牌访问，即没有生效
+原因是上面的一个/api/** 也满足条件，而且处于第一顺位，因此实际上我们的请求被它拦截了
+调整一下顺序就行了，而且把它放在最后面:
+
+                    - id: product-route
+                      uri: http://localhost:8800
+                      predicates:
+                        - Path=/api/product/**
+                      filters:
+                        - RewritePath=/api/(?<segment>/?.*),/$\{segment}
+                
+                    - 更多id ······
+            
+                    - id: admin-route
+                      uri: http://localhost:8080
+                      predicates:
+                        - Path= /api/**
+                      filters:
+                        - RewritePath=/api/(?<segment>/?.*),/renren-fast/$\{segment}
+
+如此一来便可以访问到：
+
+
+            {"msg":"success","code":0,"success":[{"catId":1,"name":"图书、音像、电子书刊","parentCid":0,"catLevel":1,"showStatus":1,"sort":0,"icon":null,"productUnit":null,"productCount":0,"children":[{"catId":22,"name":"电子书刊","parentCid":1,"catLevel":2,"showStatus":1,"sort":0,"icon":null,"productUnit":null,"productCount":0,"children":[{"catId":165,"name":"电子书",  ······
+
+能够服务到数据，接下来进行数据的树形分类：
+
+            1.在template添加：
+
+                    <el-tree:data="menus":props="defaultProps">
+
+            2.在export default中添加data：
+
+                    data() {
+                        return {
+                          menus: [],
+                          defaultProps: {
+                            children: "children",
+                            label: "name"
+                          }
+                        };
+                    },
+
+            3.methods中添加：
+
+                    getMenus() {
+                      this.$http({
+                        url: this.$http.adornUrl("/product/category/list/tree"),
+                        method: "get"
+                      }).then(({ data }) => {
+                        console.log("成功获取到菜单数据...", data.success);
+                        this.menus = data.success;
+                      });
+                    },
+
+              注意data是通过get方法获取的原始json数据，而data.success则是筛选其中success的部分
+              因为我们传输过去的数据，格式并发msg、code、data
+              而是msg、code、success
+              
+            4.created周期方法中调用getMenus方法：
+
+                    this.getMenus();
+
+            
+
+
+
+================================================================================================================================================================
+
+
+
+
+
+
+
+
+========== 商品服务I.三级分类：树形分类的删除 =======================================================================================
+
+路径为：http://localhost:10100/api/product/category/delete
+请求方式为post，前端传输json到后端，后端将json的数据打包为对象，再进行逻辑处理
+
+CategoryController中已有了一个delete方法：
+
+            @RequestMapping("/delete")
+            public R delete(@RequestBody Long[] catIds){
+	        	categoryService.removeByIds(Arrays.asList(catIds));
+                return R.ok();
+            }
+
+它请求的是一个数组，存放需要删除的分类的catId号
+因此前端要发送的数据应该为：
+
+            [1432,1433]
+
+而后端反馈的数据为：
+
+            {
+                "msg": "success",
+                "code": 0
+            }
+
+代表删除成功，而数据库中这两条数据确实的没有了
+
+但是有缺陷，那就是我们不知道要删除的数据是否被引用，那么擅自删除的话可能会引发严重的错误
+因此我们需要在CategoryServiceImp中自定义一个方法，这个方法应当实现：判断数据是否被引用、根据判断结果决定是否删除、反馈情况
+同时，为了保留数据，我们不可能真的去对数据进行物理删除，这样一来数据就真没了
+所以我们一般只会对一条数据的某个用来控制是否显示的字段进行判断，从而决定该数据是否返回到前端
+而我们的数据中，show_status就表示该数据是否被显示
+如下：
+
+            @Override
+            public void hideByIds(List<Long> list) {
+                //TODO 1.判断数据是否被引用
+                //2.隐藏数据
+                //  直接删除就可以了
+                baseMapper.deleteBatchIds(list);
+            }
+
+上面的//TODO表示等待解决的功能，因为我们还不知道说明功能引用了数据，所以这些功能放到以后写
+
+第一想法是什么？肯定是根据show_status来判断是否组装进返回数据啊？那这样一来，实际上我们的操作并非delete，而是变相的update
+这个想法是好的，但是手动实现也比较麻烦了
+
+所以mybatis-plus也想到了，我们可以直接通过delete来进行变相的update，
+只需要在存储在表内的数据对应的Bean的判断项，也即是CategoryEntity的showStatus打上注解：
+
+            @TableLogic
+	        private Integer showStatus;
+
+随后在product模块的application中添加：
+
+            mybatis-plus:
+                global-config:
+                    db-config:
+                        logic-delete-value: 0
+                        logic-not-delete-value: 1
+
+配置全局配置，用show_status表示是否删除
+0表示删除，1表示不删除
+
+而且listTree方法中保持原样就可以了，不需要再通过show_Status判断是否装配进返回数据
+因为我们在获取一二三级菜单时，使用的是baseMapper调用的select，mybatis-plus根据配置自动过滤了不显示的数据
+
+
+在application加入：
+
+            logging:
+                level:
+                    com.katzenyasax.mall: debug
+
+可以在控制台输出对应的sql语句
+进行测试：
+
+            RequestBody为：[1431]
+
+控制台输出：
+
+            ==>  Preparing: SELECT cat_id,name,parent_cid,cat_level,show_status,sort,icon,product_unit,product_count FROM pms_category WHERE show_status=1
+            ==> Parameters:
+            <==      Total: 1425
+            ==>  Preparing: UPDATE pms_category SET show_status=0 WHERE cat_id IN ( ? ) AND show_status=1
+            ==> Parameters: 1431(Long)
+            <==    Updates: 1
+            ==>  Preparing: SELECT cat_id,name,parent_cid,cat_level,show_status,sort,icon,product_unit,product_count FROM pms_category WHERE show_status=1
+            ==> Parameters:
+            <==      Total: 1424
+
+第一个select是listTree方法
+第二个update是更新我们要删除的数据的show_status字段
+第三个select为刷新页面调用的listTree方法
+
+
+
+
+
+================================================================================================================================================================
+
+
+
+
+
+
+
+
+========== 商品服务I.三级分类：树形分类的新增 =======================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -12,9 +12,41 @@ spring:
     gateway:
       routes:
         - id: "gateway-test"
-          uri: "https://www.bilibili.com"
+          uri: "http://www.bilibili.com"
           predicates:
-            - Path=/*
+            - Path=/bilibili
+
+
+
+
+
+
+        - id: product-route
+          uri: http://localhost:8800
+          predicates:
+            - Path= /api/product/**
+          filters:
+            - RewritePath=/api/(?<segment>/?.*),/$\{segment}
+
+        - id: admin-route
+          uri: http://localhost:8080
+          predicates:
+            - Path= /api/**
+          filters:
+            - RewritePath=/api/(?<segment>/?.*),/renren-fast/$\{segment}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
