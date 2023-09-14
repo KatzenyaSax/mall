@@ -26,4 +26,9 @@ public class BrandServiceImpl extends ServiceImpl<BrandDao, BrandEntity> impleme
         return new PageUtils(page);
     }
 
+    @Override
+    public void updateStatusById(BrandEntity brand) {
+
+    }
+
 }

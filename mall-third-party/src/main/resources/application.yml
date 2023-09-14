@@ -1,19 +1,19 @@
 spring:
-  datasource:
-    username: root
-    password: 123456
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.74.128:3306/mall_pms
   cloud:
     nacos:
       discovery:
         server-addr: 192.168.74.128:8848
         password: nacos
         username: nacos
-        namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+        namespace: third
+    alicloud:
+      access-key: LTAI5tSMQjRn2aWaXWYYezqU
+      secret-key: 4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
+      oss:
+        endpoint: oss-cn-beijing.aliyuncs.com
 
   application:
-    name: mall-product
+    name: mall-third-party
 
 
 
@@ -31,7 +31,7 @@ mybatis-plus:
 
 
 server:
-  port: 8800
+  port: 10200
 
 
 
@@ -41,8 +41,13 @@ logging:
 
 
 
-
-
+alibaba:
+  cloud:
+    access-key: LTAI5tSMQjRn2aWaXWYYezqU
+    secret-key: 4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
+    oss:
+      endpoint: oss-cn-beijing.aliyuncs.com
+      bucket: katzenyasax-mall
 
 
 

@@ -34,7 +34,6 @@ public class CategoryController {
 
 
     //商品三级分类
-
     @RequestMapping("/list/tree")
     public R listTree(){
         List<CategoryEntity> categoryEntities=categoryService.listAsTree();
@@ -42,6 +41,7 @@ public class CategoryController {
     }
 
 
+    //逻辑删除
     @RequestMapping("/delete")
     public R deleteSafe(@RequestBody Long[] catIds){
         categoryService.hideByIds(Arrays.asList(catIds));
@@ -49,6 +49,13 @@ public class CategoryController {
     }
 
 
+
+    //拖拽功能排序
+    @RequestMapping("/update/sort")
+    public R updateSort(@RequestBody CategoryEntity[] category){
+        categoryService.updateBatchById(Arrays.stream(category).toList());
+        return R.ok();
+    }
 
 
 

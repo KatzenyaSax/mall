@@ -31,11 +31,33 @@ public class BrandController {
     @Autowired
     private BrandService brandService;
 
+
+
+
+
+    //修改显示状态
+    @RequestMapping("/update/status")
+    @RequiresPermissions("product:brand:update")
+    public R updateStatus(@RequestBody BrandEntity brand){
+        brandService.updateById(brand);
+        return R.ok();
+    }
+
+
+
+
+
+
+
+
+
+
+
+
     /**
      * 列表
      */
     @RequestMapping("/list")
-    @RequiresPermissions("product:brand:list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = brandService.queryPage(params);
 

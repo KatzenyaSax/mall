@@ -305,7 +305,7 @@ ms为manage system的缩写
 
 人人开源：renren-fast、renren-fats-vue、renren-generator
 
-renren-fast删掉.git直接加入mall的包下，并在mall的pom.xml里加入module
+renren-fast删掉.git，直接加入mall的包下，并在mall的pom.xml里加入module
 根据fast目录下db里的sql创建数据库：
 
             mall_admin
@@ -343,7 +343,9 @@ renren-fast-vue，前端工程用vscode打开
 下载会快很多
 然后到vscode控制台终端（因为是首次运行vue项目），安装npm：
 
-            npm install
+            先安装chormedriver：npm install chromedriver --chromedriver_cdnurl=http://cdn.npm.taobao.org/dist/chromedriver
+            再安装node-sass：npm install node-sass
+            最后安装剩余依赖：npm install
 
 他是根据前端文件下package.json的目录下载的
 随后运行：
@@ -425,7 +427,7 @@ springboot遇到循环依赖问题而无法启动时：
             </dependency>
 
 然后到common里加上公共依赖
-目前已知的公共依赖为：
+目前已知所需的公共依赖为：
 
             mybatis-plus
             lombok
@@ -1664,6 +1666,441 @@ CategoryController中已有了一个delete方法：
 
 
 ========== 商品服务I.三级分类：树形分类的新增 =======================================================================================
+
+
+前端请求路径：
+
+            http://localhost:10100/api/product/category/save
+
+方式为post
+请求体为：
+
+            {name: "test3", parentCid: 1, catLevel: 2, showStatus
+
+自动生成的代码就可以使用
+
+
+=================================================================================================
+
+
+
+
+
+========== 商品服务I.三级分类：树形分类的拖拽排序 =======================================================================================
+
+
+前端请求路径：
+
+            http://localhost:10100/api/product/category/update/sort
+
+请求方式为post
+请求体为：
+
+            [{catId: 1, sort: 0}, {catId: 2, sort: 1}, {catId: 3, sort: 2}, {catId: 4, sort: 3},…]
+                    0: {catId: 1, sort: 0}
+                    1: {catId: 2, sort: 1}
+                    2: {catId: 3, sort: 2}
+                    3: {catId: 4, sort: 3}
+                    4: {catId: 5, sort: 4}
+                    5: {catId: 6, sort: 5}
+                    6: {catId: 1434, sort: 6, parentCid: 0, catLevel: 1}
+                    7: {catId: 7, sort: 7}
+                    8: {catId: 8, sort: 8}
+                    9: {catId: 9, sort: 9}
+                    10: {catId: 10, sort: 10}
+                    11: {catId: 11, sort: 11}
+                    12: {catId: 12, sort: 12}
+                    13: {catId: 13, sort: 13}
+                    14: {catId: 14, sort: 14}
+                    15: {catId: 15, sort: 15}
+                    16: {catId: 16, sort: 16}
+                    17: {catId: 17, sort: 17}
+                    18: {catId: 18, sort: 18}
+                    19: {catId: 19, sort: 19}
+                    20: {catId: 20, sort: 20}
+                    21: {catId: 21, sort: 21}
+                    22: {catId: 1432, sort: 22}
+
+在controller中定义一个方法：
+
+            //拖拽功能排序
+            @RequestMapping("/update/sort")
+            public R updateSort(@RequestBody CategoryEntity[] category){
+                categoryService.updateBatchById(Arrays.stream(category).toList());
+                return R.ok();
+            }
+
+调用的是自动生成的方法updateBatchById，批量排序
+
+
+
+
+=================================================================================================
+
+
+
+
+
+========== 商品服务II.品牌管理 ====================================================================
+
+
+BrandController：关于品牌的所有handler
+
+BrandDao：所有映射文件
+
+BrandEntity：品牌的实体类
+
+BrandService，BrandServiceImpl：关于品牌的所有方法
+
+
+
+插入所有数据：pms_brand
+
+管理系统中在商品服务下添加品牌管理
+
+路径为：/product/brand
+
+使用自动生成的vue文件，注意把getDataList()加入到created()生命周期方法中
+
+
+
+
+设置品牌显示
+请求路径：
+
+            http://localhost:10100/api/product/brand/update/status
+
+数据格式：
+
+            {brandId: 14, showStatus: 0}
+            brandId: 14
+            showStatus: 0
+
+定义一个controller：
+
+            //修改显示状态
+            @RequestMapping("/update/status")
+            @RequiresPermissions("product:brand:update")
+            public R updateStatus(@RequestBody BrandEntity brand){
+                brandService.updateById(brand);
+                return R.ok();
+            }
+
+共用update就行了，因为这是只对show_status起作用的特殊update
+
+
+
+
+=================================================================================================
+
+
+
+
+
+========== 商品服务II.品牌管理：云存储服务 ====================================================================
+
+
+
+让用户上传的文件存储在同一个服务中
+同时还要让一些图片资源等存储进去，让前端系统自动获取文件并展示，后端则需要实现上传文件至云端的功能
+
+配置阿里云，oss对象存储服务，创建bucket：
+
+            katzenyasax-mall
+            有地域，华北
+            低频访问
+            本地冗余存储
+            公共读
+
+            其他默认
+            
+此时该阿里云的地址为：https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com
+
+用户登录名称 mall-K@1223293873697731.onaliyun.com
+登录密码 wgv&?@OFhid8P3Ri?6WBnJYslaBXjLK9
+access id：LTAI5tSMQjRn2aWaXWYYezqU
+access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
+
+整个文件上传的流程：
+
+            1.用户在前端上传文件
+
+            2.前端向服务器申请oss云端的密钥
+
+            3.前端拿取密钥后，直接将文件存储在指定位置
+
+有效防止了上传文件的操作占用服务器原本业务的资源
+
+
+
+
+这种是先发到服务器，服务器再上传：
+
+            1.引入依赖：
+
+                    <!-- 阿里云oss依赖 -->
+                    <dependency>
+                        <groupId>com.aliyun.oss</groupId>
+                        <artifactId>aliyun-sdk-oss</artifactId>
+                        <version>3.15.1</version>
+                    </dependency>
+                    <!-- oss需要的依赖 -->
+                    <dependency>
+                        <groupId>javax.xml.bind</groupId>
+                        <artifactId>jaxb-api</artifactId>
+                        <version>2.3.1</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>javax.activation</groupId>
+                        <artifactId>activation</artifactId>
+                        <version>1.1.1</version>
+                    </dependency>
+                    <!-- no more than 2.3.3-->
+                    <dependency>
+                        <groupId>org.glassfish.jaxb</groupId>
+                        <artifactId>jaxb-runtime</artifactId>
+                        <version>2.3.3</version>
+                    </dependency>
+
+            2.方法：
+
+                    @Test
+                    public void upload(){
+                        String endpoint = "oss-cn-beijing.aliyuncs.com";
+                        // 阿里云主账号AccessKey拥有所有API的访问权限，风险很高。强烈建议您创建并使用RAM账号进行API访问或日常运维，请登录RAM控制台创建RAM账号。
+                        String accessKeyId = "LTAI5tSMQjRn2aWaXWYYezqU";
+                        String accessKeySecret = "4RTcGMYo6UGNGAlvoicr4bVgw3ysWH";
+                        String bucketName = "kaztenyasax-mall";
+                        // 创建OSSClient实例。
+                        OSS ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
+                        // 上传文件流。
+                        InputStream inputStream = null;
+                        try {
+                            inputStream = new FileInputStream("C:\\Users\\ASUS\\Desktop\\东方project\\A38FC81C7BFD7B637F9FD6A7B9F2EDF8.jpg");
+                        } catch (FileNotFoundException e) {
+                            e.printStackTrace();
+                        }
+                        ossClient.putObject(bucketName, "test5.jpg", inputStream);
+                        // 关闭OSSClient。
+                        ossClient.shutdown();
+                    }
+
+
+==================================================================================================================================================
+
+
+
+
+
+
+========== 商品服务II.品牌管理：服务器签名后直传 ====================================================================
+
+
+前端从服务器要密钥，前端直接上传
+创建一个微服务mall-third-party，用于实现第三方功能
+
+加入nacos注册中心，端口号：10200
+命名空间：third
+
+启动类加上:
+
+            @EnableDiscoveryClient
+            @SpringBootApplication(exclude= {DataSourceAutoConfiguration.class})
+
+依赖mall-common，依赖oss相关依赖，且注意将mall-common的该依赖删除
+
+            <!-- https://mvnrepository.com/artifact/com.alibaba.cloud/spring-cloud-starter-alicloud-oss -->
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-starter-alicloud-oss</artifactId>
+                <version>2.2.0.RELEASE</version>
+            </dependency>
+
+使用命名空间third存储该服务，为其在nacos中添加配置文件oss.yaml：
+
+            spring:
+                cloud:
+                    alicloud:
+                        access-key: LTAI5tSMQjRn2aWaXWYYezqU
+                        secret-key: 4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
+                        oss:
+                            endpoint: oss-cn-beijing.aliyuncs.com
+
+随后在bootstrap添加：
+
+            spring:
+                cloud:
+                    nacos:
+                        config:
+                            extension-config[0]:
+                                data-id=oss.yml
+                                group=DEFAULT_GROUP
+                                refresh=true                                
+
+此时测试类中：
+
+            @Test
+            public void upload(){
+                String endpoint = "oss-cn-beijing.aliyuncs.com";
+                // 阿里云主账号AccessKey拥有所有API的访问权限，风险很高。强烈建议您创建并使用RAM账号进行API访问或日常运维，请登录RAM控制台创建RAM账号。
+                String accessKeyId = "LTAI5tSMQjRn2aWaXWYYezqU";
+                String accessKeySecret = "4RTcGMYo6UGNGAlvoicr4bVgw3ysWH";
+                String bucketName = "kaztenyasax-mall";
+                // 创建OSSClient实例。
+                OSS ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
+                // 上传文件流。
+                InputStream inputStream = null;
+                try {
+                    inputStream = new FileInputStream("C:\\Users\\ASUS\\Desktop\\东方project\\A38FC81C7BFD7B637F9FD6A7B9F2EDF8.jpg");
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+                ossClient.putObject(bucketName, "test100.jpg", inputStream);
+                // 关闭OSSClient。
+                ossClient.shutdown();
+            }
+
+依然可用，文件上传成功
+
+
+
+
+
+
+
+
+但是我们要用前端传啊，后端只是给前端传密钥的，怎么传？
+
+
+            1.引入依赖：
+
+                    <<!-- https://mvnrepository.com/artifact/com.alibaba.cloud/spring-cloud-starter-alicloud-oss -->
+                    <dependency>
+                        <groupId>com.alibaba.cloud</groupId>
+                        <artifactId>spring-cloud-starter-alicloud-oss</artifactId>
+                        <version>2.2.0.RELEASE</version>
+                    </dependency>
+
+            2.配置：
+    
+                    alibaba:
+                        cloud:
+                            access-key: LTAI5tSMQjRn2aWaXWYYezqU
+                            secret-key: 4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
+                            oss:
+                                endpoint: oss-cn-beijing.aliyuncs.com
+
+            3.controller：
+
+                    @RestController
+                    public class OssController {
+                    @Value("${alibaba.cloud.oss.endpoint}")
+                    private String endpoint;    //从yml文件中读取
+                    @Value("${alibaba.cloud.oss.bucket}")
+                    private String bucket;      //从yml文件中读取
+                    @Value("${alibaba.cloud.access-key}")
+                    private String accessId;  //从yml文件中读取
+                    @GetMapping("/oss/policy")
+                    @CrossOrigin
+                    public Map<String, String> policy(){
+                    
+                            String endpoint = "oss-cn-beijing.aliyuncs.com";
+                            // 阿里云主账号AccessKey拥有所有API的访问权限，风险很高。强烈建议您创建并使用RAM账号进行API访问或日常运维，请登录RAM控制台创建RAM账号。
+                            String accessKeyId = "LTAI5tSMQjRn2aWaXWYYezqU";
+                            String accessKeySecret = "4RTcGMYo6UGNGAlvoicr4bVgw3ysWH";
+                            String bucketName = "kaztenyasax-mall";
+                            // 创建OSSClient实例。
+                            OSS ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
+                    
+                    
+                            //https://md-ossbucket.oss-cn-beijing.aliyuncs.com/QQ%E6%88%AA%E5%9B%BE20210609114525.png  host的格式为 bucketname.endpoint
+                            String host = "https://" + bucket + "." + endpoint;
+                            String format = new SimpleDateFormat("yyyy-MM-dd").format(new Date()); //格式化一个当前的服务器时间
+                            String dir = format+"/"; // 用户上传文件时指定的前缀,我们希望以日期作为一个目录
+                            Map<String, String> respMap =null; //返回结果
+                            try {
+                                long expireTime = 30;
+                                long expireEndTime = System.currentTimeMillis() + expireTime * 1000;
+                                Date expiration = new Date(expireEndTime);
+                                // PostObject请求最大可支持的文件大小为5 GB，即CONTENT_LENGTH_RANGE为5*1024*1024*1024。
+                                PolicyConditions policyConds = new PolicyConditions();
+                                policyConds.addConditionItem(PolicyConditions.COND_CONTENT_LENGTH_RANGE, 0, 1048576000);
+                                policyConds.addConditionItem(MatchMode.StartWith, PolicyConditions.COND_KEY, dir);
+                    
+                                String postPolicy = ossClient.generatePostPolicy(expiration, policyConds);
+                                byte[] binaryData = postPolicy.getBytes("utf-8");
+                                String encodedPolicy = BinaryUtil.toBase64String(binaryData);
+                                String postSignature = ossClient.calculatePostSignature(postPolicy);
+                    
+                                respMap = new LinkedHashMap<String, String>();
+                                respMap.put("accessid", accessId);
+                                respMap.put("policy", encodedPolicy);
+                                respMap.put("signature", postSignature);
+                                respMap.put("dir", dir);
+                                respMap.put("host", host);
+                                respMap.put("expire", String.valueOf(expireEndTime / 1000));
+                                // respMap.put("expire", formatISO8601Date(expiration));
+                            } catch (Exception e) {
+                                // Assert.fail(e.getMessage());
+                                System.out.println(e.getMessage());
+                            } finally {
+                                ossClient.shutdown();
+                            }
+                            return respMap;
+                        }
+                    }
+
+              注意，这里的Oss是我们手动创建的实例
+              因为可能是版本兼容问题，无法自动注入实例
+              故我们手动创建Oss的方法为：
+
+                    String endpoint = "oss-cn-beijing.aliyuncs.com";
+                    // 阿里云主账号AccessKey拥有所有API的访问权限，风险很高。强烈建议您创建并使用RAM账号进行API访问或日常运维，请登录RAM控制台创建RAM账号。
+                    String accessKeyId = "LTAI5tSMQjRn2aWaXWYYezqU";
+                    String accessKeySecret = "4RTcGMYo6UGNGAlvoicr4bVgw3ysWH";
+                    String bucketName = "kaztenyasax-mall";
+                    // 创建OSSClient实例。
+                    OSS ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
+
+            4.运行，访问：http://localhost:10200/thirdparty/oss/policy
+              返回前端的文本为：
+
+                    {"accessid":"LTAI5tSMQjRn2aWaXWYYezqU","policy":"eyJleHBpcmF0aW9uIjoiMjAyMy0wOS0xNFQwMzowNzoyMi44ODJaIiwiY29uZGl0aW9ucyI6W1siY29udGVudC1sZW5ndGgtcmFuZ2UiLDAsMTA0ODU3NjAwMF0sWyJzdGFydHMtd2l0aCIsIiRrZXkiLCIyMDIzLTA5LTE0LyJdXX0=","signature":"47jKd8hPOkY9Z08DfPGpoRDeXXY=","dir":"2023-09-14/","host":"https://katzenyasax-mall.oss-cn-beijing.aliyuncs.com","expire":"1694660842"}
+
+              即为所需要的密钥
+
+弄出来了之后，我们将其加入网关，要达成的目的应该是：
+访问：http://localhost:10100/api/thirdparty/oss/policy 时，相当于访问 http://localhost:10200/thirdoarty/oss/policy
+
+                - id: oss-policy
+                  uri: http://localhost:10200
+                  predicates:
+                    - Path= /api/oss/policy
+                  filters:
+                    - RewritePath= /api/(?<segment>/?.*),/$\{segment}
+        
+成功
+
+
+
+==============================================================================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

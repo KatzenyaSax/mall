@@ -1,0 +1,23 @@
+spring:
+  cloud:
+    nacos:
+      config:
+        server-addr: 192.168.74.128:8848
+        username: nacos
+        password: nacos
+        namespace: third
+
+
+        extension-config[0]:
+          data-id=oss.yml
+          group=DEFAULT_GROUP
+          refresh=true
+
+
+
+
+
+
+
+
+

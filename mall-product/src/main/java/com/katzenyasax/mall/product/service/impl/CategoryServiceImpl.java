@@ -69,13 +69,23 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
 
 
 
-
+    //逻辑删除
     @Override
     public void hideByIds(List<Long> list) {
         //TODO 1.判断数据是否被引用
         //2.隐藏数据
         //  直接删除就可以了
         baseMapper.deleteBatchIds(list);
+    }
+
+
+
+
+
+    //用于排序
+    @Override
+    public void Sort(CategoryEntity[] category) {
+
     }
 
 

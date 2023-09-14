@@ -22,5 +22,7 @@ public interface CategoryService extends IService<CategoryEntity> {
 
 
     void hideByIds(List<Long> list);
+
+    void Sort(CategoryEntity[] category);
 }
 

@@ -28,6 +28,13 @@ spring:
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
+        - id: oss-policy
+          uri: http://localhost:10200
+          predicates:
+            - Path= /api/thirdparty/oss/policy
+          filters:
+            - RewritePath= /api/(?<segment>/?.*),/$\{segment}
+
         - id: admin-route
           uri: http://localhost:8080
           predicates:

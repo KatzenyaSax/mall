@@ -97,11 +97,6 @@
 
 
 
-
-
-
-
-
         <!-- spring cloud 2020版本以后，负载均衡就成了这个包 -->
         <!-- 要实现springboot整合nacos、open feign，这个包是必须的 -->
         <dependency>
@@ -109,6 +104,23 @@
             <artifactId>spring-cloud-starter-loadbalancer</artifactId>
             <version>3.1.3</version>
         </dependency>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
