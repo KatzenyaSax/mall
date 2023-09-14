@@ -2069,7 +2069,20 @@ access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
 
               即为所需要的密钥
 
-弄出来了之后，我们将其加入网关，要达成的目的应该是：
+
+
+
+==================================================================================================================================================
+
+
+
+
+
+
+========== 商品服务II.品牌管理：品牌图片上传与显示 ====================================================================
+
+
+将其加入网关，要达成的目的应该是：
 访问：http://localhost:10100/api/thirdparty/oss/policy 时，相当于访问 http://localhost:10200/thirdoarty/oss/policy
 
                 - id: oss-policy
@@ -2078,18 +2091,199 @@ access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
                     - Path= /api/oss/policy
                   filters:
                     - RewritePath= /api/(?<segment>/?.*),/$\{segment}
-        
-成功
 
-
-
-==============================================================================================================================================================
+再次访问 http://localhost:10100/api/thirdparty/oss/policy  时也成功
 
 
 
 
 
 
+但是在封装好的前端系统（谷粒商城文档）测试时，会显示跨域错误：
+
+            Access to XMLHttpRequest at 'http://localhost:10100/api/thirdparty/oss/policy?t=1694670945521' from origin 'http://localhost:8001' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values 'http://localhost:8001, *', but only one is allowed.
+
+因此在oss管理平台中设置跨域：
+
+            *
+            POST
+
+
+
+
+
+
+
+
+失败，报跨域问题，有多个请求头
+未知原因
+手动控制数据库的图片url地址
+
+
+
+=========================================================================================================================================================
+
+
+
+
+
+
+========== 商品服务II.品牌管理：后端数据校验 ====================================================================
+
+
+数据提交后端后，封装为BrandEntity，其中的数据虚经过校验
+
+在BrandEntity中的字段添加注解，@NotBlank、@NotEmpty等
+复杂场景下，使用@Pattern(regexp=" ", message="")，表示不符合正则表达式时，返回报错信息：
+
+            @TableId
+	        private Long brandId;
+
+	        @URL
+	        private String name;
+
+	        @NotBlank
+	        private String logo;
+
+	        @NotBlank
+	        private String descript;
+
+	        @NotNull
+	        private Integer showStatus;
+
+	        @NotBlank
+	        private String firstLetter;
+
+	        @NotNull
+	        private Integer sort;
+
+对于String类型来说，一般使用@NotBlank
+Integer一般用@NotNull
+
+
+
+除此之外，还要在controller参数表加上@Valid，否则单独的字段注解无效
+在接收数据的controller，即save方法的参数前加上：@Valid
+
+            @RequestMapping("/save")
+            @RequiresPermissions("product:brand:save")
+            public R save(@RequestBody @Valid BrandEntity brand){
+	        	brandService.save(brand);
+                return R.ok();
+            }
+
+当保存时，会进行校验，若数据不符合校验规则，则不起效
+除此之外，可以在错误时，手动报错：
+
+            @RequestMapping("/save")
+            @RequiresPermissions("product:brand:save")
+            public R save(@RequestBody @Valid BrandEntity brand, BindingResult result){
+                if(result.hasErrors()){
+                    Map<String,String> res=new HashMap<>();
+                    result.getFieldErrors().forEach((item)->{
+                       String msg=item.getDefaultMessage();
+                       String fld=item.getField();
+                       res.put(fld,msg);
+                    });
+                    return R.error(400,"数据不合法").put("data",res);
+                }
+	        	brandService.save(brand);
+                return R.ok();
+            }
+
+数据不合法时，使用一个Map存储所有报错信息，并返回前端
+
+
+
+
+===================================================================================================
+
+
+
+
+
+
+========== 商品服务II.品牌管理：统一异常处理 ====================================================================
+
+
+用于集中处理数据异常
+使用SpringMVC提供的@ControllerAdvice注解
+
+            1.创建ControllerAdviceExcetion，添加注解：
+
+                    @RestControllerAdvice(basePackages = "com.katzenyasax.mall.product.controller")
+
+              表示扫描controller包中所有的类，对其所有异常进行处理
+
+            2.将BrandController.save方法的所有异常处理的业务去除，只保留正常业务代码：
+
+                    @RequestMapping("/save")
+                    @RequiresPermissions("product:brand:save")
+                    public R save(@RequestBody @Valid BrandEntity brand){
+	                	brandService.save(brand);
+                        return R.ok();
+                    }
+
+            3.将处理异常的业务放于ControllerAdviceException中：
+
+                    @Slf4j                                                                                      //日志输出  
+                    //@ControllerAdvice(basePackages = "com.katzenyasax.mall.product.controller")
+                    @RestControllerAdvice(basePackages = "com.katzenyasax.mall.product.controller")
+                    //包含了：ControllerAdvice和ResponseBody
+                    public class ControllerAdviceException {
+                        //@ResponseBody                                                                         //要以json格式返回数据
+                        @ExceptionHandler(value = MethodArgumentNotValidException.class)                        //表示可处理的异常
+                        public R handlerValidException(MethodArgumentNotValidException e){
+                            log.error("数据不合法",e.getMessage(),e.getClass());                                 //日志输出异常
+
+                            BindingResult result=e.getBindingResult();
+                            Map<String,String> map=new HashMap<>();
+                            result.getFieldErrors().forEach((item)->{
+                                String msg=item.getDefaultMessage();
+                                String fld=item.getField();
+                                map.put(fld,msg);
+                            });
+
+                            return R.error(400,"数据不合法").put("data",map);
+                        }
+                    }
+
+              处理的是MethodArgumentNotValidException，即数据不合法
+              注意，原本应该加上注解ControllerAdvice和ResponseBody，分别表示：处理异常，和返回数据为json格式
+              但是由于有整合的注解RestControllerAdvice，因此直接选用整合版
+              注解BindingResult开始的就是原本BrandController中处理异常的业务
+
+            
+
+
+此时访问： 
+
+            localhost:10100/api/product/brand/save
+
+post一个：
+
+            {
+                 "name": "华为", 
+                 "logo": "https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/huawei.png"
+            }
+
+返回的异常：
+
+            {
+                "msg": "数据不合法",
+                "code": 400,
+                "data": {
+                    "name": "需要是一个合法的URL",
+                    "showStatus": "不能为null",
+                    "sort": "不能为null",
+                    "descript": "不能为空",
+                    "firstLetter": "不能为空"
+                }
+            }
+
+同时服务器也记录了错误日志：
+
+            2023-09-14T17:16:29.868+08:00 ERROR 16524 --- [nio-8800-exec-1] c.k.m.p.e.ControllerAdviceException      : 数据不合法
 
 
 
@@ -2101,8 +2295,36 @@ access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
 
 
 
+为了保证错误的可溯源，我们可以在ControllerAdviceException中定义一个处理最大异常Throwable的handler：
+
+            @ExceptionHandler(value = Throwable.class)
+            public R handlerThrowable(Throwable e){
+                return R.error();
+            }
+
+以后在controller中，可以放心大胆地抛出异常，异常都会被这个handler处理
 
 
+
+为了可读性，推荐根据模块的不同、方法的不同自定义一些错误码，并放在common中，整个项目都能够使用这一标准错误码
+
+在mall-common/src/main/java com.katzenyasax.common.exception.BizCodeEnume创建该表单，用以存放所有的错误码
+错误码的规则：
+
+            1. 错误码定义规则为5为数字
+            2. 前两位表示业务场景，最后三位表示错误码。例如：100001。10:通用 001:系统未知异常
+            3. 维护错误码后需要维护错误描述，将他们定义为枚举形式
+                错误码列表：
+                10: 通用
+                001：参数格式校验
+                11: 商品
+                12: 订单
+                13: 购物车
+                14: 物流
+
+故handlerValidException可将return改写为：
+
+            return R.error(BizCodeEnume.VAILD_EXCEPTION.getCode(),BizCodeEnume.VAILD_EXCEPTION.getMsg()).put("data",map);
 
 
 

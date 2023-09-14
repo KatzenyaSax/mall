@@ -24,4 +24,9 @@ public class Mall_CorsConfiguration {
         //表示在上述配置下，允许任意请求跨域
         return new CorsWebFilter(source);
     }
+
+
+
+
+
 }
