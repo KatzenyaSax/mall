@@ -4,10 +4,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.katzenyasax.mall.product.valid.InsertGroup;
 import jakarta.validation.Valid;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -80,11 +82,18 @@ public class BrandController {
     }
 
     /**
-     * 保存
+     * 保存，插入数据
+     *
+     *      InsertGroup
+     *
+     *
+     * 请求路径：
+     *  localhost:10100/api/product/brand/save
      */
+
     @RequestMapping("/save")
     @RequiresPermissions("product:brand:save")
-    public R save(@RequestBody @Valid BrandEntity brand){
+    public R save(@RequestBody @Validated({InsertGroup.class}) BrandEntity brand){
 		brandService.save(brand);
         return R.ok();
     }

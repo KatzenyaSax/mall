@@ -27,6 +27,11 @@ public class OssController {
     private String bucket;      //从yml文件中读取
     @Value("${alibaba.cloud.access-key}")
     private String accessId;  //从yml文件中读取
+
+
+
+
+
     @GetMapping("/thirdparty/oss/policy")
     @CrossOrigin
     public Map<String, String> policy(){
@@ -73,6 +78,7 @@ public class OssController {
         } finally {
             ossClient.shutdown();
         }
+        System.out.println(respMap.toString());
         return respMap;
     }
 

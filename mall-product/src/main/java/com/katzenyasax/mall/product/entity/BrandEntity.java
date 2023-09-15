@@ -7,11 +7,13 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serializable;
 import java.util.Date;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
+import com.katzenyasax.mall.product.valid.InsertGroup;
+import com.katzenyasax.mall.product.valid.NumbersIWant;
+import com.katzenyasax.mall.product.valid.UpdateGroup;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 import org.hibernate.validator.constraints.URL;
+import org.hibernate.validator.constraints.UniqueElements;
 
 /**
  * 品牌
@@ -29,36 +31,40 @@ public class BrandEntity implements Serializable {
 	 * 品牌id
 	 */
 	@TableId
+	@NotNull(message = "更新数据时，必须指定id",groups = {UpdateGroup.class})
+	@Null(message = "插入时，禁止指定id",groups = {InsertGroup.class})
 	private Long brandId;
 	/**
 	 * 品牌名
 	 */
-	@URL
+	@NotBlank(message = "插入时，必须指定name",groups = {InsertGroup.class})
 	private String name;
 	/**
 	 * 品牌logo地址
 	 */
-	@NotBlank
+	@URL(message = "品牌logo必须是合法的URL",groups = {InsertGroup.class})
 	private String logo;
 	/**
 	 * 介绍
 	 */
-	@NotBlank
+	@NotBlank(message = "插入时，禁止指定descript",groups = {InsertGroup.class})
 	private String descript;
 	/**
 	 * 显示状态[0-不显示；1-显示]
 	 */
-	@NotNull
+	//@NotNull(message = "插入时，禁止指定showStatus",groups = {InsertGroup.class})
+	@NumbersIWant(value = {0,1},groups = {InsertGroup.class})
 	private Integer showStatus;
 	/**
 	 * 检索首字母
 	 */
-	@NotBlank
+	@Pattern(regexp="[a-zA-Z]",message = "插入时，禁止指定firstLetter",groups = {InsertGroup.class})
 	private String firstLetter;
 	/**
 	 * 排序
 	 */
-	@NotNull
+	@NotNull(message = "插入时，禁止指定sort",groups = {InsertGroup.class})
+	@Min(value = 0,message = "排序必须大于等于0")
 	private Integer sort;
 
 }

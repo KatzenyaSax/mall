@@ -997,6 +997,7 @@ II.手动加载nacos中的配置文件到微服务
               其次注意Gateway不需要数据库，因此在@SpringBootApplication加上：
               
                     (exclude= {DataSourceAutoConfiguration.class})
+                    jdk1.8使用：(exclude= {DataSourceAutoConfiguration.class, DruidDataSourceAutoConfigure.class})
               
               即排除MybatisPlus自动配置连接池，强制要求连接数据源的傻逼规定
 
@@ -1057,7 +1058,7 @@ product服务的CategoryController中，没有对应的方法，因此自己定�
 
             @RequestMapping("/list/tree")
             public R listTree(){
-                List<CategoryEntity> categoryEntityList=categoryService.listAsTree();
+                List<CategoryEntity> categoryEntitiescategoryService.listAsTree();
                 return R.ok().put("success", categoryEntities);
             }
 
@@ -1100,7 +1101,7 @@ product服务的CategoryController中，没有对应的方法，因此自己定�
 
             //所有子类
 	        @TableField(exist = false)
-	        private List<CategoryEntity> children;
+	        private List<CategoryEntity> children=new ArrayList<>();
 
 最终方法为：
 
@@ -1110,7 +1111,7 @@ product服务的CategoryController中，没有对应的方法，因此自己定�
                 List<CategoryEntity> entities=baseMapper.selectList(null);
                 //组装父子
                 //获取一级子类
-                List<CategoryEntity> oneCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==1)toList();
+                List<CategoryEntity> oneCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==1).toList();
                 //获取所有二级子类
                 List<CategoryEntity> twoCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==2).toList();
                 //获取所有三级子类
@@ -1419,7 +1420,7 @@ url设置为：/product/category
                     //配置跨域
                     corsConfiguration.addAllowedHeader("*");            //允许跨域的请求头
                     corsConfiguration.addAllowedMethod("*");            //允许跨域的请求方式
-                    corsConfiguration.addAllowedOrigin("*");            //允许跨域的
+                    corsConfiguration.addAllowedOriginPattern("*");            //允许跨域的
                     corsConfiguration.setAllowCredentials(true);        //允许携带cookie跨域
                     source.registerCorsConfiguration("/**",corsConfiguration);
                     //表示在上述配置下，允许任意请求跨域
@@ -1570,7 +1571,8 @@ CategoryController中已有了一个delete方法：
                 return R.ok();
             }
 
-它请求的是一个数组，存放需要删除的分类的catId号
+它请求的是一个数组，存放需要删
+除的分类的catId号
 因此前端要发送的数据应该为：
 
             [1432,1433]
@@ -1821,6 +1823,16 @@ BrandService，BrandServiceImpl：关于品牌的所有方法
 access id：LTAI5tSMQjRn2aWaXWYYezqU
 access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
 
+
+
+创建一个微服务mall-third-party，用于实现第三方功能
+加上spring web、open feign
+
+
+
+
+
+
 整个文件上传的流程：
 
             1.用户在前端上传文件
@@ -1844,7 +1856,7 @@ access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
                         <artifactId>aliyun-sdk-oss</artifactId>
                         <version>3.15.1</version>
                     </dependency>
-                    <!-- oss需要的依赖 -->
+                    <!-- oss需要的依赖(jdk1.8以后才用加) -->
                     <dependency>
                         <groupId>javax.xml.bind</groupId>
                         <artifactId>jaxb-api</artifactId>
@@ -1885,19 +1897,15 @@ access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
                         ossClient.shutdown();
                     }
 
-
-==================================================================================================================================================
-
+成功上传
 
 
 
 
 
-========== 商品服务II.品牌管理：服务器签名后直传 ====================================================================
-
+但是签后直传：
 
 前端从服务器要密钥，前端直接上传
-创建一个微服务mall-third-party，用于实现第三方功能
 
 加入nacos注册中心，端口号：10200
 命名空间：third
@@ -1906,17 +1914,11 @@ access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
 
             @EnableDiscoveryClient
             @SpringBootApplication(exclude= {DataSourceAutoConfiguration.class})
+            jdk1.8加：@SpringBootApplication(exclude= {DataSourceAutoConfiguration.class, DruidDataSourceAutoConfigure.class})
 
 依赖mall-common，依赖oss相关依赖，且注意将mall-common的该依赖删除
 
-            <!-- https://mvnrepository.com/artifact/com.alibaba.cloud/spring-cloud-starter-alicloud-oss -->
-            <dependency>
-                <groupId>com.alibaba.cloud</groupId>
-                <artifactId>spring-cloud-starter-alicloud-oss</artifactId>
-                <version>2.2.0.RELEASE</version>
-            </dependency>
-
-使用命名空间third存储该服务，为其在nacos中添加配置文件oss.yaml：
+在nacos中为ThirdParty添加配置文件oss.yaml：
 
             spring:
                 cloud:
@@ -1972,107 +1974,21 @@ access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
 但是我们要用前端传啊，后端只是给前端传密钥的，怎么传？
 
 
-            1.引入依赖：
+            
 
-                    <<!-- https://mvnrepository.com/artifact/com.alibaba.cloud/spring-cloud-starter-alicloud-oss -->
-                    <dependency>
-                        <groupId>com.alibaba.cloud</groupId>
-                        <artifactId>spring-cloud-starter-alicloud-oss</artifactId>
-                        <version>2.2.0.RELEASE</version>
-                    </dependency>
 
-            2.配置：
-    
-                    alibaba:
-                        cloud:
-                            access-key: LTAI5tSMQjRn2aWaXWYYezqU
-                            secret-key: 4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
-                            oss:
-                                endpoint: oss-cn-beijing.aliyuncs.com
 
-            3.controller：
 
-                    @RestController
-                    public class OssController {
-                    @Value("${alibaba.cloud.oss.endpoint}")
-                    private String endpoint;    //从yml文件中读取
-                    @Value("${alibaba.cloud.oss.bucket}")
-                    private String bucket;      //从yml文件中读取
-                    @Value("${alibaba.cloud.access-key}")
-                    private String accessId;  //从yml文件中读取
-                    @GetMapping("/oss/policy")
-                    @CrossOrigin
-                    public Map<String, String> policy(){
-                    
-                            String endpoint = "oss-cn-beijing.aliyuncs.com";
-                            // 阿里云主账号AccessKey拥有所有API的访问权限，风险很高。强烈建议您创建并使用RAM账号进行API访问或日常运维，请登录RAM控制台创建RAM账号。
-                            String accessKeyId = "LTAI5tSMQjRn2aWaXWYYezqU";
-                            String accessKeySecret = "4RTcGMYo6UGNGAlvoicr4bVgw3ysWH";
-                            String bucketName = "kaztenyasax-mall";
-                            // 创建OSSClient实例。
-                            OSS ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
-                    
-                    
-                            //https://md-ossbucket.oss-cn-beijing.aliyuncs.com/QQ%E6%88%AA%E5%9B%BE20210609114525.png  host的格式为 bucketname.endpoint
-                            String host = "https://" + bucket + "." + endpoint;
-                            String format = new SimpleDateFormat("yyyy-MM-dd").format(new Date()); //格式化一个当前的服务器时间
-                            String dir = format+"/"; // 用户上传文件时指定的前缀,我们希望以日期作为一个目录
-                            Map<String, String> respMap =null; //返回结果
-                            try {
-                                long expireTime = 30;
-                                long expireEndTime = System.currentTimeMillis() + expireTime * 1000;
-                                Date expiration = new Date(expireEndTime);
-                                // PostObject请求最大可支持的文件大小为5 GB，即CONTENT_LENGTH_RANGE为5*1024*1024*1024。
-                                PolicyConditions policyConds = new PolicyConditions();
-                                policyConds.addConditionItem(PolicyConditions.COND_CONTENT_LENGTH_RANGE, 0, 1048576000);
-                                policyConds.addConditionItem(MatchMode.StartWith, PolicyConditions.COND_KEY, dir);
-                    
-                                String postPolicy = ossClient.generatePostPolicy(expiration, policyConds);
-                                byte[] binaryData = postPolicy.getBytes("utf-8");
-                                String encodedPolicy = BinaryUtil.toBase64String(binaryData);
-                                String postSignature = ossClient.calculatePostSignature(postPolicy);
-                    
-                                respMap = new LinkedHashMap<String, String>();
-                                respMap.put("accessid", accessId);
-                                respMap.put("policy", encodedPolicy);
-                                respMap.put("signature", postSignature);
-                                respMap.put("dir", dir);
-                                respMap.put("host", host);
-                                respMap.put("expire", String.valueOf(expireEndTime / 1000));
-                                // respMap.put("expire", formatISO8601Date(expiration));
-                            } catch (Exception e) {
-                                // Assert.fail(e.getMessage());
-                                System.out.println(e.getMessage());
-                            } finally {
-                                ossClient.shutdown();
-                            }
-                            return respMap;
-                        }
-                    }
 
-              注意，这里的Oss是我们手动创建的实例
-              因为可能是版本兼容问题，无法自动注入实例
-              故我们手动创建Oss的方法为：
 
-                    String endpoint = "oss-cn-beijing.aliyuncs.com";
-                    // 阿里云主账号AccessKey拥有所有API的访问权限，风险很高。强烈建议您创建并使用RAM账号进行API访问或日常运维，请登录RAM控制台创建RAM账号。
-                    String accessKeyId = "LTAI5tSMQjRn2aWaXWYYezqU";
-                    String accessKeySecret = "4RTcGMYo6UGNGAlvoicr4bVgw3ysWH";
-                    String bucketName = "kaztenyasax-mall";
-                    // 创建OSSClient实例。
-                    OSS ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
 
-            4.运行，访问：http://localhost:10200/thirdparty/oss/policy
-              返回前端的文本为：
 
-                    {"accessid":"LTAI5tSMQjRn2aWaXWYYezqU","policy":"eyJleHBpcmF0aW9uIjoiMjAyMy0wOS0xNFQwMzowNzoyMi44ODJaIiwiY29uZGl0aW9ucyI6W1siY29udGVudC1sZW5ndGgtcmFuZ2UiLDAsMTA0ODU3NjAwMF0sWyJzdGFydHMtd2l0aCIsIiRrZXkiLCIyMDIzLTA5LTE0LyJdXX0=","signature":"47jKd8hPOkY9Z08DfPGpoRDeXXY=","dir":"2023-09-14/","host":"https://katzenyasax-mall.oss-cn-beijing.aliyuncs.com","expire":"1694660842"}
-
-              即为所需要的密钥
 
 
 
 
 ==================================================================================================================================================
+
 
 
 
@@ -2139,10 +2055,10 @@ access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
             @TableId
 	        private Long brandId;
 
-	        @URL
+	        @NotBlank
 	        private String name;
 
-	        @NotBlank
+	        @URL
 	        private String logo;
 
 	        @NotBlank
@@ -2327,20 +2243,204 @@ post一个：
             return R.error(BizCodeEnume.VAILD_EXCEPTION.getCode(),BizCodeEnume.VAILD_EXCEPTION.getMsg()).put("data",map);
 
 
+==============================================================================================================================
 
 
 
 
+================= 商品服务II.品牌管理：分组异常处理 ============================================================================
+
+
+
+不同的业务，异常要求也不同
+
+可以在校验注解括号加上group={}，例如：
+
+            @TableId
+	        @NotNull(message = "更新数据时，必须指定id",groups = {UpdateGroup.class})
+	        @Null(message = "插入时，禁止指定id",groups = {InsertGroup.class})
+	        private Long brandId;
+
+所有组都是标记型接口，没有实际内容
+接下来在不同的方法上加注解，例如BrandController的save：
+
+            public R save(@RequestBody @Validated({InsertGroup.class}) BrandEntity brand)
+
+表示该方法的分类为Insert
+测试一下，此时为添加，如果说id为空，那么应该不会报错的：
+
+            localhost:10100/api/product/brand/save
+
+            {
+                 "name": "华", 
+                 "logo": "https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/huawei.png",
+                 "showStatus":1,
+                 "sort":1,
+                 "descript":"❀",
+                 "firstLetter": "F"
+            }
+
+            {
+                "msg": "success",
+                "code": 0
+            }
+
+如果指定了id，那应该会报错：
+
+            localhost:10100/api/product/brand/save
+
+            {
+                 "brandId":55,
+                 "name": "华", 
+                 "logo": "https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/huawei.png",
+                 "showStatus":1,
+                 "sort":1,
+                 "descript":"❀",
+                 "firstLetter": "F"
+            }
+            
+            {
+                "msg": "参数格式校验失败",
+                "code": 10001,
+                "data": {
+                    "brandId": "插入时，禁止指定id"
+                }
+            }
+
+正确的
+
+
+
+又例如图片地址，在指定的时候必须是一个URL，但是允许不指定，那么就：
+
+            @URL(message = "品牌logo必须是合法的URL",groups = {InsertGroup.class})
+	        private String logo;
+
+其余情况不指定就行了
+所以歧视BrandEntity的最终形态应该是：
+
+            @TableId
+	        @NotNull(message = "更新数据时，必须指定id",groups = {UpdateGroup.class})
+	        @Null(message = "插入时，禁止指定id",groups = {InsertGroup.class})
+	        private Long brandId;
+	        /**
+	         * 品牌名
+	         */
+	        @NotBlank(message = "插入时，必须指定name",groups = {InsertGroup.class})
+	        private String name;
+	        /**
+	         * 品牌logo地址
+	         */
+	        @URL(message = "品牌logo必须是合法的URL",groups = {InsertGroup.class})
+	        private String logo;
+	        /**
+	         * 介绍
+	         */
+	        @NotBlank(message = "插入时，禁止指定descript",groups = {InsertGroup.class})
+	        private String descript;
+	        /**
+	         * 显示状态[0-不显示；1-显示]
+	         */
+	        @NotNull(message = "插入时，禁止指定showStatus",groups = {InsertGroup.class})
+	        private Integer showStatus;
+	        /**
+	         * 检索首字母
+	         */
+	        @Pattern(regexp="[a-zA-Z]",message = "插入时，禁止指定firstLetter",groups = {InsertGroup.class})
+	        private String firstLetter;
+	        /**
+	         * 排序
+	         */
+	        @NotNull(message = "插入时，禁止指定sort",groups = {InsertGroup.class})
+	        @Min(value = 0,message = "排序必须大于等于0")
+	        private Integer sort;
+
+没有指定分组的字段，在@Validated生效时看作没有校验注解，即此时可指定可不指定
 
 
 
 
+自定义校验，满足发展情况下的校验，例如我要校验showStatus，只能是0或1
+而我要自定义一个注解，可以校验数据是否为我指定的一个数组内的值
 
 
 
+            
 
+那么流程为：
+    
+            1.编写自定义注解
 
+                @Target({ElementType.METHOD, ElementType.FIELD, ElementType.ANNOTATION_TYPE, ElementType.CONSTRUCTOR, ElementType.PARAMETER, ElementType.TYPE_USE})
+                @Retention(RetentionPolicy.RUNTIME)
+                @Documented
+                @Constraint(validatedBy = {})
+                public @interface NumbersIWant {
+                    String message() default "{}";
+                    Class<?>[] groups() default {};
+                    Class<? extends Payload>[] payload() default {};
+                    int[] value();
+                }
 
+              这是雏形
 
+            2.编写校验器
+
+                public class NumbersIWantConstraint implements ConstraintValidator<NumbersIWant,Integer> {
+                    private Set<Integer> set=new HashSet<>();
+                    @Override
+                    public void initialize(NumbersIWant constraintAnnotation) {
+                        int[] values=constraintAnnotation.value();
+                        for(int n:values){
+                            set.add(n);
+                        }
+                    }
+                    @Override
+                    public boolean isValid(Integer integer/** 这里的integer是提交的值 **/, ConstraintValidatorContext constraintValidatorContext) {
+                        return set.contains(integer);
+                    }
+                }
+
+              他必须实现一个接口ConstraintValidator<E,F>，E是标准，F是提交上来的数
+              通过initialize方法初始化数据，isValid则正式判断提交的数据是否满足注解
+              isValid由系统调用，会自动传入提交的数
+
+            3.将二者联调：
+              在NumbersIWant上指定校验器
+
+                    @Constraint(validatedBy = {NumbersIWantConstraint.class})
+    
+              表示使用NumbersIWantConstraint这个校验器
+
+测试一下，给showStatus加上：
+
+	        @NumbersIWant(value = {0,1})
+	        private Integer showStatus;
+
+访问地址：
+
+            localhost:10100/api/product/brand/save
+
+请求体json为：
+
+            {
+                 "name": "华",
+                 "showStatus":2,
+                 "sort":1,
+                 "descript":"❀",
+                 "firstLetter": "F"
+            }
+
+反馈：
+
+            {
+                "msg": "参数格式校验失败",
+                "code": 10001,
+                "data": {
+                    "showStatus": ???????
+                }
+            }
+
+            
 
 
