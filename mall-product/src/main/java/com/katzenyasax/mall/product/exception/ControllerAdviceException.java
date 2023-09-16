@@ -52,7 +52,7 @@ public class ControllerAdviceException {
 
     */
 
-    @ExceptionHandler(value = Throwable.class)
+    //@ExceptionHandler(value = Throwable.class)
     public R handlerThrowable(Throwable e){
         log.error("发生错误");
         return R.error("发生错误");

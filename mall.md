@@ -2358,6 +2358,13 @@ post一个：
 没有指定分组的字段，在@Validated生效时看作没有校验注解，即此时可指定可不指定
 
 
+==============================================================================================================================
+
+
+
+
+================= 商品服务II.品牌管理：自定义数据校验 ============================================================================
+
 
 
 自定义校验，满足发展情况下的校验，例如我要校验showStatus，只能是0或1
@@ -2441,6 +2448,233 @@ post一个：
                 }
             }
 
+
+=========================================================================================================
+
+
+
+
+
+
+
+
+
+
+========== 商品服务III.属性分组 =====================================================================================
+
+
+商品系统/平台管理/属性分组
+
+请求路径：
+    
+            /product/attrgroup/list/{catelogId}
+
+方式为get
+catelogId为0时默认查找所有
+请求参数为
+
+            {
+                page: 1,//当前页码
+                limit: 10,//每页记录数
+                sidx: 'id',//排序字段
+                order: 'asc/desc',//排序方式
+                key: '华为'//检索关键字
+            }
+
+返回结果：
+
+            {
+            	"msg": "success",
+            	"code": 0,
+            	"page": {
+            		"totalCount": 0,
+            		"pageSize": 10,
+            		"totalPage": 0,
+            		"currPage": 1,
+            		"list": [{
+            			"attrGroupId": 0, //分组id
+            			"attrGroupName": "string", //分组名
+            			"catelogId": 0, //所属分类
+            			"descript": "string", //描述
+            			"icon": "string", //图标
+            			"sort": 0 //排序
+            			"catelogPath": [2,45,225] //分类完整路径
+            		}]
+            	}
+            }
+
+
+
+流程：
+
+            1.在AttrGroupController中定义：
+
+                     //根据id查找属性分组
+                    @RequestMapping("list/{attrgroup}")
+                    public R listAttrGroup(@RequestParam Map<String, Object> params,@PathVariable Integer attrgroup){
+                        PageUtils page=attrGroupService.queryPage(params,attrgroup);
+                        return R.ok().put("page",page);
+                    }
+
+            2.AttrGroupServiceImpl定义方法：
+
+                    @Override
+                    public PageUtils queryPage(Map<String, Object> params, Integer catelogId) {
+                        if(catelogId==0){
+                            if(catelogId==0)
+                            {
+                                String key = (String) params.get("key");
+                                QueryWrapper<AttrGroupEntity> wrapper = new QueryWrapper<AttrGroupEntity>().like("attr_group_id", key).or().like("attr_group_name", key).or().like("descript", key);
+                                //wrapper：sql评判标准，查找时会自动根据评判标准筛选不满足标准的对象
+                                IPage<AttrGroupEntity> pageFinale = this.page(new Query<AttrGroupEntity>().getPage(params), wrapper);
+                                return new PageUtils(pageFinale);
+                                //如果catelogId为0，但是key不为空，则模糊匹配查找
+                            }
+                            return new PageUtils(this.page(new Query<AttrGroupEntity>().getPage(params), new QueryWrapper<AttrGroupEntity>()));
+                        }
+                        else {
+                            String key=(String) params.get("key");
+                            QueryWrapper<AttrGroupEntity> wrapper =new QueryWrapper<AttrGroupEntity>().eq("catelog_id",catelogId).and((obj)-> obj.like("attr_group_name",key).or().like("descript",key));
+                            //wrapper：sql评判标准，查找时会自动根据评判标准筛选不满足标准的对象
+                            IPage<AttrGroupEntity> pageFinale=this.page(new Query<AttrGroupEntity>().getPage(params),wrapper);
+                            return new PageUtils(pageFinale);
+                            //catelogId不为0，但是key也不为空
+                        }
+                    }
+
+
+              IPage集合，其构造为：
+
+                     IPage<AttrGroupEntity> page = this.page(new Query<AttrGroupEntity>().getPage(params),new QueryWrapper<AttrGroupEntity>());
+
+              有两个构造条件，Query就是前端传来的固定的param，决定了limit、page等分页标准
+              第二个QueryWrapper则是匹配sql的校验器，查询结果必须满足该校验器，才能通过查询，而new一个空参的QueryWrapper，意思就是没有校验，任何结果都可通过查询
+
+              对于wrapper，eq方法为判断是否相等，like则是模糊判断，条件之间可通过or()和and()方法进行连接，但是注意and()方法默认加括号
+
+
+
+前端做好对接后（主要是categories需要把data.data改成data.success）
+
+接下来在第三级菜单的children上加注解：
+
+            @JsonInclude(JsonInclude.Include.NON_EMPTY)
+	        @TableField(exist = false)
+	        private List<CategoryEntity> children=new ArrayList<>();
+        
+表示当children不为空集合时，返回的json数据才包含该字段，内容为空时，json不返回该字段
+这是为了防止在第三级菜单时，由于检测到集合children[]的存在，而自动生成下一级菜单（此时用的不再是el-tree，故规则不同，el-tree我们可以写死只有三级）
+而导致无法选择groupId
+
+
+
+=========================================================================================================
+
+
+
+
+
+
+
+
+
+
+========== 商品服务III.属性分组：修改页面数据回显 =====================================================================================
+
+
+
+
+接下来会发现，修改时，无法回显groupId的路径，因此写一个方法回显groupId的路径
+路径就加在AttrGroupEntity的成员变量中：
+
+            @TableField(exist = false)			//不存在于数据库
+	        private Long[] Path;
+
+其中依次存放父——>子的categoryId
+接下来在AttrGroupController中的返回属性分组信息的方法，即：
+
+            @RequestMapping("/info/{attrGroupId}")
+            @RequiresPermissions("product:attrgroup:info")
+            public R info(@PathVariable("attrGroupId") Long attrGroupId)
+    
+因为回显进入修改界面时，默认发出请求：
+
+            http://localhost:10100/api/product/attrgroup/info/
+
+因此在info上添加：
+因为是有关category的查询，因此使用category的service查询
+
+            @RequestMapping("/info/{attrGroupId}")
+            @RequiresPermissions("product:attrgroup:info")
+            public R info(@PathVariable("attrGroupId") Long attrGroupId){
+	        	AttrGroupEntity attrGroup = attrGroupService.getById(attrGroupId);
+                Long attrGroupCatelogId=attrGroup.getCatelogId();
+                //先获取分组id
+                Long[] path=categoryService.getCategoryPath(attrGroupCatelogId);
+                //再获取完整路径
+                attrGroup.setPath(path);
+                //设置回显路径
+                return R.ok().put("attrGroup", attrGroup);
+            }
+
+随后定义方法：
+        
+            public Long[] getCategoryPath(Long id) {
+                Long[] pathF=new Long[3];
+                    //最多三级，因此数组长度为3
+                pathF[2]=id;
+                    //最后一个数就是该元素（孙子）的id
+                CategoryEntity son = this.getById(id);
+                    //儿子对象
+                pathF[1]=son.getParentCid();
+                    //数组第二个元素为儿子的id
+                CategoryEntity father=this.getById(son.getParentCid());
+                    //父亲对象
+                pathF[0]=father.getParentCid();
+                    //数组第一个元素为父亲的id
+                return pathF;
+                    //直接返回
+            }
             
+对于前端，还要将存储该数组的
+
+            this.catelogPath=data.attrGroup.catelogPath
+            
+改为：
+
+            this.catelogPath =  data.attrGroup.path;
+
+
+
+
+
+
+至此功能完成
+测试一下：
+
+            http://localhost:10100/api/product/attrgroup/info/12?t=1694864825179
+
+返回：
+
+            {
+                "msg": "success",
+                "attrGroup": {
+                    "attrGroupId": 12,
+                    "attrGroupName": "1",
+                    "sort": 1,
+                    "descript": "1",
+                    "icon": "1",
+                    "catelogId": 269,
+                    "path": [
+                        3,
+                        39,
+                        269
+                    ]
+                },
+                "code": 0
+            }
+
+至此功能完成
+
 
 

@@ -50,6 +50,20 @@ public class BrandController {
 
 
 
+    //TODO
+    /**
+     *  不通过签后上传
+     *  采用上传至服务器，再上传至云服务器
+     *
+     *  或者传至在本地留有备份
+     *  再将备份传值云服务器
+     *
+     *
+     */
+    @RequestMapping("/upload")
+    public R uploadFile(){
+        return R.ok();
+    }
 
 
 

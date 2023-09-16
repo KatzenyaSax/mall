@@ -78,7 +78,6 @@ public class OssController {
         } finally {
             ossClient.shutdown();
         }
-        System.out.println(respMap.toString());
         return respMap;
     }
 

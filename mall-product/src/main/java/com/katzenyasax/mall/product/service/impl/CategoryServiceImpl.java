@@ -1,11 +1,9 @@
 package com.katzenyasax.mall.product.service.impl;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -23,6 +21,7 @@ import static com.fasterxml.jackson.databind.type.LogicalType.Collection;
 
 
 @Service("categoryService")
+@Slf4j
 public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity> implements CategoryService {
 
     @Override
@@ -87,6 +86,25 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     public void Sort(CategoryEntity[] category) {
 
     }
+
+    public Long[] getCategoryPath(Long id) {
+        Long[] pathF=new Long[3];
+        //最多三级，因此数组长度为3
+        pathF[2]=id;
+        //最后一个数就是该元素（孙子）的id
+        CategoryEntity son = this.getById(id);
+        //儿子对象
+        pathF[1]=son.getParentCid();
+        //数组第二个元素为儿子的id
+        CategoryEntity father=this.getById(son.getParentCid());
+        //父亲对象
+        pathF[0]=father.getParentCid();
+        //数组第一个元素为父亲的id
+        return pathF;
+        //直接返回
+    }
+
+
 
 
 }

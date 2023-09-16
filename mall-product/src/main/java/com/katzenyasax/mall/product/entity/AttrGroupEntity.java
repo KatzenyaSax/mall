@@ -1,10 +1,13 @@
 package com.katzenyasax.mall.product.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.io.Serializable;
 import java.util.Date;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
 /**
@@ -44,5 +47,9 @@ public class AttrGroupEntity implements Serializable {
 	 * 所属分类id
 	 */
 	private Long catelogId;
+
+	@JsonInclude(JsonInclude.Include.NON_EMPTY)
+	@TableField(exist = false)			//不存在于数据库
+	private Long[] Path;
 
 }
