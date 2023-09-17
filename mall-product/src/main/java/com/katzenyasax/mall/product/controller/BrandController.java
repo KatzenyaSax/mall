@@ -4,8 +4,10 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.katzenyasax.mall.product.service.impl.CategoryBrandRelationServiceImpl;
 import com.katzenyasax.mall.product.valid.InsertGroup;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.BindingResult;
@@ -30,12 +32,14 @@ import com.katzenyasax.common.utils.R;
  * @email a18290531268@163.com
  * @date 2023-09-09 13:16:41
  */
+@Slf4j
 @RestController
 @RequestMapping("product/brand")
 public class BrandController {
     @Autowired
     private BrandService brandService;
-
+    @Autowired
+    private CategoryBrandRelationServiceImpl categoryBrandRelationService;
 
 
 
@@ -114,14 +118,36 @@ public class BrandController {
 
     /**
      * 修改
+     *
+     *
+     *
+     *
+     *  修改时，也修改关系表
+     *
+     *
+     *
+     *
      */
     @RequestMapping("/update")
     @RequiresPermissions("product:brand:update")
     public R update(@RequestBody BrandEntity brand){
 		brandService.updateById(brand);
+        //获取品牌id
+        log.info("BrandId: "+brand.getBrandId()+"  BrandName: "+brand.getName());
+        categoryBrandRelationService.updateBrand(brand.getBrandId(),brand.getName());
+
+
 
         return R.ok();
     }
+
+
+
+
+
+
+
+
 
     /**
      * 删除
@@ -130,7 +156,9 @@ public class BrandController {
     @RequiresPermissions("product:brand:delete")
     public R delete(@RequestBody Long[] brandIds){
 		brandService.removeByIds(Arrays.asList(brandIds));
-
+        for(Long id:brandIds){
+            categoryBrandRelationService.deleteBrand(id);
+        }
         return R.ok();
     }
 

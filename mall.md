@@ -2677,4 +2677,386 @@ catelogId为0时默认查找所有
 至此功能完成
 
 
+===============================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=========================================================================================================
+
+
+
+
+
+
+
+
+
+
+========== 商品服务IV.分页 =====================================================================================
+
+
+发现问题：
+分类属性的下方，不会显示共几条数据，只能显示有多少页和每页多少条数据
+故使用mybatis plus分页插件
+
+使用mybatis plus的分页插件
+官方文档：   https://baomidou.com/pages/2976a3/#spring-boot
+
+
+在product模块内加上配置文件：config.MybatisPlusConfiguration
+
+            @Configuration
+            @EnableTransactionManagement
+            @MapperScan(value = "com.katzenyasax.mall.product.dao")
+            public class MybatisPlusConfiguration {
+                @Bean
+                    public MybatisPlusInterceptor mybatisPlusInterceptor() {
+                        MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+                        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.H2));
+                        return interceptor;
+                    }
+            }
+
+此时分类属性下面就有页数了
+
+
+
+
+
+
+=========================================================================================================
+
+
+
+
+========== 商品服务II.品牌管理 查询 =====================================================================================
+
+
+模糊查询，更改BrandServiceImpl下面的方法为：
+
+            @Override
+            public PageUtils queryPage(Map<String, Object> params) {
+                //获取关键字key
+                String key=(String) params.get("key");
+                log.info(String.valueOf((key==null)));
+                //若关键字key不为空：
+                if(key!=null){
+        
+                    //进行对name和descript的模糊匹配
+                    QueryWrapper<BrandEntity> wrapper=new QueryWrapper<BrandEntity>().like("name",key).or().like("descript",key);
+                    return new PageUtils(this.page(new Query<BrandEntity>().getPage(params),wrapper));
+        
+        
+                }
+                //若关键字不为空
+                IPage<BrandEntity> page = this.page(
+                        new Query<BrandEntity>().getPage(params),
+                        new QueryWrapper<BrandEntity>()
+                );
+                return new PageUtils(page);
+            }
+
+结果是查到了
+但其实不用判断key是否为空，即使为空的话也只是为数据添加了一个开放的判断标准罢了
+
+
+=========================================================================================================
+
+
+
+
+
+
+
+
+
+
+========== 商品服务II.品牌管理 查询品牌和分类的关联关系 =====================================================================================
+
+
+商品分类和品牌呈多对多的关系
+一个品牌的所有商品可以有多种属性分类，一个商品分下类也可以有多个品牌的商品
+对于这种情况，使用一张中间表单进行连接
+
+
+
+请求路径：
+
+            http://localhost:10100/api/product/categorybrandrelation/catelog/list
+
+controller中定义：
+
+            //获取商品关联
+            @GetMapping(value = "/catelog/list")
+            public R listCatelog(@RequestParam("brandId")int brandId){
+                log.info("brandId: "+String.valueOf(brandId));
+                List<CategoryBrandRelationEntity> data=categoryBrandRelationService.list(
+                        new QueryWrapper<CategoryBrandRelationEntity>().eq("brand_id",brandId));
+                return R.ok().put("data",data);
+            }
+        
+        
+        
+            //获取品牌关联
+            @GetMapping(value = "/brand/list")
+            public R lisBrand(@RequestParam("catelogId")int catelogId){
+                List<CategoryBrandRelationEntity> data=categoryBrandRelationService.list(
+                        new QueryWrapper<CategoryBrandRelationEntity>().eq("catelog_id",catelogId));
+                return R.ok().put("data",data);
+            }
+
+使用了校验器，校验catelog_id或brand_id是否等于参数
+根据参数返回值
+总之这样就返回了关联关系，例如：
+
+            http://localhost:10100/api/product/categorybrandrelation/catelog/list?t=1694917073908&brandId=9
+
+此处brandId=9，页面返回：
+
+            {
+                "msg": "success",
+                "code": 0,
+                "data": [
+                    {
+                        "id": 13,
+                        "brandId": 9,
+                        "catelogId": 225,
+                        "brandName": "华为",
+                        "catelogName": "手机"
+                    },
+                    {
+                        "id": 15,
+                        "brandId": 9,
+                        "catelogId": 250,
+                        "brandName": "华为",
+                        "catelogName": "平板电视"
+                    },
+                    {
+                        "id": 16,
+                        "brandId": 9,
+                        "catelogId": 449,
+                        "brandName": "华为",
+                        "catelogName": "笔记本"
+                    }
+                ]
+            }
+
+=========================================================================================================
+
+
+
+
+
+
+
+
+
+
+========== 商品服务II.品牌管理 新增、保存品牌和商品分类的关联关系 =====================================================================================
+
+
+请求路径：
+
+            product/categorybrandrelation/save
+
+请求参数：
+    
+            {"brandId":1,"catelogId":2}
+
+响应：
+
+            {
+            	"msg": "success",
+            	"code": 0
+            }
+
+表示，brandId为1的品牌，和catelogId为2的属性分类关联起来
+同时要可以存入双方的name属性:
+
+在controller中修改save方法中，调用的service的方法：
+
+            categoryBrandRelationService.saveName(categoryBrandRelation);
+
+save改为自定义方法saveName
+随后在service接口和实现类中实现：
+
+            //先要获取brandId和catelogId对应的name：
+            //所以需要调用BrandService和CategoryService
+            @Autowired
+            BrandDao brandDao;
+            @Autowired
+            CategoryDao categoryDao;
+            @Override
+            public void saveName(CategoryBrandRelationEntity categoryBrandRelation) {
+                //获取了name
+                String brandName=brandDao.selectById(categoryBrandRelation.getBrandId()).getName();
+                String catelogName=categoryDao.selectById(categoryBrandRelation.getCatelogId()).getName();
+                //设置name
+                categoryBrandRelation.setBrandName(brandName);
+                categoryBrandRelation.setCatelogName(catelogName);
+                //返回设置过name的关系对象
+                this.save(categoryBrandRelation);
+            }
+
+直接使用了自动注入的dao层接口BrandDao和CategoryDao，来select双方的name
+用service层的getById貌似有问题
+
+
+===========================================================================================================================================
+
+
+
+
+
+
+
+
+
+
+========== 商品服务II.品牌管理 商品分类和品牌关联关系一致性问题 =====================================================================================
+
+
+由于我们的relation表存储的是商品分类和品牌的关系，那么其数据应该和上述两张表的数据一致
+也就是说，如果商品分类或者品牌中数据发生变动，relation表的数据也要发生变动（如果此时引用了上述两张表的数据的话）
+
+
+这样一来就必须在Brand和Category的模块中去实现
+若名字有所变动，如修改、删除，对应的关系表也要被修改、删除
+
+所以我们在CategoryBrandRelationServiceImpl中定义实现类特有方法：
+
+            public void updateCategory(Long catelogId,String  catelogName){
+                //获取所有关系对象
+                List<CategoryBrandRelationEntity> entitiesAll=baseMapper.selectList(null);
+                //使用stream过滤器过滤
+                List<CategoryBrandRelationEntity> entities = entitiesAll.stream().filter(
+                        categoryBrandRelationEntity -> categoryBrandRelationEntity.getCatelogId().equals(catelogId)).filter(                            //id必须相同
+                        categoryBrandRelationEntity -> categoryBrandRelationEntity.getCatelogName()!=catelogName).collect(                              //name必须不同，否则视为未变更
+                                Collectors.toList());         
+                //遍历，修改所有
+                for(CategoryBrandRelationEntity entity:entities){
+                    entity.setCatelogName(catelogName);
+                    this.updateById(entity);
+                }
+        
+            }
+            public void updateBrand(Long brandId,String brandName){
+                //获取所有关系对象
+                List<CategoryBrandRelationEntity> entitiesAll=baseMapper.selectList(null);
+                //使用stream过滤器过滤
+                List<CategoryBrandRelationEntity> entities = entitiesAll.stream().filter(
+                        categoryBrandRelationEntity -> categoryBrandRelationEntity.getBrandId().equals(brandId)).filter(                                //id必须相同
+                        categoryBrandRelationEntity -> categoryBrandRelationEntity.getBrandName()!=brandName).collect(                          //name必须不同，否则视为未更改
+                        Collectors.toList());
+                log.info("entities: "+entities.toString());
+                //遍历，修改所有
+                for(CategoryBrandRelationEntity entity:entities){
+                    entity.setBrandName(brandName);
+                    log.info(entities.toString());
+                    this.updateById(entity);
+                }
+            }
+    
+因此分别在CategoryController和BrandController中的update方法加上：
+
+            @RequestMapping("/update")
+            public R update(@RequestBody CategoryEntity category){
+	        	categoryService.updateById(category);
+                categoryBrandRelationService.updateCategory(category.getCatId(),category.getName());
+            //加上调用relationService，通过category的id和name更新relation中的数据
+                return R.ok();
+            }
+
+            @RequestMapping("/update")
+            public R update(@RequestBody BrandEntity brand){
+	        	brandService.updateById(brand);
+                categoryBrandRelationService.updateBrand(brand.getBrandId(),brand.getName());
+            //加上调用relationService，通过brand的id和name更新relation中的数据
+                return R.ok();
+            }
+
+其中categoryBrandRelationService是通过实现类自动注入的实现类的对象
+可以调用其内部特有方法
+
+
+整个原理就是：
+当category或brand修改名字时，调用relation内部的方法，根据category或brand的id和name获取应该修改的值
+判断是否应该修改，是根据stream的过滤器判断的，首先id相同，其次name必须不同，因为name不同就代表着本次并未修改name，故不需要再进行下面的操作
+如果得到了应该修改的数据，会存到一个list中
+遍历该list，每次修改name，然后使用updateById存入数据库
+于是这样就完成了数据的同步
+
+
+
+
+
+
+
+
+当然还有删除的一致性，删除某个category或brand后，对应id的relation的数据直接进行删除，不需要再经过name:
+
+            public void deleteCategory(Long catelogId){
+                //获取所有关系对象
+                List<CategoryBrandRelationEntity> entitiesAll=baseMapper.selectList(null);
+                //使用stream过滤器过滤
+                List<CategoryBrandRelationEntity> entities = entitiesAll.stream().filter(
+                        categoryBrandRelationEntity -> categoryBrandRelationEntity.getCatelogId().equals(catelogId)).collect(Collectors.toList());
+                //遍历，修改所有
+                for(CategoryBrandRelationEntity entity:entities){
+                    entity.setCatelogName(catelogName);
+                    baseMapper.deleteById(entity);
+                }
+            }
+            public void deleteBrand(Long brandId){
+                //获取所有关系对象
+                List<CategoryBrandRelationEntity> entitiesAll=baseMapper.selectList(null);
+                //使用stream过滤器过滤
+                List<CategoryBrandRelationEntity> entities = entitiesAll.stream().filter(
+                        categoryBrandRelationEntity -> categoryBrandRelationEntity.getBrandId().equals(brandId)).collect(Collectors.toList());
+                //遍历，修改所有
+                for(CategoryBrandRelationEntity entity:entities){
+                    entity.setBrandName(brandName);
+                    baseMapper.deleteById(entity);
+                }
+            }
+
+随后在category和brand的controller的delete中调用方法就行了
+
+            //逻辑删除
+            @RequestMapping("/delete")
+            public R deleteSafe(@RequestBody Long[] catIds){
+                categoryService.hideByIds(Arrays.asList(catIds));
+                for(Long id:catIds){
+                    categoryBrandRelationService.deleteCategory(id);
+                }
+                return R.ok();
+            }
+
+            @RequestMapping("/delete")
+            @RequiresPermissions("product:brand:delete")
+            public R delete(@RequestBody Long[] brandIds){
+	        	brandService.removeByIds(Arrays.asList(brandIds));
+                for(Long id:brandIds){
+                    categoryBrandRelationService.deleteBrand(id);
+                }
+                return R.ok();
+            }
+
+只不过注意category是要逻辑删除里调用就是了
+
+
+
+======================================================================================================================================================================================
+
 

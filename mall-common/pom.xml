@@ -110,8 +110,13 @@
 
 
 
-
-
+<!--        &lt;!&ndash; mybatis plus 分页插件 &ndash;&gt;
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-extension</artifactId>
+            <version>3.3.1</version>
+            <scope>compile</scope>
+        </dependency>-->
 
 
 

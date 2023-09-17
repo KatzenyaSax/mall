@@ -4,6 +4,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import com.katzenyasax.mall.product.service.CategoryBrandRelationService;
+import com.katzenyasax.mall.product.service.impl.CategoryBrandRelationServiceImpl;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,6 +33,10 @@ import com.katzenyasax.common.utils.R;
 public class CategoryController {
     @Autowired
     private CategoryService categoryService;
+    @Autowired
+    private CategoryBrandRelationServiceImpl categoryBrandRelationService;
+
+
 
 
     //商品三级分类
@@ -45,6 +51,9 @@ public class CategoryController {
     @RequestMapping("/delete")
     public R deleteSafe(@RequestBody Long[] catIds){
         categoryService.hideByIds(Arrays.asList(catIds));
+        for(Long id:catIds){
+            categoryBrandRelationService.deleteCategory(id);
+        }
         return R.ok();
     }
 
@@ -96,13 +105,23 @@ public class CategoryController {
 
     /**
      * 修改
+     *
+     * 修改时，也修改关系表
+     *
+     *
      */
     @RequestMapping("/update")
     public R update(@RequestBody CategoryEntity category){
 		categoryService.updateById(category);
+        categoryBrandRelationService.updateCategory(category.getCatId(),category.getName());
 
         return R.ok();
     }
+
+
+
+
+
 
     /**
      * 删除
