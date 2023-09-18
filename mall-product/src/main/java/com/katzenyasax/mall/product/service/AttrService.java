@@ -3,6 +3,8 @@ package com.katzenyasax.mall.product.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.mall.product.entity.AttrEntity;
+import com.katzenyasax.mall.product.vo.AttrVO_WithAttrGroupId;
+import com.katzenyasax.mall.product.vo.AttrVO_WithGroupIdAndPaths;
 
 import java.util.Map;
 
@@ -16,5 +18,15 @@ import java.util.Map;
 public interface AttrService extends IService<AttrEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
+
+    PageUtils queryPageBase(Map<String, Object> params,Integer attrId);
+
+    PageUtils queryPageSale(Map<String, Object> params, Integer catelogId);
+
+    void saveByAttrVO(AttrVO_WithAttrGroupId attr);
+
+    AttrVO_WithGroupIdAndPaths getAttrWithGroupIdAndPath(Long attrId);
+
+    void updateAttrWithGroupId(AttrVO_WithAttrGroupId vo);
 }
 

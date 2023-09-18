@@ -1,9 +1,15 @@
 package com.katzenyasax.mall.product.controller;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
+import com.katzenyasax.mall.product.dao.AttrAttrgroupRelationDao;
+import com.katzenyasax.mall.product.entity.AttrAttrgroupRelationEntity;
+import com.katzenyasax.mall.product.service.AttrAttrgroupRelationService;
 import com.katzenyasax.mall.product.service.CategoryService;
+import com.katzenyasax.mall.product.service.impl.AttrAttrgroupRelationServiceImpl;
+import io.swagger.models.auth.In;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,7 +40,8 @@ public class AttrGroupController {
     private AttrGroupService attrGroupService;
     @Autowired
     private CategoryService categoryService;
-
+    @Autowired
+    private AttrAttrgroupRelationDao attrAttrgroupRelationDao;
 
 
 
@@ -46,6 +53,17 @@ public class AttrGroupController {
     }
 
 
+
+
+
+
+    //查找属性和参数级联
+    @RequestMapping("/{attrgroupId}/attr/relation")
+    public R listAttrRelation(@PathVariable Integer attrgroupId){
+
+
+        return null;
+    }
 
 
 

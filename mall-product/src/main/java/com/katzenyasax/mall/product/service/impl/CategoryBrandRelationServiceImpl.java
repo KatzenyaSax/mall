@@ -78,7 +78,9 @@ public class CategoryBrandRelationServiceImpl extends ServiceImpl<CategoryBrandR
    *
     *
     *   数据一致性问题的解决
-    * 让brand或category调用修改时，对关系表也进行修改
+    *   让brand或category修改，可能是修改名字也有可能是删除时，对关系表也进行修改
+    *
+    *
     *
    *
    * */

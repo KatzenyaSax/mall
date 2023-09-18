@@ -2521,20 +2521,14 @@ catelogId为0时默认查找所有
                     @Override
                     public PageUtils queryPage(Map<String, Object> params, Integer catelogId) {
                         if(catelogId==0){
-                            if(catelogId==0)
-                            {
-                                String key = (String) params.get("key");
-                                QueryWrapper<AttrGroupEntity> wrapper = new QueryWrapper<AttrGroupEntity>().like("attr_group_id", key).or().like("attr_group_name", key).or().like("descript", key);
-                                //wrapper：sql评判标准，查找时会自动根据评判标准筛选不满足标准的对象
-                                IPage<AttrGroupEntity> pageFinale = this.page(new Query<AttrGroupEntity>().getPage(params), wrapper);
-                                return new PageUtils(pageFinale);
-                                //如果catelogId为0，但是key不为空，则模糊匹配查找
-                            }
-                            return new PageUtils(this.page(new Query<AttrGroupEntity>().getPage(params), new QueryWrapper<AttrGroupEntity>()));
+                            String key=(String) params.get("key");
+                            QueryWrapper<AttrGroupEntity> wrapper = new QueryWrapper<AttrGroupEntity>().like("attr_group_id", key).or().like("attr_group_name", key).or().like("descript", key);
+                            //wrapper：sql评判标准，查找时会自动根据评判标准筛选不满足标准的对象
+                            IPage<AttrGroupEntity> pageFinale = this.page(new Query<AttrGroupEntity>().getPage(params), wrapper);
+                            return new PageUtils(pageFinale);
                         }
                         else {
-                            String key=(String) params.get("key");
-                            QueryWrapper<AttrGroupEntity> wrapper =new QueryWrapper<AttrGroupEntity>().eq("catelog_id",catelogId).and((obj)-> obj.like("attr_group_name",key).or().like("descript",key));
+                            QueryWrapper<AttrGroupEntity> wrapper =new QueryWrapper<AttrGroupEntity>().eq("catelog_id",catelogId);
                             //wrapper：sql评判标准，查找时会自动根据评判标准筛选不满足标准的对象
                             IPage<AttrGroupEntity> pageFinale=this.page(new Query<AttrGroupEntity>().getPage(params),wrapper);
                             return new PageUtils(pageFinale);
@@ -2692,7 +2686,6 @@ catelogId为0时默认查找所有
 
 
 
-=========================================================================================================
 
 
 
@@ -2703,7 +2696,7 @@ catelogId为0时默认查找所有
 
 
 
-========== 商品服务IV.分页 =====================================================================================
+========== 分页 =====================================================================================
 
 
 发现问题：
@@ -2782,7 +2775,7 @@ catelogId为0时默认查找所有
 
 
 
-========== 商品服务II.品牌管理 查询品牌和分类的关联关系 =====================================================================================
+========== 商品服务IV.品牌和商品分类的级联 =====================================================================================
 
 
 商品分类和品牌呈多对多的关系
@@ -2863,7 +2856,7 @@ controller中定义：
 
 
 
-========== 商品服务II.品牌管理 新增、保存品牌和商品分类的关联关系 =====================================================================================
+========== 商品服务IV.新增、保存品牌和商品分类的级联 =====================================================================================
 
 
 请求路径：
@@ -2924,7 +2917,7 @@ save改为自定义方法saveName
 
 
 
-========== 商品服务II.品牌管理 商品分类和品牌关联关系一致性问题 =====================================================================================
+========== 商品服务IV.品牌和商品分类级联一致性问题 =====================================================================================
 
 
 由于我们的relation表存储的是商品分类和品牌的关系，那么其数据应该和上述两张表的数据一致
@@ -3058,5 +3051,692 @@ save改为自定义方法saveName
 
 
 ======================================================================================================================================================================================
+
+
+
+
+
+============== 商品服务V：规格参数和销售属性 =====================================================================================================================
+
+
+二者共用同一个表，区别在于attr_type
+为0：普通规格参数
+为1：销售属性
+为2：二者皆是
+
+
+查询
+参数规格：
+
+            /product/attr/base/list/{catelogId}
+
+销售属性：
+
+            /product/attr/sale/list/{catelogId}
+         
+
+请求参数：
+
+            {
+                page: 1,//当前页码
+                limit: 10,//每页记录数
+                sidx: 'id',//排序字段
+                order: 'asc/desc',//排序方式
+                key: '华为'//检索关键字
+            }
+
+响应结果：
+
+            {
+            	"msg": "success",
+            	"code": 0,
+            	"page": {
+            		"totalCount": 0,
+            		"pageSize": 10,
+            		"totalPage": 0,
+            		"currPage": 1,
+            		"list": [{
+            			"attrId": 0, //属性id
+            			"attrName": "string", //属性名
+            			"attrType": 0, //属性类型，0-销售属性，1-基本属性
+            			"catelogName": "手机/数码/手机", //所属分类名字
+            			"groupName": "主体", //所属分组名字
+            			"enable": 0, //是否启用
+            			"icon": "string", //图标
+            			"searchType": 0,//是否需要检索[0-不需要，1-需要]
+            			"showDesc": 0,//是否展示在介绍上；0-否 1-是
+            			"valueSelect": "string",//可选值列表[用逗号分隔]
+            			"valueType": 0//值类型[0-为单个值，1-可以选择多个值]
+            		}]
+            	}
+            }
+
+
+
+但是有一个问题，就是查询参数的时候，由于参数实体AttrEntity里面并没有代表所属分类和所属分组的字段，所以后端如果以AttrEntity传输前端的话，其实无法展现这两个字段
+这将会导致前端无法展示所属分类和所属分组
+
+因此使用vo
+即view object
+用于封装一些自定义的数据
+
+可以接收前端一次发来的一些单独的字段，将其封装为一个对象放入后端进行处理
+也可以将后端要返回给前端的一些单独字段封装为一个对象
+
+我们定义VO：
+
+            @Data
+            public class AttrVO_WithGroupNameAndCatelogName {
+            @TableId
+                private Long attrId;
+                private String attrName;
+                private Integer searchType;
+                private Integer valueType;
+                private String icon;
+                private String valueSelect;
+                private Integer attrType;
+                private Long enable;
+                private Long catelogId;
+                private Integer showDesc;
+                private String catelogName;         //分类名
+                private String groupName;           //分组名
+            }
+
+我们本来的AttrEntity本来就有catelogId，因此catelogName可以直接获取
+但是AttrEntity里面没有groupId？那就只能通过属性和参数的关系表来获取了
+先用attrId从关系表中得到groupId，再从group表内获取groupName
+完美
+
+
+
+AttrController中，定义接口：
+
+            /**
+            * 
+            * 获取普通的规格参数，和共用者
+            * 
+            * 
+            * */
+            @RequestMapping("/base/list/{catelogId}")
+            public R baseList(@RequestParam Map<String, Object> params,@PathVariable Integer catelogId){
+                PageUtils page = attrService.queryPageBase(params,catelogId);
+                return R.ok().put("page", page);
+            }
+            /**
+             *
+             * 获取普通的销售属性，和公用者
+             *
+             *
+             * */
+            @RequestMapping("/sale/list/{catelogId}")
+            public R saleList(@RequestParam Map<String, Object> params,@PathVariable Integer catelogId){
+                PageUtils page = attrService.queryPageSale(params,catelogId);
+                return R.ok().put("page", page);
+            }
+
+service中定义方法：
+
+            @Override
+            public PageUtils queryPageBase(Map<String, Object> params, Integer catelogId) {
+                QueryWrapper<AttrEntity> wrapper=new QueryWrapper<AttrEntity>().and(obj0->obj0.eq(
+                        "attr_type",1).or().eq(
+                        "attr_type",2)).and(obj->obj.like(
+                                        "attr_name",params.get("key")).or().like(
+                                        "value_select",params.get("key"))
+                );
+                if(catelogId!=0) {
+                    wrapper.and(obj->obj.eq("catelog_id",catelogId));
+                }
+                IPage<AttrEntity> page=this.page(new Query<AttrEntity>().getPage(params),wrapper);
+        
+        
+                //接下来要添加上分组名和分类名
+                //将查询好的AttrEntity们放入list
+                List<AttrEntity> list=page.getRecords();
+                List<AttrVO_WithGroupNameAndCatelogName> finale = list.stream().map(attrEntity -> {
+                    AttrVO_WithGroupNameAndCatelogName vo = new AttrVO_WithGroupNameAndCatelogName();
+                    //创建vo对象
+                    BeanUtil.copyProperties(attrEntity, vo);
+                    //将attrEntity的所有基本属性复制到vo
+        
+                    //随后要为vo添加分组名和分类名
+                    CategoryEntity categoryEntity = categoryDao.selectById(attrEntity.getCatelogId());
+                    //通过已知的catelogId获取对应的category对象
+                    String catelogName = categoryEntity.getName();
+                    //通过category对象，直接获取catelogName
+                    vo.setCatelogName(catelogName);
+        
+                    AttrAttrgroupRelationEntity attrAttrgroupRelationEntity = attrAttrgroupRelationDao.selectOne(new QueryWrapper<AttrAttrgroupRelationEntity>().eq("attr_id", attrEntity.getAttrId()));
+                    //通过已知的attrId，获取属性和参数的关系对象
+                    if(attrAttrgroupRelationEntity!=null) {         
+                    //一定要判断，否则如果查到attr_id在关系表内不存在的话就会报错而无法允许
+                        AttrGroupEntity attrGroupEntity = attrGroupDao.selectById(attrAttrgroupRelationEntity.getAttrGroupId());
+                        //通过关系对象，获取对应的attrGroupId，并以此获取对应的attrGroup对象
+                        String groupName = attrGroupEntity.getAttrGroupName();
+                        //通过获取的attrGroup对象直接获取groupName
+                        vo.setGroupName(groupName);
+                    }
+                    return vo;
+                }).collect(Collectors.toList());
+        
+        
+                PageUtils pageUtils=new PageUtils(page);
+                pageUtils.setList(finale);
+                return pageUtils;
+            }
+        
+        
+        
+            @Override
+            public PageUtils queryPageSale(Map<String, Object> params, Integer catelogId) {
+                QueryWrapper<AttrEntity> wrapper=new QueryWrapper<AttrEntity>().and(obj0->obj0.eq(
+                        "attr_type",0).or().eq(
+                        "attr_type",2)).and(obj->obj.like(
+                                        "attr_name",params.get("key")).or().like(
+                                        "value_select",params.get("key"))
+                );
+                if(catelogId!=0) {
+                    wrapper.and(obj->obj.eq("catelog_id",catelogId));
+                }
+                IPage<AttrEntity> page=this.page(new Query<AttrEntity>().getPage(params),wrapper);
+        
+                    //接下来要添加上分组名和分类名
+                    //将查询好的AttrEntity们放入list
+                    List<AttrEntity> list=page.getRecords();
+                    List<AttrVO_WithGroupNameAndCatelogName> finale = list.stream().map(attrEntity -> {
+                    AttrVO_WithGroupNameAndCatelogName vo = new AttrVO_WithGroupNameAndCatelogName();
+                    //创建vo对象
+                    BeanUtil.copyProperties(attrEntity, vo);
+                    //将attrEntity的所有基本属性复制到vo
+        
+                    //随后要为vo添加分组名和分类名
+                    CategoryEntity categoryEntity = categoryDao.selectById(attrEntity.getCatelogId());
+                    //通过已知的catelogId获取对应的category对象
+                    String catelogName = categoryEntity.getName();
+                    //通过category对象，直接获取catelogName
+                    vo.setCatelogName(catelogName);
+                    return vo;
+                }).collect(Collectors.toList());
+                PageUtils pageUtils=new PageUtils(page);
+                pageUtils.setList(finale);
+                return pageUtils;
+            }
+
+匹配顺序是：
+    
+            1.先匹配类型，即attr_type，匹配是普通规格参数还是销售属性，抑或是共用者
+            2.随后匹配key，且必须匹配key，但是只需要名字和可选值能匹配就行
+            3.根据是否传入了特定的catelogId，如果有则匹配
+            4.根据最终匹配规则和param参数体得到符合要求的attrEntity
+
+            5.将attrEntity复制到vo中
+            6.根据是销售属性还是普通参数来获取catelogName和groupName，销售属性不需要catelogName
+            7.将catelogName和groupName放入vo中，将vo封装为集合，并封装为pageUtil
+            8.返回pageUtil
+
+
+
+
+结果可以查询到
+
+
+
+
+
+=======================================================================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+============== 商品服务VI：属性和参数级联新增 =====================================================================================================================
+
+请求参数：
+
+            http://localhost:10100/api/product/attr/save
+
+请求体：
+
+            
+
+
+新增参数时，需要选择其所属属性，因此需要两个参数，属性id和自增得到的参数id，存储到attr attrGroup relation的表内
+这个过程应该在新增参数时进行
+
+返回的数据，刚好比AttrEntity多了一个attrGroupId，但是我们不想也最好不要直接在AttrEntity里新增一个成员变量
+那我们直接定义vo：
+
+            @Data
+            public class AttrVO_WithAttrGroupId {
+                @TableId
+                private Long attrId;
+                private String attrName;
+                private Integer searchType;
+                private Integer valueType;
+                private String icon;
+                private String valueSelect;
+                private Integer attrType;
+                private Long enable;
+                private Long catelogId;
+                private Integer showDesc;
+                //和属性对应的attrGroupId
+                private Long attrGroupId;
+            }
+
+我们要接收attrGroupId，就不能接收AttrEntity，而要接收AttrVO
+因此在controller中更改：
+
+            @RequestMapping("/save")
+            @RequiresPermissions("product:attr:save")
+            public R save(@RequestBody AttrVO_WithAttrGroupId attr){
+                attrService.saveByAttrVO(attr);
+                return R.ok();
+            }
+
+自定义的一个方法saveByAttrVO，该方法不仅要实现新增参数attr的存储，还要实现参数attr和属性attrGroup双方关系的存储
+方法：
+
+            @Override
+            public void saveByAttrVO(AttrVO_WithAttrGroupId attrVO) {
+                //通过AttrVO对象来存储新增参数
+                //通过根据attrVO的attrGroupId来存储属性和参数的关系
+                //1.存储attr
+                AttrEntity attrEntity=new AttrEntity();
+                BeanUtil.copyProperties(attrVO,attrEntity);     //将attrVO的同名数据复制到attrEntity，也即是除了attrGroupId
+                this.save(attrEntity);                          //存储
+                //2.存储关系
+                Long attrGroupId=attrVO.getAttrGroupId();
+                Long attrId=attrEntity.getAttrId();
+                AttrAttrgroupRelationEntity attrAttrgroupRelationEntity=new AttrAttrgroupRelationEntity();
+                attrAttrgroupRelationEntity.setAttrGroupId(attrGroupId);
+                attrAttrgroupRelationEntity.setAttrId(attrId);
+                attrAttrgroupRelationDao.insert(attrAttrgroupRelationEntity);
+            }
+
+这样也可以存储成功
+注意前端在选择分组时，必须先选择分类，才能通过分类的categoryId检索有哪些关联了该categoryId的attrGroupId
+
+
+
+
+
+
+
+说一下整个商品服务的架构：
+
+        1.首先，商品分为四个部分：分类、品牌、属性、参数
+
+        2.分类就是category，代表商品的类别，存储在category
+
+        3.品牌就是brand，代表商品的品牌，存储在brand
+
+        4.分类和品牌为多对多的关系，中间以一张category_brand_relation进行关系的存储
+
+        5.属性就是attrGroup，代表商品的固有属性，存储在attr_group
+
+        6.参数就是attr(attribute)，代表商品固有属性的参数，存储在attr
+
+        7.属性和参数为多对多的关系，中间以一张attr_attrGroup_relation存储
+
+
+
+
+======================================================================================================================================================================================
+
+
+
+
+
+
+
+============== 商品服务VI：属性和参数级联删除 =====================================================================================================================
+
+
+
+要实现的功能是，任意删除一个属性或参数时，其在关系表内的相关数据也要删除
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=======================================================================================================================================================================
+
+
+
+
+
+
+============== 魔法值 =====================================================================================================================
+
+
+消除魔法值
+魔法值就是未经定义的常数，比如：
+
+             if(catelogId!=0) 
+
+中的0就是魔法值
+我们把他改成一个定义的常量就不是魔法值了：
+
+             if(catelogId!=ATTR_TYPE_BASE)
+
+就不是魔法值了
+
+
+
+在common包下创建一个表单，专门用于存放魔法值:
+
+            public class ProductConstant {
+                public enum AttrEnum {
+                    ATTR_TYPE_BASE(1,"普通参数"),
+                    ATTR_TYPE_SALE(0,"销售属性"),
+                    ATTR_TYPE_BOTH(2,"二者皆是");
+                    Integer code;
+                    String msg;
+                    AttrEnum(Integer code,String msg){
+                        this.code=code;
+                        this.msg=msg;
+                    }
+                    public Integer getCode() {
+                        return code;
+                    }
+                    public void setCode(Integer code) {
+                        this.code = code;
+                    }
+                    public String getMsg() {
+                        return msg;
+                    }
+                    public void setMsg(String msg) {
+                        this.msg = msg;
+                    }
+                }
+            }
+
+随后可以将参数里面的魔法值替换为表单中的常量，例如：
+
+            QueryWrapper<AttrEntity> wrapper=new QueryWrapper<AttrEntity>().and(obj0->obj0.eq(
+                "attr_type",ProductConstant.AttrEnum.ATTR_TYPE_SALE.getCode()).or().eq(
+                "attr_type",ProductConstant.AttrEnum.ATTR_TYPE_BOTH.getCode())).and(obj->obj.like(
+                                "attr_name",params.get("key")).or().like(
+                                "value_select",params.get("key"))
+                );
+
+将原本的0、2等变成了常量，这就消除了魔法值
+
+
+
+
+
+=======================================================================================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+============== 商品服务VI：规格参数和销售属性的修改页面的回显 =====================================================================================================================
+
+请求路径：
+
+            http://localhost:10100/api/product/attr/info/{attrId}
+
+
+
+修改时，分类和属性的路径不会回显
+
+属性分组，向前端返回一个attrGroupId
+分类，向前端返回一个Long数组，依次存储祖父、父、子的catelogId
+
+定义一个AttrVO_WithPaths:
+
+            @Data
+            public class AttrVO_WithGroupIdAndPaths {
+                @TableId
+                private Long attrId;
+                private String attrName;
+                private Integer searchType;
+                private Integer valueType;
+                private String icon;
+                private String valueSelect;
+                private Integer attrType;
+                private Long enable;
+                private Long catelogId;
+                private Integer showDesc;
+                private Long attrGroupId;
+                private Long[] catelogPath;
+            }
+
+注意传递到前端时，变量名要和之前的前端名字一致
+在AttrController中：
+
+            /**
+             * 专供参数修改的页面
+             * 查询参数
+             * 传出的对象比AttrEntity多了Long类型的attrGroupId，和一个Long类型数组
+             * 分别表示所属属性、所属类型的完整路径
+             *
+             * 因此要使用AttrVO_WithGroupIdAndPaths
+             *
+             *
+             */
+            @RequestMapping("/info/{attrId}")
+            @RequiresPermissions("product:attr:info")
+            public R info(@PathVariable("attrId") Long attrId){
+                AttrVO_WithGroupIdAndPaths attr = attrService.getAttrWithGroupIdAndPath(attrId);
+                return R.ok().put("attr", attr);
+            }
+
+定义方法：
+
+            /**
+             * @param attrId
+             * @return
+             *
+             * 通过attrId查询信息（专供参数修改页面）
+             * 查询的信息使用AttrVO_WithGroupIdAndPaths返回前端
+             * 原型为AttrEntity，但是多了attrGroupId和path
+             * 分别代表所属属性，和所属分类的完整路径
+             *
+             */
+            @Override
+            public AttrVO_WithGroupIdAndPaths getAttrWithGroupIdAndPath(Long attrId) {
+                //思路是，先获取AttrEntity，将其复制到一个AttrVO_WithGroupIdAndPaths
+                //然后通过attrId，直接查询catelogId，因为attrEntity里面自带了catelogId
+                //之后直接调用方法获取完整路径
+                //然后，如果不单独为销售属性，则从关系表中根据attr_id获取groupId
+                AttrEntity attrEntity=this.getById(attrId);
+                AttrVO_WithGroupIdAndPaths vo=new AttrVO_WithGroupIdAndPaths();
+                BeanUtil.copyProperties(attrEntity,vo);
+                //完成了数据的复制
+
+                Long catelogId = vo.getCatelogId();
+                Long[] path = getCategoryPath(catelogId);
+                vo.setCatelogPath(path);
+                //获取了catelogId的完整路径
+
+                if(vo.getAttrType()!=ProductConstant.AttrEnum.ATTR_TYPE_SALE.getCode()) {
+                    Long attrGroupId = attrAttrgroupRelationDao.selectOne(new QueryWrapper<AttrAttrgroupRelationEntity>().eq("attr_id", attrId)).getAttrGroupId();
+                    vo.setAttrGroupId(attrGroupId);
+                    //获取了attrGroupId
+                }
+                //如果不是销售属性，添加分组
+                return vo;
+            }
+
+其中获取三级分类路径的方法：
+
+            /**
+             * @param id
+             * @return
+             *
+             * 根据一个第三级的商品分类，获取其完整路径
+             * 调用方法的时CategoryService
+             *
+             */
+            
+            public Long[] getCategoryPath(Long id) {
+                Long[] pathF=new Long[3];
+                //最多三级，因此数组长度为3
+                pathF[2]=id;
+                //最后一个数就是该元素（孙子）的id
+                CategoryEntity son = categoryService.getById(id);
+                //儿子对象
+                pathF[1]=son.getParentCid();
+                //数组第二个元素为儿子的id
+                CategoryEntity father=categoryService.getById(son.getParentCid());
+                //父亲对象
+                pathF[0]=father.getParentCid();
+                //数组第一个元素为父亲的id
+                return pathF;
+                //直接返回
+            }
+
+完成功能
+
+
+=======================================================================================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+============== 商品服务VI：规格参数和销售属性的修改 =====================================================================================================================
+
+
+
+修改时，会发现无法修改参数的分组
+请求路径：
+
+            http://localhost:10100/api/product/attr/update
+
+请求体是一个完整的AttrEntity对象外加一个attrGroupId
+因此使用AttrVO_WithAttrGroupId进行接收
+
+
+
+在AttrController中：
+
+            /**
+             * @param attr
+             * @return
+             *
+             * 更新参数
+             * 同时要保存参数属性分组，即groupId
+             * 但是AttrEntity内没有attrGroupId
+             * 所以要接收AttrVO_WithAttrGroupId
+             */
+            @RequestMapping("/update")
+            @RequiresPermissions("product:attr:update")
+            public R update(@RequestBody AttrVO_WithAttrGroupId vo){
+                attrService.updateAttrWithGroupId(vo);
+        
+                return R.ok();
+            }
+
+在AttrServiceImpl中定义方法：
+
+            /**
+             *
+             * @param vo
+             *
+             * 修改参数信息，同时修改groupId
+             * 也即是不仅更新一个AttrEntity，还要更新attr对应的groupId
+             * 所以也需要用到attrAttrGroupRelationDao，调用其update方法
+             *
+             * 此外整个过程需要一同进行一同失败
+             * 因此要加上事务
+             * @Transictional
+             *
+             *
+             */
+            @Transactional
+            @Override
+            public void updateAttrWithGroupId(AttrVO_WithAttrGroupId vo) {
+                //获取AttrEntity，用于保存
+                AttrEntity attrEntity=new AttrEntity();
+                BeanUtil.copyProperties(vo,attrEntity);
+                this.updateById(attrEntity);
+        
+                //获取关系对象，并存入数据
+                Long attrGroupId=vo.getAttrGroupId();
+                Long attrId=vo.getAttrId();
+                AttrAttrgroupRelationEntity attrAttrgroupRelationEntity=new AttrAttrgroupRelationEntity();
+                attrAttrgroupRelationEntity.setAttrId(attrId);
+                attrAttrgroupRelationEntity.setAttrGroupId(attrGroupId);
+        
+                //判断，如果欲修改的id在关系表中不存在，则说明参数原本并未和任何属性进行关联，故说明该操作其实是新增关系操作
+                //若存在则为单词的修改关系操作
+                //判断关系是否存在，使用selectCount方法
+                Long count=attrAttrgroupRelationDao.selectCount(new QueryWrapper<AttrAttrgroupRelationEntity>().eq("attr_id",vo.getAttrId()));
+                if(count!=0) {
+                    //如果已存在该关系的话，修改
+                    attrAttrgroupRelationDao.update(attrAttrgroupRelationEntity, new UpdateWrapper<AttrAttrgroupRelationEntity>().eq("attr_id", attrId));
+                }
+                else {
+                    //若不存在该关系，新增
+                    attrAttrgroupRelationDao.insert(attrAttrgroupRelationEntity);
+                }
+            }
+
+测试结果也无误
+
+
+
+===========================================================================================================================================================
+
+
+
 
 

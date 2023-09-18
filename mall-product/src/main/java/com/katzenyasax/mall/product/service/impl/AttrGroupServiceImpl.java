@@ -3,6 +3,7 @@ package com.katzenyasax.mall.product.service.impl;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.katzenyasax.mall.product.entity.CategoryEntity;
 import com.katzenyasax.mall.product.service.CategoryService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +25,7 @@ import com.katzenyasax.mall.product.entity.AttrGroupEntity;
 import com.katzenyasax.mall.product.service.AttrGroupService;
 import org.w3c.dom.Attr;
 
-
+@Slf4j
 @Service("attrGroupService")
 public class AttrGroupServiceImpl extends ServiceImpl<AttrGroupDao, AttrGroupEntity> implements AttrGroupService {
 
@@ -48,16 +49,14 @@ public class AttrGroupServiceImpl extends ServiceImpl<AttrGroupDao, AttrGroupEnt
     @Override
     public PageUtils queryPage(Map<String, Object> params, Integer catelogId) {
         if(catelogId==0){
-            String key = (String) params.get("key");
+            String key=(String) params.get("key");
             QueryWrapper<AttrGroupEntity> wrapper = new QueryWrapper<AttrGroupEntity>().like("attr_group_id", key).or().like("attr_group_name", key).or().like("descript", key);
             //wrapper：sql评判标准，查找时会自动根据评判标准筛选不满足标准的对象
             IPage<AttrGroupEntity> pageFinale = this.page(new Query<AttrGroupEntity>().getPage(params), wrapper);
             return new PageUtils(pageFinale);
-            //如果catelogId为0，但是key不为空，则模糊匹配查找
         }
         else {
-            String key=(String) params.get("key");
-            QueryWrapper<AttrGroupEntity> wrapper =new QueryWrapper<AttrGroupEntity>().eq("catelog_id",catelogId).and((obj)-> obj.like("attr_group_name",key).or().like("descript",key));
+            QueryWrapper<AttrGroupEntity> wrapper =new QueryWrapper<AttrGroupEntity>().eq("catelog_id",catelogId);
             //wrapper：sql评判标准，查找时会自动根据评判标准筛选不满足标准的对象
             IPage<AttrGroupEntity> pageFinale=this.page(new Query<AttrGroupEntity>().getPage(params),wrapper);
             return new PageUtils(pageFinale);

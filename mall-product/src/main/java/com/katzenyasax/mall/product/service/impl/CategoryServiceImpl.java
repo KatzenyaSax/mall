@@ -35,6 +35,15 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     }
 
 
+    /**
+     * @return
+     *
+     *
+     * 获取商品分类
+     * 按照树形三级分类
+     *
+     *
+     */
 
     @Override
     public List<CategoryEntity> listAsTree() {
@@ -86,6 +95,20 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     public void Sort(CategoryEntity[] category) {
 
     }
+
+
+    /**
+     * @param id
+     * @return
+     *
+     * 回显分类的完整路径
+     * （专供品牌修改的数据回显）
+     *
+     *
+     * 可重复使用
+     *
+     */
+
 
     public Long[] getCategoryPath(Long id) {
         Long[] pathF=new Long[3];

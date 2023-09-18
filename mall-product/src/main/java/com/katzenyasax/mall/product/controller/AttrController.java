@@ -3,6 +3,11 @@ package com.katzenyasax.mall.product.controller;
 import java.util.Arrays;
 import java.util.Map;
 
+import com.katzenyasax.mall.product.service.AttrAttrgroupRelationService;
+import com.katzenyasax.mall.product.vo.AttrVO_WithAttrGroupId;
+import com.katzenyasax.mall.product.vo.AttrVO_WithGroupIdAndPaths;
+import com.katzenyasax.mall.product.vo.AttrVO_WithGroupNameAndCatelogName;
+import io.swagger.models.auth.In;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,7 +24,7 @@ import com.katzenyasax.common.utils.R;
 
 
 /**
- * 商品属性
+ *              所有有关参数的接口
  *
  * @author katzenyasax
  * @email a18290531268@163.com
@@ -30,6 +35,110 @@ import com.katzenyasax.common.utils.R;
 public class AttrController {
     @Autowired
     private AttrService attrService;
+
+
+
+
+    /**
+    *
+    * 获取普通的规格参数，和共用者
+    * 普通参数的主页面
+    *
+    * */
+    @RequestMapping("/base/list/{catelogId}")
+    public R baseList(@RequestParam Map<String, Object> params,@PathVariable Integer catelogId){
+        PageUtils page = attrService.queryPageBase(params,catelogId);
+        return R.ok().put("page", page);
+    }
+
+
+
+
+
+
+    /**
+     *
+     * 获取普通的销售属性，和公用者
+     * 销售属性的主页面
+     *
+     * */
+    @RequestMapping("/sale/list/{catelogId}")
+    public R saleList(@RequestParam Map<String, Object> params,@PathVariable Integer catelogId){
+        PageUtils page = attrService.queryPageSale(params,catelogId);
+        return R.ok().put("page", page);
+    }
+
+
+
+
+
+
+    /**
+     * 保存
+     * 同时实现属性和参数表的级联更新
+     */
+    @RequestMapping("/save")
+    @RequiresPermissions("product:attr:save")
+    public R save(@RequestBody AttrVO_WithAttrGroupId attr){
+        attrService.saveByAttrVO(attr);
+        return R.ok();
+    }
+
+
+
+
+
+    /**
+     * 查询参数
+     * （专供参数修改的页面）
+     * 传出的对象比AttrEntity多了Long类型的attrGroupId，和一个Long类型数组
+     * 分别表示所属属性、所属类型的完整路径
+     *
+     * 因此要使用AttrVO_WithGroupIdAndPaths
+     *
+     *
+     */
+    @RequestMapping("/info/{attrId}")
+    @RequiresPermissions("product:attr:info")
+    public R info(@PathVariable("attrId") Long attrId){
+        AttrVO_WithGroupIdAndPaths attr = attrService.getAttrWithGroupIdAndPath(attrId);
+        return R.ok().put("attr", attr);
+    }
+
+
+    /**
+     * @param attr
+     * @return
+     *
+     * 更新参数
+     * 同时要保存参数属性分组，即groupId
+     * 但是AttrEntity内没有attrGroupId
+     * 所以要接收AttrVO_WithAttrGroupId
+     */
+    @RequestMapping("/update")
+    @RequiresPermissions("product:attr:update")
+    public R update(@RequestBody AttrVO_WithAttrGroupId vo){
+        attrService.updateAttrWithGroupId(vo);
+
+        return R.ok();
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    //=================================================================
 
     /**
      * 列表
@@ -46,35 +155,35 @@ public class AttrController {
     /**
      * 信息
      */
-    @RequestMapping("/info/{attrId}")
+    /*@RequestMapping("/info/{attrId}")
     @RequiresPermissions("product:attr:info")
     public R info(@PathVariable("attrId") Long attrId){
 		AttrEntity attr = attrService.getById(attrId);
 
         return R.ok().put("attr", attr);
-    }
+    }*/
 
     /**
      * 保存
      */
-    @RequestMapping("/save")
+   /* @RequestMapping("/save")
     @RequiresPermissions("product:attr:save")
     public R save(@RequestBody AttrEntity attr){
 		attrService.save(attr);
 
         return R.ok();
-    }
+    }*/
 
     /**
      * 修改
      */
-    @RequestMapping("/update")
+    /*@RequestMapping("/update")
     @RequiresPermissions("product:attr:update")
     public R update(@RequestBody AttrEntity attr){
 		attrService.updateById(attr);
 
         return R.ok();
-    }
+    }*/
 
     /**
      * 删除
