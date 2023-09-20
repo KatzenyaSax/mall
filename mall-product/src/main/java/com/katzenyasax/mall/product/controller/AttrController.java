@@ -33,6 +33,9 @@ import com.katzenyasax.common.utils.R;
 @RestController
 @RequestMapping("product/attr")
 public class AttrController {
+
+
+
     @Autowired
     private AttrService attrService;
 

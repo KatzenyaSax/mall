@@ -30,6 +30,9 @@ springboot版本：3.1.3
 
 =================================
 
+
+
+
 ==========docker========================================================================================================
 
 I.安装
@@ -38,7 +41,7 @@ I.安装
     
             2.运行docker：
 
-                    systemctl start docker
+                    systemctl c;
 
             3.查看docker状态（注意该窗口会阻塞）：
 
@@ -69,7 +72,10 @@ II.配置docker阿里云镜像下载地址
                     }
                     EOF
                     sudo systemctl daemon-reload
-                    sudo systemctl restart docker
+
+链接： https://developer.aliyun.com/article/1245481?spm=a2c6h.14164896.0.0.1a9a47c5JPNQiV&scm=20140722.S_community@@%E6%96%87%E7%AB%A0@@1245481._.ID_1245481-RL_docker%E9%98%BF%E9%87%8C%E4%BA%91%E9%95%9C%E5%83%8F-LOC_search~UND~community~UND~item-OR_ser-V_3-P0_1mysql
+
+                    
 
 ========================================================================================================================
 
@@ -111,9 +117,9 @@ II.创建mysql实例并运行
 
 
 III.连接远程数据库
-由于本虚拟机ip地址为192.168.74.128，故远程连接时的ip地址要选用此ip
+由于本虚拟机ip地址为192.168.74.130，故远程连接时的ip地址要选用此ip
     
-            192.168.74.128:3306
+            192.168.74.130:3306
             root
             123456
 
@@ -135,23 +141,25 @@ IV.在linux用docker命令进入mysql
 
 V.在挂载文件夹写入配置文件my.cnf:
 
-            [mysqld]
-            user=mysql
-            character-set-server=utf8
-            default_authentication_plugin=mysql_native_password
-            secure_file_priv=/var/lib/mysql
-            expire_logs_days=7
-            sql_mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
-            max_connections=1000
-            ​
-            [client]
-            default-character-set=utf8
-            ​
-            [mysql]
-            default-character-set=utf8
+[mysqld]
+user=mysql
+character-set-server=utf8
+default_authentication_plugin=mysql_native_password
+secure_file_priv=/var/lib/mysql
+expire_logs_days=7
+sql_mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+max_connections=1000
+​
+[client]
+default-character-set=utf8
+​
+[mysql]
+default-character-set=utf8
 
 主要是把编码格式改为utf8
 配置过后要重启容器
+
+doc
 
 进入mysql内部后，cd /etc/mysql.d
 随后cat my.cnf就可以查看配置文件了
@@ -664,7 +672,7 @@ member:
 
                 2.2.创建网络容器
 
-                        docker network create nacos_networkne
+                        docker network create nacos_network
 
                 2.3.启动
 
@@ -672,7 +680,7 @@ member:
 
     
                   通过名为nacos_network的网络容器，在端口8848上开启了一个nacos服务器，容器模式为standable
-                  注意，虚拟机的ip地址仍为：192.168.74.128
+                  注意，虚拟机的ip地址仍为：192.168.74.130
 
                 2.4.开启鉴权
 
@@ -3735,6 +3743,262 @@ service中定义方法：
 
 
 ===========================================================================================================================================================
+
+
+
+
+
+============== 商品服务VII：属性与参数间的关联 =====================================================================================================================
+
+
+属性与参数之间的关联
+查询与一个属性进行关联的所有属性
+请求路径
+
+            http://localhost:10100/api/product/attrgroup/{attrGroupId}/noattr/relation
+
+返回值：
+
+            {
+                "msg": "success",
+                "code": 0,
+                "data": [
+                    {
+                        "attrId": 4,
+                        "attrName": "aad",
+                        "searchType": 1,
+                        "valueType": 1,
+                        "icon": "qq",
+                        "valueSelect": "v;q;w",
+                        "attrType": 1,
+                        "enable": 1,
+                        "catelogId": 225,
+                        "showDesc": 1
+                    }
+                ]
+            }
+
+注意数据的标识为data
+以属性为视角出发
+在AttrGroupController中：
+
+            /**查找和属性发生关联的所有参数
+             * 根据属性id，从关系表内获取所有与之关联的参数
+             *
+             * @param attrGroupId
+             * @return
+             *
+             *
+             *
+             */
+            @RequestMapping("/{attrGroupId}/attr/relation")
+            public R listAttrRelation(@PathVariable Integer attrGroupId){
+                List<AttrEntity> page=attrGroupService.getAttrRelatedWithGroup(attrGroupId);
+        
+                return R.ok().put("data",page);
+            }
+
+自定义方法getAttrRelatedWithGroup，标识查询与group关联的attr：
+
+            /**
+             *
+             * @param attrGroupId
+             * @return
+             *
+             * 查询所有和属性已关联的参数
+             * 通过attrGroupId
+             *
+             * 返回值为AttrEntity的List集合
+             *
+             *
+             */
+            @Override
+            public List<AttrEntity> getAttrRelatedWithGroup(Integer attrGroupId) {
+                //思路是，先在关系表中查询所有相关对象relations，封装
+                // 再遍历relations遍历获取attrId，不需要封装，直接在遍历中就获取attr集合封装
+                
+                List<AttrAttrgroupRelationEntity> relations=attrAttrgroupRelationDao.selectList(new QueryWrapper<AttrAttrgroupRelationEntity>().eq("attr_group_id",attrGroupId));
+                //获取了所有的关系对象
+                List<AttrEntity> attrS=new ArrayList<>();
+                for(AttrAttrgroupRelationEntity entity:relations){
+                    attrS.add(attrDao.selectById(entity.getAttrId()));
+                }
+                //获取了所有的attrIds
+                
+                return attrS;
+            }
+
+完成功能
+
+
+
+===================================================================================================================================================================================================
+
+
+
+
+
+
+
+
+============== 商品服务VII：查询与属性未关联的参数 =====================================================================================================================
+
+
+请求路径：
+
+            http://localhost:10100/api/product/attrgroup/{attrGroupId}/noattr/relation
+
+发出请求后，返回与该attrGroupId未关联的所有参数
+
+AttrGroupController：
+
+            /**查找和属性未发生关联的所有参数
+             * 根据属性id，从关系表内获取所有未与之关联的参数
+             *
+             * @param attrGroupId
+             * @return R
+             *
+             */
+            @RequestMapping("{attrGroupId}/noattr/relation")
+            public R listAttrNOTRelation(@RequestParam Map<String, Object> params,@PathVariable Integer attrGroupId){
+                PageUtils page=attrGroupService.getAttrRelatedNOTWithGroup(params,attrGroupId);
+                return R.ok().put("page",page);
+            }
+
+自定义方法getAttrRelatedNOTWithGroup：
+
+            /**
+             *
+             * @param attrGroupId
+             * @return
+             *
+             * 查询所有和属性未发生关联关联的参数
+             *
+             * 专供属性的新增关联界面
+             *
+             * 返回值为AttrEntity的Page集合
+             *
+             *
+             */
+            @Override
+            public PageUtils getAttrRelatedNOTWithGroup(@RequestParam Map<String, Object> params,Integer attrGroupId) {
+                //首先得到groupEntity，别问先做
+                //思路是，先用关系的dao，获取所有与groupId关联的关系对象，封装为relations
+                //遍历关系对象的集合，attrId，封装成集合List
+                //然后直接使用attrDao，根据param直接获取所有参数，这些参数的catelogId要和groupEntity的catelogId一致
+                //在所有参数中剔除attrId在集合List内的参数，就得到了所有未关联的参数
+                //0.获取该groupId对应的group实体
+                AttrGroupEntity groupEntity=this.getById(attrGroupId);
+                //1.获取所有与groupId关联的关系对象
+                List<AttrAttrgroupRelationEntity> relations=attrAttrgroupRelationDao.selectList(new QueryWrapper<AttrAttrgroupRelationEntity>().eq("attr_group_id",attrGroupId));
+                //2.封装attrId
+                List<Long> attrIds=new ArrayList<>();
+                for(AttrAttrgroupRelationEntity entity:relations){
+                    attrIds.add(entity.getAttrId());
+                }
+                //3.获取全部参数，前提是要处于同一分类
+                //4.剔除处于attrIds的所有attrId，
+                // 但是要获取的是一个wrapper，也即是一个方案，后面直接根据该方案查询参数
+                QueryWrapper<AttrEntity> wrapper=new QueryWrapper<AttrEntity>().eq("catelog_id",groupEntity.getCatelogId()).notIn("attr_id",attrIds);
+                //4.1如果有模糊关键字key，还有匹配模糊搜索
+                String key=(String) params.get("key");
+                if(!StringUtils.isEmpty(key)){
+                    wrapper.and((obj)->{obj.like("attr_id",key).or().like("attr_name",key);});
+                }
+                //5.根据params和wrapper，获取page对象
+                IPage page=attrDao.selectPage(new Query<AttrEntity>().getPage(params),wrapper);
+                PageUtils finale=new PageUtils(page);
+                return finale;
+            }
+
+结果是可以查询得到
+
+============================================================================================================================================================================================
+
+
+
+
+
+
+
+
+============== 商品服务VII：新增属性与参数的关联 =====================================================================================================================
+
+
+查询是可以查询了，但是没法新增
+
+请求路径：
+
+            http://localhost:10100/api/product/attrgroup/attr/relation
+
+请求参数：
+
+            [{attrId: 9, attrGroupId: 1}, {attrId: 10, attrGroupId: 1}]
+
+是一个实体的集合
+可以直接使用AttrAttrGroupRelation对象接收数据
+但是最好定义一个完全相同的vo进行接收，AttrAttrGroupVO_JustReceiveData：
+
+            @Data
+            public class AttrAttrGroupVO_JustReceiveData {
+                private static final long serialVersionUID = 1L;
+                @TableId
+                private Long id;
+                private Long attrId;
+                private Long attrGroupId;
+                private Integer attrSort;
+            }
+    
+AttrGroupController:
+
+            /**
+             *
+             * @param vos
+             * @return
+             *
+             *
+             * 接收AttrAttrGroupVO_JustReceiveData
+             * 根据其中的数据增加属性和参数的关系
+             *
+             *
+             */
+        
+            @RequestMapping("attr/relation")
+            public R addRelation(@RequestBody List<AttrAttrGroupVO_JustReceiveData> vos){
+                attrGroupService.addRelation(vos);
+                return R.ok();
+            }
+
+自定义方法addRelation：
+
+            /**
+             *
+             * @param vos
+             *
+             * 接收的是vo的集合
+             * 根据vo的集合内数据新增属性和参数关系
+             *
+             * 因此注入了attrAttrGroupRelationDao
+             *
+             */
+        
+            @Override
+            public void addRelation(List<AttrAttrGroupVO_JustReceiveData> vos) {
+                //思路是，遍历vos，创建关系对象传入每个vo的数据
+                //将每个数据根据关系的dao，进行存入
+                for(AttrAttrGroupVO_JustReceiveData vo:vos){
+                    AttrAttrgroupRelationEntity relation=new AttrAttrgroupRelationEntity();
+                    BeanUtils.copyProperties(vo,relation);
+                    attrAttrgroupRelationDao.insert(relation);
+                }
+            }
+
+            
+可以了
+
+======================================================================================================
+
+
 
 
 

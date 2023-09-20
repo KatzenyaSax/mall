@@ -1,9 +1,14 @@
 package com.katzenyasax.mall.product.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.katzenyasax.common.utils.PageUtils;
+import com.katzenyasax.mall.product.entity.AttrEntity;
 import com.katzenyasax.mall.product.entity.AttrGroupEntity;
+import com.katzenyasax.mall.product.vo.AttrAttrGroupVO_JustReceiveData;
+import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -18,8 +23,14 @@ public interface AttrGroupService extends IService<AttrGroupEntity> {
     PageUtils queryPage(Map<String, Object> params);
 
 
-    PageUtils queryPage(Map<String, Object> params,Integer groupId);
+    PageUtils getGroupWithId(Map<String, Object> params,Integer groupId);
 
     Long[] getPath(Long categoryId);
+
+    List<AttrEntity> getAttrRelatedWithGroup(Integer attrGroupId);
+
+    PageUtils getAttrRelatedNOTWithGroup(@RequestParam Map<String, Object> params,Integer attrGroupId);
+
+    void addRelation(List<AttrAttrGroupVO_JustReceiveData> vos);
 }
 

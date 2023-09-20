@@ -4,11 +4,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.katzenyasax.mall.product.dao.AttrAttrgroupRelationDao;
 import com.katzenyasax.mall.product.entity.AttrAttrgroupRelationEntity;
+import com.katzenyasax.mall.product.entity.AttrEntity;
 import com.katzenyasax.mall.product.service.AttrAttrgroupRelationService;
 import com.katzenyasax.mall.product.service.CategoryService;
 import com.katzenyasax.mall.product.service.impl.AttrAttrgroupRelationServiceImpl;
+import com.katzenyasax.mall.product.vo.AttrAttrGroupVO_JustReceiveData;
 import io.swagger.models.auth.In;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -44,11 +47,53 @@ public class AttrGroupController {
     private AttrAttrgroupRelationDao attrAttrgroupRelationDao;
 
 
+    /**
+     * 信息
+     *
+     *
+     * 修改数据回显信息
+     * 包括该分组的完整路径
+     *
+     */
+    @RequestMapping("/info/{attrGroupId}")
+    @RequiresPermissions("product:attrgroup:info")
+    public R info(@PathVariable("attrGroupId") Long attrGroupId){
+        AttrGroupEntity attrGroup = attrGroupService.getById(attrGroupId);
 
-    //列出属性分组
+        Long attrGroupCatelogId=attrGroup.getCatelogId();
+        //先获取分组id
+        Long[] path=categoryService.getCategoryPath(attrGroupCatelogId);
+        //再获取完整路径
+        attrGroup.setPath(path);
+        //设置回显路径
+
+
+        return R.ok().put("attrGroup", attrGroup);
+    }
+
+
+
+
+
+
+
+
+    /**
+     *
+     * @param params
+     * @param attrgroup
+     * @return
+     *
+     * 查找属性
+     * 如果attrgroup为0则默认查找全部
+     * 如果不为0则查找对应attrGroupId的属性
+     *
+     *
+     *
+     */
     @RequestMapping("list/{attrgroup}")
     public R listAttrGroup(@RequestParam Map<String, Object> params,@PathVariable Integer attrgroup){
-        PageUtils page=attrGroupService.queryPage(params,attrgroup);
+        PageUtils page=attrGroupService.getGroupWithId(params,attrgroup);
         return R.ok().put("page",page);
     }
 
@@ -57,12 +102,25 @@ public class AttrGroupController {
 
 
 
-    //查找属性和参数级联
-    @RequestMapping("/{attrgroupId}/attr/relation")
-    public R listAttrRelation(@PathVariable Integer attrgroupId){
 
 
-        return null;
+
+
+
+    /**查找和属性发生关联的所有参数
+     * 根据属性id，从关系表内获取所有与之关联的参数
+     *
+     * 专供属性关联界面
+     *
+     * @param attrGroupId
+     * @return R
+     *
+     */
+    @RequestMapping("/{attrGroupId}/attr/relation")
+    public R listAttrRelation(@PathVariable Integer attrGroupId){
+        List<AttrEntity> page=attrGroupService.getAttrRelatedWithGroup(attrGroupId);
+
+        return R.ok().put("data",page);
     }
 
 
@@ -73,6 +131,60 @@ public class AttrGroupController {
 
 
 
+
+    /**查找和属性未发生关联的所有参数
+     * 根据属性id，从关系表内获取所有未与之关联的参数
+     *
+     * 专供属性关联界面
+     *
+     * @param attrGroupId
+     * @return R
+     *
+     */
+    @RequestMapping("{attrGroupId}/noattr/relation")
+    public R listAttrNOTRelation(@RequestParam Map<String, Object> params,@PathVariable Integer attrGroupId){
+        PageUtils page=attrGroupService.getAttrRelatedNOTWithGroup(params,attrGroupId);
+
+        return R.ok().put("page",page);
+    }
+
+
+    /**
+     *
+     * @param vos
+     * @return
+     *
+     *
+     * 接收AttrAttrGroupVO_JustReceiveData
+     * 根据其中的数据增加属性和参数的关系
+     *
+     *
+     */
+
+    @RequestMapping("attr/relation")
+    public R addRelation(@RequestBody List<AttrAttrGroupVO_JustReceiveData> vos){
+        attrGroupService.addRelation(vos);
+        return R.ok();
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    //====================================================================================================
 
 
     /**
@@ -87,29 +199,7 @@ public class AttrGroupController {
     }
 
 
-    /**
-     * 信息
-     *
-     *
-     * 修改数据回显信息
-     * 包括该分组的完整路径
-     *
-     */
-    @RequestMapping("/info/{attrGroupId}")
-    @RequiresPermissions("product:attrgroup:info")
-    public R info(@PathVariable("attrGroupId") Long attrGroupId){
-		AttrGroupEntity attrGroup = attrGroupService.getById(attrGroupId);
 
-        Long attrGroupCatelogId=attrGroup.getCatelogId();
-        //先获取分组id
-        Long[] path=categoryService.getCategoryPath(attrGroupCatelogId);
-        //再获取完整路径
-        attrGroup.setPath(path);
-        //设置回显路径
-
-
-        return R.ok().put("attrGroup", attrGroup);
-    }
 
     /**
      * 保存
