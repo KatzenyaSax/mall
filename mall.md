@@ -4032,27 +4032,362 @@ AttrGroupController:
 
 
 
-============== 用户服务VIII：查询用户等级信息 =====================================================================================================================
+============== 商品维护I：用户等级信息 =================================
 
+商品维护/发布商品，进入该页面时发出请求：
 
-在商品维护、
+            /member/memberlevel/list
 
+用于获取所有用户的等级信息
 
-
-
-
-
-
-
-
+该方法定义于member模块
+其中mybatis plus已生成了简单方法，可以直接进行简单的增删改查
 
 
 
 
+=========================================================================
 
 
 
 
+
+
+
+
+
+============== 商品维护II：发布商品/基本信息，查询与分类绑定的所有品牌 ==========================================================================================================================
+
+
+发布商品的第一个页面，选择商品分类后，会发出请求：
+
+            /product/categorybrandrelation/brands/list
+
+属于商品模块的分类和品牌的关系
+请求参数：
+
+            {
+                "catId":
+            }
+
+响应：
+
+            {
+            	"msg": "success",
+            	"code": 0,
+            	"data": [{
+            		"brandId": 0,
+            		"brandName": "string",
+            	}]
+            }
+
+返回的是品牌的id和名称，相比起BrandEntity来说，只需要id和name
+因此定义一个vo，专门用于返回数据：
+
+            @Data
+            public class BrandVO_OnlyIdAndName {
+                private Long brandId;
+                private String name;
+            }
+
+在product模块的CategoryBrandRelationController：
+
+            /**
+             *
+             * @param catelogId
+             * @return
+             *
+             * 通过catelogId，获取所有与之相关的分类与品牌的关系对象
+             * 并封装为List返回前端
+             *
+             *
+             */
+            @GetMapping(value = "/brands/list")
+            public R listBrand(@RequestParam("catId")Long catelogId){
+                List<BrandVO_OnlyIdAndName> data=categoryBrandRelationService.selectBrandsThatRelatedWithCatelogId(catelogId);
+                return R.ok().put("data",data);
+            }
+
+自定义方法selectBrandsThatRelatedWithCatelog，搜索与catelog关联的所有Brand：
+
+            /**
+             *
+             * @param catelogId
+             * @return
+             *
+             * 通过一个catelogId，查询所有与之关联的brand
+             * 需要用到分类和品牌的dao，也就是本家的dao
+             *
+             *
+             */
+            @Override
+            public List<BrandVO_OnlyIdAndName> selectBrandsThatRelatedWithCatelogId(Long catelogId) {
+                //思路是，先从关系表中查询所有与catelogId关联的关系对象，封装为关系对象的集合
+                //随后遍历集合，每次遍历都拿取id和name封装至vo，加入返回值的集合finale
+                List<CategoryBrandRelationEntity> relations=categoryBrandRelationDao.selectList(new QueryWrapper<CategoryBrandRelationEntity>().eq("catelog_id",catelogId));
+                List<BrandVO_OnlyIdAndName> finale=new ArrayList<>();
+                for(CategoryBrandRelationEntity entity:relations){
+                    Long id=entity.getBrandId();
+                    String name=entity.getBrandName();
+                    BrandVO_OnlyIdAndName vo=new BrandVO_OnlyIdAndName();
+                    vo.setBrandId(id);
+                    vo.setBrandName(name);
+                    finale.add(vo);
+                }
+                return finale;
+            }
+
+结果是可以成功查询
+
+==================================================================================================================================================================================================
+
+
+
+
+
+
+============== 商品维护II：发布商品/基本信息，查询与分类绑定的所有品牌 ==========================================================================================================================
+
+
+请求路径：
+
+            /product/categorybrandrelation/catelog/list
+
+是在分类和品牌的关系dao下进行的
+请求参数：一个brandId，
+响应：
+
+            {
+            	"msg": "success",
+            	"code": 0,
+            	"data": [{
+            		"catelogId": 0,
+            		"catelogName": "string",
+            	}]
+            }
+
+一个Category实体的id和name
+定义vo：
+
+            @Data
+            public class CategoryVO_OnlyIdAndName {
+                Long catelogId;
+                String catelogName;
+            }
+
+CatelgoryBrandRelationController中：
+
+             /**
+             *
+             * @param brandId
+             * @return
+             *
+             * 通过catelogId，获取所有与之相关的分类与品牌的关系对象
+             * 并封装为List返回前端
+             *
+             *
+             */
+            @GetMapping(value = "/brands/list")
+            public R listCatelog(@RequestParam("brandId")Long brandId){
+                List<BrandVO_OnlyIdAndName> data=categoryBrandRelationService.selectCategoriesThatRelatedWithBrand(brandId);
+                return R.ok().put("data",data);
+            }
+
+自定义方法：selectCategoriesThatRelatedWithBrand:
+
+            /**
+             *
+             * @param brandId
+             * @return
+             *
+             * 通过一个brandId，查询所有与之关联的category
+             * 需要用到分类和品牌的dao，也就是本家的dao
+             *
+             *
+             *
+             *
+             *
+             *
+             */
+            @Override
+            public List<CategoryVO_OnlyIdAndName> selectCategoriesThatRelatedWithBrand(Long brandId) {
+                //思路查询brand的一模一样
+                List<CategoryBrandRelationEntity> relations=categoryBrandRelationDao.selectList(new QueryWrapper<CategoryBrandRelationEntity>().eq("brand0_id",brandId));
+                List<CategoryVO_OnlyIdAndName> finale=new ArrayList<>();
+                for(CategoryBrandRelationEntity entity:relations){
+                    Long id=entity.getBrandId();
+                    String name=entity.getBrandName();
+                    CategoryVO_OnlyIdAndName vo=new CategoryVO_OnlyIdAndName();
+                    vo.setCatelogId(id);
+                    vo.setCatelogName(name);
+                    finale.add(vo);
+                }
+                return finale;
+            }
+
+
+==========================================================================================================================================================================================
+
+
+
+
+
+============== 商品维护II：发布商品/基本信息，查询与分类绑定的所有品牌和属性 ==========================================================================================================================
+
+
+在发布商品的第二个页面，选择好商品基本信息后，会发出请求：
+
+            /product/attrgroup/{catelogId}/withattr
+
+属于attrGroup下面
+根据一个catelogId获取与之关联的所有属性和参数
+
+响应：
+
+            {
+            	"msg": "success",
+            	"code": 0,
+            	"data": [{
+            		"attrGroupId": 1,
+            		"attrGroupName": "主体",
+            		"sort": 0,
+            		"descript": "主体",
+            		"icon": "dd",
+            		"catelogId": 225,
+            		"attrs": [{
+            			"attrId": 7,
+            			"attrName": "入网型号",
+            			"searchType": 1,
+            			"valueType": 0,
+            			"icon": "xxx",
+            			"valueSelect": "aaa;bb",
+            			"attrType": 1,
+            			"enable": 1,
+            			"catelogId": 225,
+            			"showDesc": 1,
+            			"attrGroupId": null
+            			}, {
+            			"attrId": 8,
+            			"attrName": "上市年份",
+            			"searchType": 0,
+            			"valueType": 0,
+            			"icon": "xxx",
+            			"valueSelect": "2018;2019",
+            			"attrType": 1,
+            			"enable": 1,
+            			"catelogId": 225,
+            			"showDesc": 0,
+            			"attrGroupId": null
+            			}]
+            		},
+            		{
+            		"attrGroupId": 2,
+            		"attrGroupName": "基本信息",
+            		"sort": 0,
+            		"descript": "基本信息",
+            		"icon": "xx",
+            		"catelogId": 225,
+            		"attrs": [{
+            			"attrId": 11,
+            			"attrName": "机身颜色",
+            			"searchType": 0,
+            			"valueType": 0,
+            			"icon": "xxx",
+            			"valueSelect": "黑色;白色",
+            			"attrType": 1,
+            			"enable": 1,
+            			"catelogId": 225,
+            			"showDesc": 1,
+            			"attrGroupId": null
+            		}]
+            	}]
+            }
+
+
+返回的是groupEntity的集合，但是其中包含了参数的集合
+因此定义VO：
+
+            @Data
+            public class AttrGroupVO_WithAttrs {
+            private static final long serialVersionUID = 1L;
+                @TableId
+                private Long attrGroupId;
+                private String attrGroupName;
+                private Integer sort;
+                private String descript;
+                private String icon;
+                private Long catelogId;
+            
+                private List<AttrEntity> attrs;
+            }
+
+多了一个AttrEntity的集合
+返回值就是这个VO的集合
+
+
+
+在AttrGroupController中：
+
+            /**
+             * 
+             * @param catelogId
+             * @return
+             * 
+             * 根据catelogId，获取对应的属性，和属性对应的参数
+             * 
+             * 返回值为一个vo
+             * 
+             */
+        
+            @RequestMapping("{catelogId}/withattr")
+            public R listAttrGroupsAndAttrs(@PathVariable Long catelogId){
+                List<AttrGroupVO_WithAttrs> finale=attrGroupService.getAttrGroupWithsAttrs(catelogId);
+                return R.ok().put("data",finale);
+            }
+
+自定义方法getAttrGroupWithAttrs：
+
+            /**
+             *
+             * @param catelogId
+             * @return
+             *
+             * 根据catelogId，查询所有与之关联的属性和参数
+             *
+             * 返回值格式上，属性属于一级
+             * 参数属于二级，且该参数必须属于该属性
+             *
+             * 需要本家的dao
+             * 和attr的dao
+             *
+             */
+            @Override
+            public List<AttrGroupVO_WithAttrs> getAttrGroupWithsAttrs(Long catelogId) {
+                //先获取对应的groupEntity
+                List<AttrGroupEntity> attrGroupEntities=attrGroupDao.selectList(new QueryWrapper<AttrGroupEntity>().eq("catelog_id",catelogId));
+                //最终返回值
+                List<AttrGroupVO_WithAttrs> finale=new ArrayList<>();
+                //遍历属性集合
+                for(AttrGroupEntity groupEntity:attrGroupEntities){
+                    AttrGroupVO_WithAttrs vo=new AttrGroupVO_WithAttrs();
+                    BeanUtils.copyProperties(groupEntity,vo);
+                    //复制基础参数
+                    Long groupId=vo.getAttrGroupId();
+                    List<AttrAttrgroupRelationEntity> relationEntities=attrAttrgroupRelationDao.selectList(new QueryWrapper<AttrAttrgroupRelationEntity>().eq("attr_group_id",groupId));
+                    //获取了与groupId对应的关系对象集合
+                    List<AttrEntity> attrEntities=new ArrayList<>();
+                    for(AttrAttrgroupRelationEntity entity:relationEntities){
+                        Long attrId=entity.getAttrId();
+                        attrEntities.add(attrDao.selectById(attrId));
+                    }
+                    vo.setAttrs(attrEntities);
+                    //设置参数
+                    finale.add(vo);
+                }
+                return finale;
+            }
+
+结果正确
 
 
 

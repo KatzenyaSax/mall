@@ -12,6 +12,7 @@ import com.katzenyasax.mall.product.service.AttrAttrgroupRelationService;
 import com.katzenyasax.mall.product.service.CategoryService;
 import com.katzenyasax.mall.product.service.impl.AttrAttrgroupRelationServiceImpl;
 import com.katzenyasax.mall.product.vo.AttrAttrGroupVO_JustReceiveData;
+import com.katzenyasax.mall.product.vo.AttrGroupVO_WithAttrs;
 import io.swagger.models.auth.In;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -160,7 +161,6 @@ public class AttrGroupController {
      *
      *
      */
-
     @RequestMapping("attr/relation")
     public R addRelation(@RequestBody List<AttrAttrGroupVO_JustReceiveData> vos){
         attrGroupService.addRelation(vos);
@@ -168,10 +168,22 @@ public class AttrGroupController {
     }
 
 
+    /**
+     *
+     * @param catelogId
+     * @return
+     *
+     * 根据catelogId，获取对应的属性，和属性对应的参数
+     *
+     * 返回值为一个vo
+     *
+     */
 
-
-
-
+    @RequestMapping("{catelogId}/withattr")
+    public R listAttrGroupsAndAttrs(@PathVariable Long catelogId){
+        List<AttrGroupVO_WithAttrs> finale=attrGroupService.getAttrGroupWithsAttrs(catelogId);
+        return R.ok().put("data",finale);
+    }
 
 
 

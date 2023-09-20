@@ -6,6 +6,7 @@ import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.mall.product.entity.AttrEntity;
 import com.katzenyasax.mall.product.entity.AttrGroupEntity;
 import com.katzenyasax.mall.product.vo.AttrAttrGroupVO_JustReceiveData;
+import com.katzenyasax.mall.product.vo.AttrGroupVO_WithAttrs;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
@@ -32,5 +33,7 @@ public interface AttrGroupService extends IService<AttrGroupEntity> {
     PageUtils getAttrRelatedNOTWithGroup(@RequestParam Map<String, Object> params,Integer attrGroupId);
 
     void addRelation(List<AttrAttrGroupVO_JustReceiveData> vos);
+
+    List<AttrGroupVO_WithAttrs> getAttrGroupWithsAttrs(Long catelogId);
 }
 

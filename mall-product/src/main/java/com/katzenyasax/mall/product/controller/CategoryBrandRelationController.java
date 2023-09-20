@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.katzenyasax.mall.product.vo.BrandVO_OnlyIdAndName;
+import com.katzenyasax.mall.product.vo.CategoryVO_OnlyIdAndName;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,8 +34,16 @@ public class CategoryBrandRelationController {
     private CategoryBrandRelationService categoryBrandRelationService;
 
 
-
-    //获取商品关联
+    /**
+     *
+     * @param brandId
+     * @return
+     *
+     * 通过brandId，获取所有与之相关的分类与品牌的关系对象
+     * 并封装为List返回前端
+     *
+     *
+     */
     @GetMapping(value = "/catelog/list")
     public R listCatelog(@RequestParam("brandId")int brandId){
         log.info("brandId: "+String.valueOf(brandId));
@@ -47,7 +57,16 @@ public class CategoryBrandRelationController {
 
 
 
-    //获取品牌关联
+    /**
+     *
+     * @param catelogId
+     * @return
+     *
+     * 通过catelogId，获取所有与之相关的分类与品牌的关系对象
+     * 并封装为List返回前端
+     *
+     *
+     */
     @GetMapping(value = "/brand/list")
     public R lisBrand(@RequestParam("catelogId")int catelogId){
         List<CategoryBrandRelationEntity> data=categoryBrandRelationService.list(
@@ -62,10 +81,32 @@ public class CategoryBrandRelationController {
 
 
 
+    /**
+     *
+     * @param catelogId
+     * @return
+     *
+     * 通过catelogId，获取所有与之相关的分类与品牌的关系对象
+     * 并封装为List返回前端
+     *
+     *
+     */
+    @GetMapping(value = "/brands/list")
+    public R listBrand(@RequestParam("catId")Long catelogId){
+        List<BrandVO_OnlyIdAndName> data=categoryBrandRelationService.selectBrandsThatRelatedWithCatelogId(catelogId);
+        return R.ok().put("data",data);
+    }
 
 
 
 
+
+
+
+
+
+
+//=====================================================================================================
 
 
 

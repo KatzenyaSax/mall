@@ -28,6 +28,14 @@ spring:
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
+
+        - id: product-route
+          uri: http://localhost:6600
+          predicates:
+            - Path= /api/member/**
+          filters:
+            - RewritePath=/api/(?<segment>/?.*),/$\{segment}
+
         - id: oss-policy
           uri: http://localhost:10200
           predicates:

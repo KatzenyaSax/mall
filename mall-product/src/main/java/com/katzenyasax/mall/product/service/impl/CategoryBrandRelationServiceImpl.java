@@ -5,10 +5,14 @@ import com.katzenyasax.mall.product.dao.CategoryDao;
 import com.katzenyasax.mall.product.entity.CategoryEntity;
 import com.katzenyasax.mall.product.service.BrandService;
 import com.katzenyasax.mall.product.service.CategoryService;
+import com.katzenyasax.mall.product.vo.BrandVO_OnlyIdAndName;
+import com.katzenyasax.mall.product.vo.CategoryVO_OnlyIdAndName;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -28,6 +32,25 @@ import com.katzenyasax.mall.product.service.CategoryBrandRelationService;
 @Service("categoryBrandRelationService")
 public class CategoryBrandRelationServiceImpl extends ServiceImpl<CategoryBrandRelationDao, CategoryBrandRelationEntity> implements CategoryBrandRelationService {
 
+    @Autowired
+    BrandDao brandDao;
+    @Autowired
+    CategoryDao categoryDao;
+
+
+    @Autowired
+    CategoryBrandRelationDao categoryBrandRelationDao;
+
+
+    /**
+     *
+     * @param params
+     * @return
+     *
+     * mybatis plus自动生成的方法
+     * 获取所有关系对象
+     *
+     */
     @Override
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<CategoryBrandRelationEntity> page = this.page(
@@ -48,10 +71,6 @@ public class CategoryBrandRelationServiceImpl extends ServiceImpl<CategoryBrandR
 
     //先要获取brandId和catelogId对应的name：
     //所以需要调用BrandService和CategoryService
-    @Autowired
-    BrandDao brandDao;
-    @Autowired
-    CategoryDao categoryDao;
     @Override
     public void saveName(CategoryBrandRelationEntity categoryBrandRelation) {
         //获取了name
@@ -73,8 +92,81 @@ public class CategoryBrandRelationServiceImpl extends ServiceImpl<CategoryBrandR
 
 
 
+    /**
+     *
+     * @param catelogId
+     * @return
+     *
+     * 通过一个catelogId，查询所有与之关联的brand
+     * 需要用到分类和品牌的dao，也就是本家的dao
+     *
+     */
+    @Override
+    public List<BrandVO_OnlyIdAndName> selectBrandsThatRelatedWithCatelogId(Long catelogId) {
+        //思路是，先从关系表中查询所有与catelogId关联的关系对象，封装为关系对象的集合
+        //随后遍历集合，每次遍历都拿取id和name封装至vo，加入返回值的集合finale
+        List<CategoryBrandRelationEntity> relations=categoryBrandRelationDao.selectList(new QueryWrapper<CategoryBrandRelationEntity>().eq("catelog_id",catelogId));
+        List<BrandVO_OnlyIdAndName> finale=new ArrayList<>();
+        for(CategoryBrandRelationEntity entity:relations){
+            Long id=entity.getBrandId();
+            String name=entity.getBrandName();
+            BrandVO_OnlyIdAndName vo=new BrandVO_OnlyIdAndName();
+            vo.setBrandId(id);
+            vo.setBrandName(name);
+            finale.add(vo);
+        }
+        return finale;
+    }
 
-   /**
+
+
+
+
+
+
+
+    /**
+     *
+     * @param brandId
+     * @return
+     *
+     * 通过一个brandId，查询所有与之关联的category
+     * 需要用到分类和品牌的dao，也就是本家的dao
+     *
+     *
+     *
+     *
+     *
+     *
+     */
+    @Override
+    public List<CategoryVO_OnlyIdAndName> selectCategoriesThatRelatedWithBrand(Long brandId) {
+        //思路查询brand的一模一样
+        List<CategoryBrandRelationEntity> relations=categoryBrandRelationDao.selectList(new QueryWrapper<CategoryBrandRelationEntity>().eq("brand0_id",brandId));
+        List<CategoryVO_OnlyIdAndName> finale=new ArrayList<>();
+        for(CategoryBrandRelationEntity entity:relations){
+            Long id=entity.getBrandId();
+            String name=entity.getBrandName();
+            CategoryVO_OnlyIdAndName vo=new CategoryVO_OnlyIdAndName();
+            vo.setCatelogId(id);
+            vo.setCatelogName(name);
+            finale.add(vo);
+        }
+        return finale;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+    /**
    *
     *
     *   数据一致性问题的解决

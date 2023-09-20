@@ -3,7 +3,10 @@ package com.katzenyasax.mall.product.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.mall.product.entity.CategoryBrandRelationEntity;
+import com.katzenyasax.mall.product.vo.BrandVO_OnlyIdAndName;
+import com.katzenyasax.mall.product.vo.CategoryVO_OnlyIdAndName;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -18,5 +21,9 @@ public interface CategoryBrandRelationService extends IService<CategoryBrandRela
     PageUtils queryPage(Map<String, Object> params);
 
     void saveName(CategoryBrandRelationEntity categoryBrandRelation);
+
+    List<BrandVO_OnlyIdAndName> selectBrandsThatRelatedWithCatelogId(Long catelogId);
+
+    List<CategoryVO_OnlyIdAndName> selectCategoriesThatRelatedWithBrand(Long brandId);
 }
 

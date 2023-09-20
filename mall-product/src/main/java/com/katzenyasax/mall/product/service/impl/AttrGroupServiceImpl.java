@@ -9,6 +9,7 @@ import com.katzenyasax.mall.product.entity.AttrEntity;
 import com.katzenyasax.mall.product.entity.CategoryEntity;
 import com.katzenyasax.mall.product.service.CategoryService;
 import com.katzenyasax.mall.product.vo.AttrAttrGroupVO_JustReceiveData;
+import com.katzenyasax.mall.product.vo.AttrGroupVO_WithAttrs;
 import io.netty.util.internal.StringUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -44,6 +45,9 @@ public class AttrGroupServiceImpl extends ServiceImpl<AttrGroupDao, AttrGroupEnt
 
     @Autowired
     private AttrDao attrDao;
+
+    @Autowired
+    private AttrGroupDao attrGroupDao;
 
 
     /**
@@ -224,6 +228,52 @@ public class AttrGroupServiceImpl extends ServiceImpl<AttrGroupDao, AttrGroupEnt
             BeanUtils.copyProperties(vo,relation);
             attrAttrgroupRelationDao.insert(relation);
         }
+    }
+
+
+
+
+
+
+
+    /**
+     *
+     * @param catelogId
+     * @return
+     *
+     * 根据catelogId，查询所有与之关联的属性和参数
+     *
+     * 返回值格式上，属性属于一级
+     * 参数属于二级，且该参数必须属于该属性
+     *
+     * 需要本家的dao
+     * 和attr的dao
+     *
+     */
+    @Override
+    public List<AttrGroupVO_WithAttrs> getAttrGroupWithsAttrs(Long catelogId) {
+        //先获取对应的groupEntity
+        List<AttrGroupEntity> attrGroupEntities=attrGroupDao.selectList(new QueryWrapper<AttrGroupEntity>().eq("catelog_id",catelogId));
+        //最终返回值
+        List<AttrGroupVO_WithAttrs> finale=new ArrayList<>();
+        //遍历属性集合
+        for(AttrGroupEntity groupEntity:attrGroupEntities){
+            AttrGroupVO_WithAttrs vo=new AttrGroupVO_WithAttrs();
+            BeanUtils.copyProperties(groupEntity,vo);
+            //复制基础参数
+            Long groupId=vo.getAttrGroupId();
+            List<AttrAttrgroupRelationEntity> relationEntities=attrAttrgroupRelationDao.selectList(new QueryWrapper<AttrAttrgroupRelationEntity>().eq("attr_group_id",groupId));
+            //获取了与groupId对应的关系对象集合
+            List<AttrEntity> attrEntities=new ArrayList<>();
+            for(AttrAttrgroupRelationEntity entity:relationEntities){
+                Long attrId=entity.getAttrId();
+                attrEntities.add(attrDao.selectById(attrId));
+            }
+            vo.setAttrs(attrEntities);
+            //设置参数
+            finale.add(vo);
+        }
+        return finale;
     }
 
 
