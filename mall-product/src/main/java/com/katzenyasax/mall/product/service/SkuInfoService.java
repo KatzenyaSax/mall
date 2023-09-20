@@ -3,6 +3,7 @@ package com.katzenyasax.mall.product.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.mall.product.entity.SkuInfoEntity;
+import com.katzenyasax.mall.product.vo.spu.SpuSaveVO;
 
 import java.util.Map;
 
@@ -16,5 +17,7 @@ import java.util.Map;
 public interface SkuInfoService extends IService<SkuInfoEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
+
+    void saveSpuVo(SpuSaveVO vo);
 }
 
