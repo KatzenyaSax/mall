@@ -1,6 +1,7 @@
 package com.katzenyasax.mall.product.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import com.aliyuncs.utils.StringUtils;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.katzenyasax.common.constant.ProductConstant;
 import com.katzenyasax.mall.product.dao.AttrAttrgroupRelationDao;
@@ -14,7 +15,9 @@ import com.katzenyasax.mall.product.service.CategoryService;
 import com.katzenyasax.mall.product.vo.AttrVO_WithAttrGroupId;
 import com.katzenyasax.mall.product.vo.AttrVO_WithGroupIdAndPaths;
 import com.katzenyasax.mall.product.vo.AttrVO_WithGroupNameAndCatelogName;
+import io.netty.util.internal.StringUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -96,10 +99,13 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
     public PageUtils queryPageBase(Map<String, Object> params, Integer catelogId) {
         QueryWrapper<AttrEntity> wrapper=new QueryWrapper<AttrEntity>().and(obj0->obj0.eq(
                 "attr_type",ProductConstant.AttrEnum.ATTR_TYPE_BASE.getCode()).or().eq(
-                "attr_type",ProductConstant.AttrEnum.ATTR_TYPE_BOTH.getCode())).and(obj->obj.like(
-                                "attr_name",params.get("key")).or().like(
-                                "value_select",params.get("key"))
-        );
+                "attr_type",ProductConstant.AttrEnum.ATTR_TYPE_BOTH.getCode()));
+
+        if(!StringUtils.isEmpty((String)params.get("key"))){
+            wrapper.and(obj->obj.like(
+                    "attr_name",params.get("key")).or().like(
+                    "value_select",params.get("key")));
+        }
         if(catelogId!=0) {
             wrapper.and(obj->obj.eq("catelog_id",catelogId));
         }
@@ -158,10 +164,12 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
     public PageUtils queryPageSale(Map<String, Object> params, Integer catelogId) {
         QueryWrapper<AttrEntity> wrapper=new QueryWrapper<AttrEntity>().and(obj0->obj0.eq(
                 "attr_type",ProductConstant.AttrEnum.ATTR_TYPE_SALE.getCode()).or().eq(
-                "attr_type",ProductConstant.AttrEnum.ATTR_TYPE_BOTH.getCode())).and(obj->obj.like(
-                                "attr_name",params.get("key")).or().like(
-                                "value_select",params.get("key"))
-        );
+                "attr_type",ProductConstant.AttrEnum.ATTR_TYPE_BOTH.getCode()));
+        if(!StringUtils.isEmpty((String)params.get("key"))){
+            wrapper.and(obj->obj.like(
+                    "attr_name",params.get("key")).or().like(
+                    "value_select",params.get("key")));
+        }
         if(catelogId!= ProductConstant.AttrEnum.ATTR_TYPE_SALE.getCode()) {
             wrapper.and(obj->obj.eq("catelog_id",catelogId));
         }

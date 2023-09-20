@@ -3064,7 +3064,7 @@ save改为自定义方法saveName
 
 
 
-============== 商品服务V：规格参数和销售属性 =====================================================================================================================
+============== 商品服务V：查询规格参数和销售属性 =====================================================================================================================
 
 
 二者共用同一个表，区别在于attr_type
@@ -3184,14 +3184,29 @@ AttrController中，定义接口：
 
 service中定义方法：
 
+            /**
+             *
+             *
+             * @param params
+             * @param catelogId
+             * @return
+             *
+             * 查询所有的普通参数
+             * 查询所有attr_type为0或2的参数
+             *
+             *
+             */
             @Override
             public PageUtils queryPageBase(Map<String, Object> params, Integer catelogId) {
                 QueryWrapper<AttrEntity> wrapper=new QueryWrapper<AttrEntity>().and(obj0->obj0.eq(
-                        "attr_type",1).or().eq(
-                        "attr_type",2)).and(obj->obj.like(
-                                        "attr_name",params.get("key")).or().like(
-                                        "value_select",params.get("key"))
-                );
+                        "attr_type",ProductConstant.AttrEnum.ATTR_TYPE_BASE.getCode()).or().eq(
+                        "attr_type",ProductConstant.AttrEnum.ATTR_TYPE_BOTH.getCode()));
+        
+                if(!StringUtils.isEmpty((String)params.get("key"))){
+                    wrapper.and(obj->obj.like(
+                            "attr_name",params.get("key")).or().like(
+                            "value_select",params.get("key")));
+                }
                 if(catelogId!=0) {
                     wrapper.and(obj->obj.eq("catelog_id",catelogId));
                 }
@@ -3216,7 +3231,7 @@ service中定义方法：
         
                     AttrAttrgroupRelationEntity attrAttrgroupRelationEntity = attrAttrgroupRelationDao.selectOne(new QueryWrapper<AttrAttrgroupRelationEntity>().eq("attr_id", attrEntity.getAttrId()));
                     //通过已知的attrId，获取属性和参数的关系对象
-                    if(attrAttrgroupRelationEntity!=null) {         
+                    if(attrAttrgroupRelationEntity!=null) {
                     //一定要判断，否则如果查到attr_id在关系表内不存在的话就会报错而无法允许
                         AttrGroupEntity attrGroupEntity = attrGroupDao.selectById(attrAttrgroupRelationEntity.getAttrGroupId());
                         //通过关系对象，获取对应的attrGroupId，并以此获取对应的attrGroup对象
@@ -3234,24 +3249,37 @@ service中定义方法：
             }
         
         
+            /**
+             *
+        
+             * @param params
+             * @param catelogId
+             * @return
+             *
+             * 查询所有的销售属性
+             * 查询所有attr_type为1或2的参数
+             *
+             */
         
             @Override
             public PageUtils queryPageSale(Map<String, Object> params, Integer catelogId) {
                 QueryWrapper<AttrEntity> wrapper=new QueryWrapper<AttrEntity>().and(obj0->obj0.eq(
-                        "attr_type",0).or().eq(
-                        "attr_type",2)).and(obj->obj.like(
-                                        "attr_name",params.get("key")).or().like(
-                                        "value_select",params.get("key"))
-                );
-                if(catelogId!=0) {
+                        "attr_type",ProductConstant.AttrEnum.ATTR_TYPE_SALE.getCode()).or().eq(
+                        "attr_type",ProductConstant.AttrEnum.ATTR_TYPE_BOTH.getCode()));
+                if(!StringUtils.isEmpty((String)params.get("key"))){
+                    wrapper.and(obj->obj.like(
+                            "attr_name",params.get("key")).or().like(
+                            "value_select",params.get("key")));
+                }
+                if(catelogId!= ProductConstant.AttrEnum.ATTR_TYPE_SALE.getCode()) {
                     wrapper.and(obj->obj.eq("catelog_id",catelogId));
                 }
                 IPage<AttrEntity> page=this.page(new Query<AttrEntity>().getPage(params),wrapper);
         
-                    //接下来要添加上分组名和分类名
-                    //将查询好的AttrEntity们放入list
-                    List<AttrEntity> list=page.getRecords();
-                    List<AttrVO_WithGroupNameAndCatelogName> finale = list.stream().map(attrEntity -> {
+                //接下来要添加上分组名和分类名
+                //将查询好的AttrEntity们放入list
+                List<AttrEntity> list=page.getRecords();
+                List<AttrVO_WithGroupNameAndCatelogName> finale = list.stream().map(attrEntity -> {
                     AttrVO_WithGroupNameAndCatelogName vo = new AttrVO_WithGroupNameAndCatelogName();
                     //创建vo对象
                     BeanUtil.copyProperties(attrEntity, vo);
@@ -3997,6 +4025,33 @@ AttrGroupController:
 可以了
 
 ======================================================================================================
+
+
+
+
+
+
+
+============== 用户服务VIII：查询用户等级信息 =====================================================================================================================
+
+
+在商品维护、
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
