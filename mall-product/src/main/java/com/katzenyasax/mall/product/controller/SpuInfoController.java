@@ -3,6 +3,7 @@ package com.katzenyasax.mall.product.controller;
 import java.util.Arrays;
 import java.util.Map;
 
+import com.katzenyasax.mall.product.vo.spu.SpuSaveVO;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,6 +32,34 @@ public class SpuInfoController {
     @Autowired
     private SpuInfoService spuInfoService;
 
+
+
+
+
+    /**
+     *
+     * @param vo
+     *
+     *
+     * 保存有关SpuSaveVO对象
+     * 该对象为生成的，接收商品数据的对象
+     *
+     * 专供商品维护/发布商品
+     *
+     *
+     */
+    @RequestMapping("/save")
+    public R save(@RequestBody SpuSaveVO vo){
+        spuInfoService.saveSpuVo(vo);
+        return R.ok();
+    }
+
+
+
+
+
+
+
     /**
      * 列表
      */
@@ -56,14 +85,14 @@ public class SpuInfoController {
 
     /**
      * 保存
-     */
+     *//*
     @RequestMapping("/save")
     @RequiresPermissions("product:spuinfo:save")
     public R save(@RequestBody SpuInfoEntity spuInfo){
 		spuInfoService.save(spuInfo);
 
         return R.ok();
-    }
+    }*/
 
     /**
      * 修改

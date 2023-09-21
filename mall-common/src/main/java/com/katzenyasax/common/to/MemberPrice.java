@@ -1,7 +1,7 @@
 /**
   * Copyright 2023 bejson.com 
   */
-package com.katzenyasax.mall.product.vo.spu;
+package com.katzenyasax.common.to;
 
 import lombok.Data;
 

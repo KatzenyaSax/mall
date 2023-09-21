@@ -2,6 +2,7 @@
   * Copyright 2023 bejson.com 
   */
 package com.katzenyasax.mall.product.vo.spu;
+import com.katzenyasax.common.to.MemberPrice;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -23,7 +24,7 @@ public class Skus {
     private String skuSubtitle;
     private List<Images> images;
     private List<String> descar;
-    private Long fullCount;
+    private BigDecimal fullCount;
     private BigDecimal discount;
     private Long countStatus;
     private BigDecimal fullPrice;

@@ -3,13 +3,10 @@ package com.katzenyasax.mall.coupon.controller;
 import java.util.Arrays;
 import java.util.Map;
 
+import com.katzenyasax.common.to.SkuFullReductionTO;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.katzenyasax.mall.coupon.entity.SkuFullReductionEntity;
 import com.katzenyasax.mall.coupon.service.SkuFullReductionService;
@@ -30,6 +27,40 @@ import com.katzenyasax.common.utils.R;
 public class SkuFullReductionController {
     @Autowired
     private SkuFullReductionService skuFullReductionService;
+
+
+
+
+
+
+
+    /**
+     * product调用的方法
+     *
+     * 传入一个满减的to
+     * 要求对其进行保存
+     * 保存到full reduction、ladder和member price
+     *
+     *
+     */
+    @PostMapping("/save")
+    public R saveFullReduction(@RequestBody SkuFullReductionTO to){
+        skuFullReductionService.saveFullReduction(to);
+        return R.ok();
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     /**
      * 列表
@@ -54,16 +85,16 @@ public class SkuFullReductionController {
         return R.ok().put("skuFullReduction", skuFullReduction);
     }
 
-    /**
+   /* *//**
      * 保存
-     */
+     *//*
     @RequestMapping("/save")
     @RequiresPermissions("coupon:skufullreduction:save")
     public R save(@RequestBody SkuFullReductionEntity skuFullReduction){
 		skuFullReductionService.save(skuFullReduction);
 
         return R.ok();
-    }
+    }*/
 
     /**
      * 修改

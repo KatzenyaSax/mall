@@ -32,7 +32,7 @@ public class SkuLadderEntity implements Serializable {
 	/**
 	 * 满几件
 	 */
-	private Integer fullCount;
+	private BigDecimal fullCount;
 	/**
 	 * 打几折
 	 */
@@ -44,6 +44,6 @@ public class SkuLadderEntity implements Serializable {
 	/**
 	 * 是否叠加其他优惠[0-不可叠加，1-可叠加]
 	 */
-	private Integer addOther;
+	private Long addOther;
 
 }

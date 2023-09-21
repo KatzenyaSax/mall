@@ -8,6 +8,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
 @MapperScan(value = "com.katzenyasax.mall.coupon.dao")
 @EnableDiscoveryClient
+
 @SpringBootApplication
 public class MallCoupon {
 

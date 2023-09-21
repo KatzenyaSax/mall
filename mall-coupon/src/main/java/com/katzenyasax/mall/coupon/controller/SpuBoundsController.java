@@ -3,13 +3,10 @@ package com.katzenyasax.mall.coupon.controller;
 import java.util.Arrays;
 import java.util.Map;
 
+import com.katzenyasax.common.to.SpuBoundsTO;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.katzenyasax.mall.coupon.entity.SpuBoundsEntity;
 import com.katzenyasax.mall.coupon.service.SpuBoundsService;
@@ -30,6 +27,36 @@ import com.katzenyasax.common.utils.R;
 public class SpuBoundsController {
     @Autowired
     private SpuBoundsService spuBoundsService;
+
+
+
+
+
+    /**
+     * 保存
+     *
+     * product远程调用coupon时调用的方法
+     * 接收的是一个和SpuBoundsEntity一致的to
+     * 需要将其数据进行处理，并保存到spu bounds
+     *
+     */
+    @PostMapping("/save")
+    public R saveBounds(@RequestBody SpuBoundsTO to){
+        spuBoundsService.saveBoundsTO(to);
+        return R.ok();
+    }
+
+
+
+
+
+
+
+
+
+
+
+
 
     /**
      * 列表
@@ -54,16 +81,16 @@ public class SpuBoundsController {
         return R.ok().put("spuBounds", spuBounds);
     }
 
-    /**
+   /* *//**
      * 保存
-     */
+     *//*
     @RequestMapping("/save")
     @RequiresPermissions("coupon:spubounds:save")
     public R save(@RequestBody SpuBoundsEntity spuBounds){
 		spuBoundsService.save(spuBounds);
 
         return R.ok();
-    }
+    }*/
 
     /**
      * 修改
