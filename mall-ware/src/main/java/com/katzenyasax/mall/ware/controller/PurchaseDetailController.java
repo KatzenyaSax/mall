@@ -31,16 +31,42 @@ public class PurchaseDetailController {
     @Autowired
     private PurchaseDetailService purchaseDetailService;
 
+
+
     /**
      * 列表
+     *
+     * 根据status和wareId查询采购需求
      */
+    @RequestMapping("/list")
+    @RequiresPermissions("ware:purchasedetail:list")
+    public R list(@RequestParam Map<String, Object> params){
+        PageUtils page = purchaseDetailService.getPurchaseDetails(params);
+
+        return R.ok().put("page", page);
+    }
+
+
+
+
+
+
+
+
+
+
+
+    //=======================================
+   /* *//**
+     * 列表
+     *//*
     @RequestMapping("/list")
     @RequiresPermissions("ware:purchasedetail:list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = purchaseDetailService.queryPage(params);
 
         return R.ok().put("page", page);
-    }
+    }*/
 
 
     /**

@@ -31,16 +31,47 @@ public class WareInfoController {
     @Autowired
     private WareInfoService wareInfoService;
 
+
+
     /**
      * 列表
+     * 要求可以根据key模糊查询
+     *
      */
+    @RequestMapping("/list")
+    @RequiresPermissions("ware:wareinfo:list")
+    public R list(@RequestParam Map<String, Object> params){
+        PageUtils page = wareInfoService.getWareInfo(params);
+
+        return R.ok().put("page", page);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    //=====================================================
+
+    /**
+     * 列表
+     *//*
     @RequestMapping("/list")
     @RequiresPermissions("ware:wareinfo:list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = wareInfoService.queryPage(params);
 
         return R.ok().put("page", page);
-    }
+    }*/
 
 
     /**

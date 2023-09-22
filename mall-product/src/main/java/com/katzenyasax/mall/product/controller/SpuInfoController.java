@@ -56,20 +56,65 @@ public class SpuInfoController {
 
 
 
+    /**
+     * 列表
+     *
+     * 根据param，返回spuInfoEntity的集合
+     */
+    @RequestMapping("/list")
+    public R list(@RequestParam Map<String, Object> params){
+        PageUtils page = spuInfoService.getSpuInfo(params);
+        return R.ok().put("page", page);
+    }
 
+    /**
+     *
+     * @param spuId
+     * @return
+     *
+     * 根据spuId上架
+     * 就是把publish status改为1
+     *
+     */
+    @RequestMapping("/{spuId}/up")
+    public R upSpu(@PathVariable Long spuId){
+        spuInfoService.upSpu(spuId);
+        return R.ok();
+    }
+
+
+    /**
+     *
+     * @param spuId
+     * @return
+     *
+     * 根据spuId下架
+     * 就是把publish status改为2
+     *
+     */
+    @RequestMapping("/{spuId}/down")
+    public R downSpu(@PathVariable Long spuId){
+        spuInfoService.downSpu(spuId);
+        return R.ok();
+    }
+
+
+
+
+//============================================================================
 
 
 
     /**
      * 列表
-     */
+     *//*
     @RequestMapping("/list")
     @RequiresPermissions("product:spuinfo:list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = spuInfoService.queryPage(params);
 
         return R.ok().put("page", page);
-    }
+    }*/
 
 
     /**

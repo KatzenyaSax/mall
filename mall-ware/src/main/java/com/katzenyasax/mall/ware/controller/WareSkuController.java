@@ -31,16 +31,47 @@ public class WareSkuController {
     @Autowired
     private WareSkuService wareSkuService;
 
+
+
     /**
      * 列表
+     * params中包含wareId和skuId
+     * 要求根据这俩查询sku
      */
+    @RequestMapping("/list")
+    @RequiresPermissions("ware:waresku:list")
+    public R list(@RequestParam Map<String, Object> params){
+        PageUtils page = wareSkuService.getSkuInfo(params);
+
+        return R.ok().put("page", page);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    //==============================================
+   /* *//**
+     * 列表
+     *//*
     @RequestMapping("/list")
     @RequiresPermissions("ware:waresku:list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = wareSkuService.queryPage(params);
 
         return R.ok().put("page", page);
-    }
+    }*/
 
 
     /**

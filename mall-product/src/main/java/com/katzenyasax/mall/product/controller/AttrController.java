@@ -1,8 +1,10 @@
 package com.katzenyasax.mall.product.controller;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
+import com.katzenyasax.mall.product.entity.ProductAttrValueEntity;
 import com.katzenyasax.mall.product.service.AttrAttrgroupRelationService;
 import com.katzenyasax.mall.product.vo.AttrVO_WithAttrGroupId;
 import com.katzenyasax.mall.product.vo.AttrVO_WithGroupIdAndPaths;
@@ -110,7 +112,7 @@ public class AttrController {
 
 
     /**
-     * @param attr
+     * @param vo
      * @return
      *
      * 更新参数
@@ -127,16 +129,39 @@ public class AttrController {
     }
 
 
+    /**
+     *
+     * @param spuId
+     * @return
+     *
+     * 根据spuId查询与之关联的所有参数
+     *
+     */
+    @RequestMapping("/base/listforspu/{spuId}")
+    public R getSpuList(@PathVariable Long spuId){
+        List<ProductAttrValueEntity> page= attrService.getSpuById(spuId);
+        return R.ok().put("data",page);
+    }
 
 
 
+    /**
+     * @param list,spuId
+     * @return
+     *
+     * 更新参数
+     *
+     * 要根据传回的spuId和productAttrValueEntity集合
+     * 更新这些productAttrValueEntity
+     *
+     */
+    @RequestMapping("/update/{spuId}")
+    @RequiresPermissions("product:attr:update")
+    public R updateBySpuId(@RequestBody List<ProductAttrValueEntity> list,@PathVariable Long spuId){
+        attrService.updateSpuAttr(list,spuId);
 
-
-
-
-
-
-
+        return R.ok();
+    }
 
 
 

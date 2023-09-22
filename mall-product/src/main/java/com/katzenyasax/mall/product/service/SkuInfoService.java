@@ -18,5 +18,8 @@ public interface SkuInfoService extends IService<SkuInfoEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
 
+    PageUtils getSkuInfo(Map<String, Object> params);
+
+    String getSkuName(Long skuId);
 }
 

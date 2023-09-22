@@ -752,7 +752,7 @@ member:
 
 并且启动类上还要加上
     
-            @@EnableDiscoveryClient
+            @EnableDiscoveryClient
 
 注意TEST不需要数据库，因此在@SpringBootApplication加上：
 
@@ -4403,6 +4403,7 @@ CatelgoryBrandRelationController中：
                 BeanUtils.copyProperties(vo,spuInfoEntity);
                 spuInfoEntity.setCreateTime(new DateTime());
                 spuInfoEntity.setUpdateTime(new DateTime());
+                spuInfoEntity.setPublishStatus(0);
                 spuInfoDao.insert(spuInfoEntity);
         
                 /** 2.spu描述图片，存在spu_info_desc */
@@ -4776,5 +4777,1287 @@ SkuFullReductionController：
 
 
 
+# 商品维护V：检索SPU
+
+请求路径：
+
+            /product/spuinfo/list
+
+请求参数：
+
+            {
+               page: 1,//当前页码
+               limit: 10,//每页记录数
+               sidx: 'id',//排序字段
+               order: 'asc/desc',//排序方式
+               key: '华为',//检索关键字
+               catelogId: 6,//三级分类id
+               brandId: 1,//品牌id 
+               status: 0,//商品状态
+            }
+
+响应格式：
+
+            {
+            	"msg": "success",
+            	"code": 0,
+            	"page": {
+            		"totalCount": 0,
+            		"pageSize": 10,
+            		"totalPage": 0,
+            		"currPage": 1,
+            		"list": [{
+                    
+            			"brandId": 0, //品牌id
+            			"brandName": "品牌名字",
+            			"catalogId": 0, //分类id
+            			"catalogName": "分类名字",
+            			"createTime": "2019-11-13T16:07:32.877Z", //创建时间
+            			"id": 0, //商品id
+            			"publishStatus": 0, //发布状态
+            			"spuDescription": "string", //商品描述
+            			"spuName": "string", //商品名字
+            			"updateTime": "2019-11-13T16:07:32.877Z", //更新时间
+            			"weight": 0 //重量
+
+            		}]
+            	}
+            }
 
 
+SpuInfoController中：
+
+            /**
+             * 列表
+             *
+             * 根据param，返回spuInfoEntity的集合
+             */
+            @RequestMapping("/list")
+            public R list(@RequestParam Map<String, Object> params){
+                PageUtils page = spuInfoService.getSpuInfo(params);
+                return R.ok().put("page", page);
+            }
+
+自定义方法getSpuInfo：
+
+            /**
+             *
+             * @param params
+             * @return
+             *
+             * 查询符合条件的SpuInfoEntity并封装为page返回
+             *
+             * 包括模糊查询
+             */
+            @Override
+            public PageUtils getSpuInfo(@NotNull Map<String, Object> params) {
+                //params里面有key、catelogId、brandId、status
+
+                QueryWrapper<SpuInfoEntity> wrapper=new QueryWrapper<SpuInfoEntity>();
+                String key=(String) params.get("key");
+                if(!StringUtils.isEmpty(key)){
+                    log.info("key not null: "+key);
+                    wrapper.and(w->{
+                       w.like("spu_name",key).or().like("spu_description",key).or().like("id",key);
+                    });
+                }
+                String  catelogId=(String) params.get("catelogId");
+                if(catelogId!=null && !"0".equalsIgnoreCase(catelogId)){
+                    log.info("catelogId not null: "+catelogId);
+                    wrapper.eq("catalog_id",catelogId);
+                }
+                String  brandId=(String) params.get("brandId");
+                if(brandId!=null && !"0".equalsIgnoreCase(brandId)){
+                    log.info("brandId not null: "+brandId);
+                    wrapper.eq("brand_id",brandId);
+                }
+
+                String  status=(String) params.get("status");
+                if(!StringUtils.isEmpty(status)) {
+                    log.info("status not null: "+status);
+                    wrapper.eq("publish_status", status);
+                }
+
+                IPage<SpuInfoEntity> finale = this.page(
+                        new Query<SpuInfoEntity>().getPage(params),
+                        wrapper
+                );
+
+                return new PageUtils(finale);
+
+            }
+
+匹配的顺序为：
+
+            1.令name、description、id匹配key（用一个and方法封装）
+            2.匹配catelogId，注意一个惊天大坑，数据库中该字段的名字为catalogId，为0或为空时匹配全部
+            3.匹配brandId，为0或为空时匹配全部
+            4.匹配status，为空的话则匹配全部
+
+
+
+
+2023/9/21  19:32
+修复了增加spu时publish status为空的bug
+
+
+
+# 商品维护VI：SPU商品上架下架管理
+
+请求路径：
+
+            /product/spuinfo/{spuId}/up
+
+SpuInfoController中：
+
+             /**
+             *
+             * @param spuId
+             * @return
+             *
+             * 根据spuId上架
+             * 就是把publish status改为1
+             *
+             */
+            @RequestMapping("/{spuId}/up")
+            public R upSpu(@PathVariable Long spuId){
+                spuInfoService.upSpu(spuId);
+                return R.ok();
+            }
+            /**
+             *
+             * @param spuId
+             * @return
+             *
+             * 顺便把下架也整一下，虽然用不到
+             * 根据spuId下架
+             * 就是把publish status改为2
+             *
+             */
+            @RequestMapping("/{spuId}/down")
+            public R downSpu(@PathVariable Long spuId){
+                spuInfoService.downSpu(spuId);
+                return R.ok();
+            }
+
+自定义方法upSpu和downSpu：
+
+            /**
+             *
+             * @param spuId
+             *
+             * 根据spuId上架商品
+             *
+             *
+             */
+            @Override
+            public void upSpu(Long spuId) {
+                SpuInfoEntity entity=baseMapper.selectById(spuId);
+                entity.setPublishStatus(1);
+                baseMapper.updateById(entity);
+            }
+            /**
+             *
+             * @param spuId
+             *
+             * 根据spuId下架商品
+             *
+             *
+             */
+            @Override
+            public void downSpu(Long spuId) {
+                SpuInfoEntity entity=baseMapper.selectById(spuId);
+                entity.setPublishStatus(2);
+                baseMapper.updateById(entity);
+            }
+
+成功
+
+
+
+
+            
+
+
+
+
+# 商品维护VII：检索SKU
+
+请求路径：
+
+            /product/skuinfo/list
+
+请求参数：
+
+            {
+                page: 1,//当前页码
+                limit: 10,//每页记录数
+                sidx: 'id',//排序字段
+                order: 'asc/desc',//排序方式
+                key: '华为',//检索关键字
+                catelogId: 0,
+                brandId: 0,
+                min: 0,
+                max: 0
+            }
+
+响应格式：
+
+            {
+            	"msg": "success",
+            	"code": 0,
+            	"page": {
+            		"totalCount": 26,
+            		"pageSize": 10,
+            		"totalPage": 3,
+            		"currPage": 1,
+            		"list": [{
+            			"skuId": 1,
+            			"spuId": 11,
+            			"skuName": "华为 HUAWEI Mate 30 Pro 星河银 8GB+256GB",
+            			"skuDesc": null,
+            			"catalogId": 225,
+            			"brandId": 9,
+            			"skuDefaultImg": "https://gulimall-hello.oss-cn-beijing.aliyuncs.com/2019-11-26/60e65a44-f943-4ed5-87c8-8cf90f403018_d511faab82abb34b.jpg",
+            			"skuTitle": "华为 HUAWEI Mate 30 Pro 星河银 8GB+256GB麒麟990旗舰芯片OLED环幕屏双4000万徕卡电影四摄4G全网通手机",
+            			"skuSubtitle": "【现货抢购！享白条12期免息！】麒麟990，OLED环幕屏双4000万徕卡电影四摄；Mate30系列享12期免息》",
+            			"price": 6299.0000,
+            			"saleCount": 0
+            		}]
+            	}
+            }
+
+
+和上一个查询SpuInfo几乎一模一样
+SkuInfoController中：
+
+            /**
+             * 列表
+             *
+             * 根据param列出sku信息
+             * param中的参数有：key、catelogId、brandId、min、max
+             * 注意表内的字段名还是catalogId
+             *
+             */
+        
+            @RequestMapping("/list")
+            public R list(@RequestParam Map<String, Object> params){
+                PageUtils page = skuInfoService.getSkuInfo(params);
+                return R.ok().put("page", page);
+            }
+
+自定义方法getSkuInfo：
+
+             /**
+             * 列表
+             *
+             * 根据param列出sku信息
+             * param中的参数有：key、catelogId、brandId、min、max
+             * 注意表内的字段名还是catalogId
+             *
+             */
+            @Override
+            public PageUtils getSkuInfo(Map<String, Object> params) {
+                QueryWrapper<SkuInfoEntity> wrapper=new QueryWrapper<>();
+                String key=(String) params.get("key");
+                if(!StringUtils.isEmpty(key)){
+                    log.info("key not null: "+key);
+                    wrapper.and(w->{
+                        w.like("sku_name",key).or().like("sku_title",key).or().like("sku_id",key).or().like("sku_subtitle",key);
+                    });
+                }
+                String  catelogId=(String) params.get("catelogId");
+                if(catelogId!=null && !"0".equalsIgnoreCase(catelogId)){
+                    log.info("catelogId not null: "+catelogId);
+                    wrapper.eq("catalog_id",catelogId);
+                }
+                String  brandId=(String) params.get("brandId");
+                if(brandId!=null && !"0".equalsIgnoreCase(brandId)){
+                    log.info("brandId not null: "+brandId);
+                    wrapper.eq("brand_id",brandId);s
+                }
+                String max=(String)params.get("max");
+                String min=(String)params.get("min");
+                if(!StringUtils.isEmpty(max)){
+                    wrapper.le("price",max);
+                }
+                if(!StringUtils.isEmpty(min)){
+                    wrapper.ge("price",min);
+                }
+                IPage<SkuInfoEntity> finale = this.page(
+                        new Query<SkuInfoEntity>().getPage(params),
+                        wrapper
+                );
+                return new  PageUtils(finale);
+            }
+
+匹配的顺序为：
+
+            1.令name、title、subtitle、id匹配key（用一个and方法封装）
+            2.匹配catelogId，注意一个惊天大坑，数据库中该字段的名字为catalogId，为0或为空时匹配全部
+            3.匹配brandId，为0或为空时匹配全部
+            4.令price匹配min和max，若min、max有一个为空或min和max数值相同时，匹配全部，否则price需要在min和max之间
+
+
+
+
+
+# 仓库管理I：仓库列表
+
+
+首先ware服务加入网关
+
+请求路径：
+
+            /ware/wareinfo/list
+
+请求参数：
+
+            {
+               page: 1,//当前页码
+               limit: 10,//每页记录数
+               sidx: 'id',//排序字段
+               order: 'asc/desc',//排序方式
+               key: '华为'//检索关键字
+            }
+
+包含一个关键字key用于模糊查询
+
+响应格式：
+
+            {
+            	"msg": "success",
+            	"code": 0,
+            	"page": {
+            		"totalCount": 0,
+            		"pageSize": 10,
+            		"totalPage": 0,
+            		"currPage": 1,
+            		"list": [{
+            			"id": 2,
+            			"name": "aa",
+            			"address": "bbb",
+            			"areacode": "124"
+            		}]
+            	}
+            }
+
+ware服务中，WareInfoController：
+
+            /**
+             * 列表
+             * 要求可以根据key模糊查询
+             *
+             */
+            @RequestMapping("/list")
+            @RequiresPermissions("ware:wareinfo:list")
+            public R list(@RequestParam Map<String, Object> params){
+                PageUtils page = wareInfoService.getWareInfo(params);
+                return R.ok().put("page", page);
+            }
+
+自定义方法getWareInfo：
+
+            /**
+             *
+             * @param params
+             * @return
+             *
+             * 根据param获取合法的wareInfo
+             * params包含一个key，用于模糊查询
+             *
+             */
+            @Override
+            public PageUtils getWareInfo(Map<String, Object> params) {
+                QueryWrapper<WareInfoEntity> wrapper=new QueryWrapper<>();
+                String key=(String) params.get("key");
+                if(!StringUtils.isNullOrEmpty(key)){
+                    wrapper.like("name",key).or().like("address",key).or().like("areacode",key);
+                }
+                IPage<WareInfoEntity> finale = this.page(
+                        new Query<WareInfoEntity>().getPage(params),
+                        wrapper
+                );
+                return new PageUtils(finale);
+            }
+
+结果是可以模糊查询
+
+
+
+
+
+
+
+# 仓库管理II：查询库存
+
+请求路径：
+
+            /ware/waresku/list
+
+请求参数：
+
+            {
+               page: 1,//当前页码
+               limit: 10,//每页记录数
+               sidx: 'id',//排序字段
+               order: 'asc/desc',//排序方式
+               wareId: 123,//仓库id
+               skuId: 123//商品id
+            }
+
+要求根据wareId和skuId查询合法的商品
+WareSkuController中：
+
+            /**
+             * 列表
+             * params中包含wareId和skuId
+             * 要求根据这俩查询sku
+             */
+            @RequestMapping("/list")
+            @RequiresPermissions("ware:waresku:list")
+            public R list(@RequestParam Map<String, Object> params){
+                PageUtils page = wareSkuService.getSkuInfo(params);
+
+                return R.ok().put("page", page);
+            }
+
+自定义方法getSkuInfo：
+
+             /**
+             * 列表
+             * params中包含wareId和skuId
+             * 要求根据这俩查询sku
+             */
+            @Override
+            public PageUtils getSkuInfo(Map<String, Object> params) {
+                String wareId=(String) params.get("wareId");
+                String skuId=(String) params.get("skuId");
+                QueryWrapper<WareSkuEntity> wrapper=new QueryWrapper<>();
+                if(!StringUtils.isNullOrEmpty(wareId)){
+                    wrapper.eq("ware_id",wareId);
+                }
+                if(!StringUtils.isNullOrEmpty(skuId)){
+                    wrapper.eq("sku_id",skuId);
+                }
+                IPage<WareSkuEntity> finale = this.page(
+                        new Query<WareSkuEntity>().getPage(params),
+                        wrapper
+                );
+                return new PageUtils(finale);
+            }
+
+结果是可以查询
+
+
+
+
+# 仓库管理III：采购需求
+
+请求路径：
+
+            /ware/purchasedetail/list
+
+请求参数：
+
+            {
+               page: 1,//当前页码
+               limit: 10,//每页记录数
+               sidx: 'id',//排序字段
+               order: 'asc/desc',//排序方式
+               key: '华为',//检索关键字
+               status: 0,//状态    
+               wareId: 1,//仓库id
+            }
+
+其中包含key、status和wareId
+
+PurchaseDetailController中：
+
+            /**
+             * 列表
+             *
+             * 根据status和wareId查询采购需求
+             */
+            @RequestMapping("/list")
+            @RequiresPermissions("ware:purchasedetail:list")
+            public R list(@RequestParam Map<String, Object> params){
+                PageUtils page = purchaseDetailService.getPurchaseDetails(params);
+
+                return R.ok().put("page", page);
+            }
+
+自定义方法getPurchaseDetails：
+
+             /**
+             * 列表
+             *
+             * 根据status和wareId查询采购需求
+             */
+            @Override
+            public PageUtils getPurchaseDetails(Map<String, Object> params) {
+                QueryWrapper<PurchaseDetailEntity> wrapper=new QueryWrapper<>();
+                String key=(String)params.get("key");
+                String status=(String) params.get("status");
+                String wareId=(String) params.get("wareId");
+
+                if(!StringUtils.isNullOrEmpty(key)){
+                    wrapper.and(obj->{
+                       obj.like("purchase_id",key).or().eq("sku_id",key);
+                    });
+                }
+                if(!StringUtils.isNullOrEmpty(status)){
+                    wrapper.eq("status",status);
+                }
+                if(!StringUtils.isNullOrEmpty(wareId)){
+                    wrapper.eq("ware_id",wareId);
+                }
+
+                IPage<PurchaseDetailEntity> finale = this.page(
+                        new Query<PurchaseDetailEntity>().getPage(params),
+                        wrapper
+                );
+                return new PageUtils(finale);
+            }
+
+可以查询
+
+# 许可管理IV：查询未领取的采购单
+
+请求路径：
+
+            /ware/purchase/unreceive/list
+
+没有请求参数，就是查询状态status为0的采购单
+PurchaseController：
+
+            /**
+             * 查询未领取的采购单
+             * 也即是状态为0还未分配的采购单，或是状态为1刚分配给人还未处理的采购单
+             */
+            @RequestMapping("/unreceive/list")
+            public R listUnreceive(@RequestParam Map<String, Object> params){
+                PageUtils page = purchaseService.getUnreceive(params);
+
+                return R.ok().put("page", page);
+            }
+
+自定义方法getUnreveive：
+
+             /**
+             *
+             * @param params
+             * @return
+             *
+             * 获取未领取的采购单
+             * 也即是状态为0还未分配的采购单，或是状态为1刚分配给人还未处理的采购单
+             */
+            @Override
+            public PageUtils getUnreceive(Map<String, Object> params) {
+                IPage<PurchaseEntity> page = this.page(
+                        new Query<PurchaseEntity>().getPage(params),
+                        new QueryWrapper<PurchaseEntity>().eq("status",0).or().eq("status",1)
+                );
+                return new PageUtils(page);
+            }
+
+成功
+
+
+
+
+
+
+
+# 仓库管理V：合并采购单
+
+采购需求需要合并为采购单
+请求路径：
+
+            /ware/purchase/merge
+        
+请求参数：
+
+            {
+              purchaseId: 1, //整单id
+              items:[1,2,3,4] //合并项集合
+            }
+
+传一个数组，表示要整合为单的所有需求
+传一个purchaseId，表示整合成采购单后单的id
+且如果purchaseId为空，则说明我们需要自己新建一个purchase整合需求
+
+
+定义vo接收数据：
+
+            @Data
+            public class PurchaseVO_Merge {
+            
+                private Long purchaseId;
+                private Long[] items;
+
+            }
+
+PurchaseController中：
+
+            /**
+             *
+             * @param vo
+             * @return
+             *
+             * 合并从采购需求为采购单
+             * params包含purchaseId和数组
+             * 代表要合并需求到哪一个采购单
+             * 和所有需要合并到采购单的需求
+             *
+             * purchaseId为空时，需要自己创建一个新的采购单
+             *
+             */
+            @RequestMapping("/merge")
+            public R merge(@RequestBody PurchaseVO_Merge vo){
+                purchaseService.mergePurchse(vo);
+                return R.ok();
+            }       
+
+为了在自定义方法中消除魔法值，在common中再定义一个表单：
+
+            public class WareConstant {
+                public enum PurchaseStatusEnum {
+                    CREATED(0,"新建"),
+                    ASSIGNED(1,"已分配"),
+                    RECEIVED(2,"已领取"),
+                    FINISHED(3,"已完成"),
+                    HASERROR(4,"异常");
+                    Integer code;
+                    String msg;
+                    PurchaseStatusEnum(Integer code,String msg){
+                        this.code=code;
+                        this.msg=msg;
+                    }
+                    public Integer getCode() {
+                        return code;
+                    }
+                    public void setCode(Integer code) {
+                        this.code = code;
+                    }
+                    public String getMsg() {
+                        return msg;
+                    }
+                    public void setMsg(String msg) {
+                        this.msg = msg;
+                    }
+                }
+                public enum PurchaseDetailStatusEnum {
+                    CREATED(0,"新建"),
+                    ASSIGNED(1,"已分配"),
+                    RECEIVED(2,"采购中"),
+                    FINISHED(3,"采购完成"),
+                    HASERROR(4,"异常");
+                    Integer code;
+                    String msg;
+                    PurchaseDetailStatusEnum(Integer code,String msg){
+                        this.code=code;
+                        this.msg=msg;
+                    }
+                    public Integer getCode() {
+                        return code;
+                    }
+                    public void setCode(Integer code) {
+                        this.code = code;
+                    }
+                    public String getMsg() {
+                        return msg;
+                    }
+                    public void setMsg(String msg) {
+                        this.msg = msg;
+                    }
+                }
+            }
+
+因此自定义方法mergePurchase：
+
+            /**
+             *
+             * @param vo
+             *
+             * 合并从采购需求为采购单
+             * params包含purchaseId和purchaseDetailId数组
+             * 代表要合并需求到哪一个采购单
+             * 和所有需要合并到采购单的需求
+             */
+            @Override
+            public void mergePurchse(PurchaseVO_Merge vo) {
+                Long purchaseId=vo.getPurchaseId();
+                Long[] items=vo.getItems();
+
+                if(purchaseId!=null){
+                    for(Long detailId:items){
+                        PurchaseDetailEntity entity=purchaseDetailDao.selectById(detailId);
+                        entity.setPurchaseId(purchaseId);
+                        entity.setStatus(WareConstant.PurchaseDetailStatusEnum.ASSIGNED.getCode());
+                        purchaseDetailDao.updateById(entity);
+                    }
+                    //遍历item，修改item对应的数据
+                    PurchaseEntity entity=baseMapper.selectById(purchaseId);
+                    entity.setUpdateTime(new DateTime());
+                    baseMapper.updateById(entity);
+                    //要修改采购单的更新日期
+                }
+                else{
+                    PurchaseEntity purchase=new PurchaseEntity();
+                    purchase.setPriority(1);
+                    purchase.setStatus(WareConstant.PurchaseStatusEnum.CREATED.getCode());
+                    purchase.setCreateTime(new DateTime());
+                    purchase.setUpdateTime(new DateTime());
+                    baseMapper.insert(purchase);
+                    //新建一个purchaseEntity，并存储
+                    Long newPurchaseId=purchase.getId();
+                    //此时才purchaseEntity已经被存入，被分配了id
+                    for(Long detailId:items){
+                        PurchaseDetailEntity entity=purchaseDetailDao.selectById(detailId);
+                        entity.setPurchaseId(newPurchaseId);
+                        entity.setStatus(WareConstant.PurchaseDetailStatusEnum.ASSIGNED.getCode());
+                        purchaseDetailDao.updateById(entity);
+                    }
+                }
+            }
+
+
+
+结果是成功运行
+
+
+
+
+
+# 仓库管理VI：领取采购单
+
+请求路径：
+
+            /ware/purchase/received
+
+请求参数：
+
+            [1,2,3,4]//采购单id
+
+要求根据请求参数中采购单的id进行领取操作
+
+PurchaseController：
+
+            /**
+             *
+             * @param ids
+             * @return
+             *
+             * 领取采购单
+             * 根据前端传回的ids，改变采购单的状态status
+             *
+             */
+            @RequestMapping("/received")
+            public R receivePurchase(@RequestBody List<Long> ids){
+                purchaseService.receivePurchase(ids);
+                return R.ok();
+            }
+
+自定义方法receivePurchase：
+
+            /**
+             *
+             * @param ids
+             * @return
+             *
+             * 领取采购单
+             * 根据前端传回的采购单的id封装为的ids，改变采购单的状态status
+             *
+             */
+            @Override
+            public void receivePurchase(List<Long> ids) {
+                //分为三步：
+                //1.判断id对应的purchase是否为已分配状态
+                //2.改变purchase的状态为已领取
+                //3.改变每个purchase对应的purchaseDetails的状态为采购中
+
+                for(Long id:ids){
+                    PurchaseEntity purchase=baseMapper.selectById(id);
+                    if(purchase.getStatus()==WareConstant.PurchaseStatusEnum.ASSIGNED.getCode()){
+                        //只有已分配、未领取的采购单才会进入更改流程
+                        purchase.setStatus(WareConstant.PurchaseStatusEnum.RECEIVED.getCode());
+                        //更改采购单的状态为已领取
+                        List<PurchaseDetailEntity> purchaseDetailEntities=purchaseDetailDao.selectList(new QueryWrapper<PurchaseDetailEntity>().eq("purchase_id",id));
+                        //获取当前循环中采购单对应的所有采购需求
+                        for(PurchaseDetailEntity entity:purchaseDetailEntities){
+                            entity.setStatus(WareConstant.PurchaseDetailStatusEnum.RECEIVED.getCode());
+                            purchaseDetailDao.updateById(entity);
+                        }
+                        //将当前循环对应的采购需求的状态改为采购中
+                    }
+                }
+            }
+
+用apifox测试一下：
+
+请求路径：
+
+            localhost:10100/api/ware/purchase/received
+
+请求参数：
+
+            [5]
+
+数据库原本：
+
+            purchase:
+            5,1,admin,13612345678,1,1,,,2023-09-22 13:55:18,2023-09-22 15:34:21
+            pruchase_detail:
+            1,5,5,80,,1,1
+            2,5,6,100,,2,1
+
+变为：
+
+            purchase:
+            5,1,admin,13612345678,1,2,,,2023-09-22 13:55:18,2023-09-22 15:36:15
+            purchase_detail:
+            1,5,5,80,,1,2
+            2,5,6,100,,2,2
+
+可以看到成功了
+
+
+
+
+
+
+# 仓库管理VII：完成采购
+
+请求路径：
+
+            /ware/purchase/done
+
+请求参数：
+
+            {
+               id: 123,//采购单id
+               items: [{itemId:1,status:4,reason:""}]//完成/失败的需求详情
+            }
+
+要求根据采购单id进行采购完成，将采购单状态改为已完成
+并将对应的所有采购需求改为采购完成
+此外若items不为空，需要更改items中对应的采购需求的状态为采购失败
+
+定义VO：
+
+            @Data
+            public class PurchaseVO_IdAndErrorPurchaseDetail {
+                private Long id;
+                private List<ErrorItem> items;
+            }
+
+            @Data
+            public class ErrorItem {
+                private Long itemId;
+                private Long status;
+                private String reason;
+            }
+
+用来接收参数
+
+PurchaseController：
+
+            /**
+             *
+             * @param vo
+             * @return
+             *
+             * 完成采购
+             * 并将对应的所有采购需求改为采购完成
+             * 此外若items不为空，需要更改items中对应的采购需求的状态为采购失败，采购单也改成异常
+             * 而采购成功的需求则更改状态为完成，并且入库
+             *
+             */
+            @RequestMapping("/received")
+            public R receiveDone(@RequestBody PurchaseVO_IdAndErrorPurchaseDetail vo){
+                purchaseService.receiveDone(vo);
+                return R.ok();
+            }
+
+自定义方法receiveDone：
+
+
+
+
+
+
+需要远程调用product模块，获取skuName
+定义productFeign:
+
+            @FeignClient("mall-product")
+            public interface ProductFeign {
+                /**
+                 * 
+                 * @param skuId
+                 * @return
+                 * 
+                 * 远程调用product的skuinfo模块，获取sku的name
+                 */
+                @RequestMapping("/product/skuinfo/skuName")
+                String getSkuName(@RequestParam Long skuId);
+            }
+
+SkuInfoController：
+
+            /**
+             * 
+             * @param skuId
+             * @return
+             * 
+             * ware模块调用的方法
+             * 根据传来的skuId
+             * 查询sku的name
+             */
+            @RequestMapping("product/skuinfo/skuName")
+            public String getSkuName(@RequestParam Long skuId){
+                return skuInfoService.getSkuName(skuId);
+            }
+
+自定义方法getSkuName：
+
+            /**
+             *
+             * @param skuId
+             * @return
+             *
+             * ware模块调用的方法
+             * 根据传来的skuId
+             * 查询sku的name
+             */
+            @Override
+            public String getSkuName(Long skuId) {
+                SkuInfoEntity entity=baseMapper.selectById(skuId);
+                return entity.getSkuName();
+            }
+
+一定要记得网关配置，测试时网关、ware、product都要重启
+
+
+
+
+
+PurchaseController：
+
+            /**
+             *
+             * @param vo
+             * @return
+             *
+             * 完成采购
+             * 并将对应的所有采购需求改为采购完成
+             * 此外若items不为空，需要更改items中对应的采购需求的状态为采购失败，采购单也改成异常
+             * 而采购成功的需求则更改状态为完成，并且入库
+             *
+             */
+            @RequestMapping("/done")
+            public R receiveDone(@RequestBody PurchaseVO_IdAndErrorPurchaseDetail vo){
+                purchaseService.donePurchase(vo);
+                return R.ok();
+            }
+
+自定义方法donePurchase:
+
+            /**
+             *
+             * @param vo
+             * @return
+             *
+             * 完成采购
+             * 并将对应的所有采购需求改为采购完成
+             * 此外若items不为空，需要更改items中对应的采购需求的状态为采购失败，采购单也改成异常
+             * 而采购成功的需求则更改状态为完成，并且入库
+             * 入库则需要WareSkuDao
+             *
+             */
+            @Autowired
+            ProductFeign productFeign;
+            @Override
+            public void donePurchase(PurchaseVO_IdAndErrorPurchaseDetail vo) {
+                Long purchaseId=vo.getId();
+                List<ErrorItem> errors=vo.getItems();
+                List<Long> errorIds=new ArrayList<>();
+                if(errors!=null) {
+                    for (ErrorItem error : errors) {
+                        errorIds.add(error.getItemId());
+                    }
+                }
+                //获取所有采购失败的需求对象的id
+
+                PurchaseEntity purchaseEntity=baseMapper.selectById(purchaseId);
+                //获取采购单对象
+                List<PurchaseDetailEntity> purchaseDetailEntities=purchaseDetailDao.selectList(new QueryWrapper<PurchaseDetailEntity>().eq("purchase_id",purchaseId));
+                //获取对应的全部需求对象
+
+                Boolean flag=true;
+                //判断该采购单是否全部完成采购
+
+                for(PurchaseDetailEntity entity:purchaseDetailEntities){
+                    Long itemId=entity.getId();
+                    if(errorIds.contains(itemId)&&!errorIds.isEmpty()){
+                        //如果该需求属于异常需求的集合，修改状态为异常，不入库
+                        entity.setStatus(WareConstant.PurchaseDetailStatusEnum.HASERROR.getCode());
+                        purchaseDetailDao.updateById(entity);
+                        flag=false;
+                    }
+                    else{
+                        //若该需求正常完成采购，入库
+                        entity.setStatus(WareConstant.PurchaseDetailStatusEnum.FINISHED.getCode());
+                        //入库的思路是：
+                        //查询该需求的wareId和skuId
+                        //先去到wareId对应的仓库，在从仓库中查询skuId
+                        //若skuId存在，即该仓库存在同样商品的库存，则直接对该库存数量stock进行增加
+                        //若不存在，则新建一个
+                        WareSkuEntity wareSkuEntity=wareSkuDao.selectOne(new QueryWrapper<WareSkuEntity>().eq("ware_id",entity.getWareId()).eq("sku_id",entity.getSkuId     ()));
+                        if(wareSkuEntity==null){
+                            //若库存中不存在同一仓库的统一商品，则新创建一个商品入库
+                            //而wareId是添加需求时必须指定的，因此默认一件需求必有wareId
+                            WareSkuEntity newEntity=new WareSkuEntity();
+                            newEntity.setSkuId(entity.getSkuId());
+                            newEntity.setWareId(entity.getWareId());
+                            newEntity.setStock(entity.getSkuNum());
+                            //查询sku的name需要远程调用product的skuInfo，利用skuID查询
+                            log.info("Sku Id:"+entity.getSkuId());
+                            newEntity.setSkuName(productFeign.getSkuName(entity.getSkuId()));
+                            newEntity.setStockLocked(0);
+                            //完成了sku的定义
+                            wareSkuDao.insert(newEntity);
+                            //完成入库
+                        }
+                        else{
+                            //若库存中存在同一商品，则加到商品数量上
+                            Integer stock=wareSkuEntity.getStock();
+                            wareSkuEntity.setStock(stock+entity.getSkuNum());
+                            wareSkuDao.updateById(wareSkuEntity);
+                        }
+                        purchaseDetailDao.updateById(entity);
+                        //更新需求状态
+
+                    }
+                    //若该需求正常采购完成，入库
+                }
+
+                if(flag){
+                    purchaseEntity.setStatus(WareConstant.PurchaseStatusEnum.FINISHED.getCode());
+                    //若flag为true，即没有采购失败的需求，则purchase的状态为完成
+                }
+                else{
+                    purchaseEntity.setStatus(WareConstant.PurchaseStatusEnum.HASERROR.getCode());
+                    //若flag为false，即有采购失败的需求，则purchase的状态为有异常
+                }
+
+                purchaseEntity.setUpdateTime(new DateTime());
+                //统一更新时间
+
+                baseMapper.updateById(purchaseEntity);
+                //更新数据
+
+            }
+
+
+
+
+
+
+
+测试一下：
+
+请求参数：
+
+            {
+                "id":5
+            }
+
+数据库中，原本的数据：
+
+            purchase：
+            5,1,admin,13612345678,1,2,,,2023-09-22 13:55:18,2023-09-22 15:36:15
+
+            purchase_detail：
+            1,5,5,80,,1,2
+            2,5,6,100,,2,2
+
+变成：
+
+            purchase：
+            5,1,admin,13612345678,1,3,,,2023-09-22 13:55:18,2023-09-22 18:07:53
+
+            purchase_detail：
+            1,5,5,80,,1,3
+            2,5,6,100,,2,3
+
+            ware_sku多出：
+            4,6,2,100,华为 HUAWEI Mate 30 Pro 翡冷翠 8GB+128GB,0
+            5,5,1,80,华为 HUAWEI Mate 30 Pro 翡冷翠 8GB+256GB,0
+
+
+运行成功
+
+
+
+
+
+
+
+
+
+
+
+# 仓库管理VIII：获取Spu规格
+
+请求路径：
+
+            /product/attr/base/listforspu/{spuId}
+
+响应格式：
+
+            {
+            	"msg": "success",
+            	"code": 0,
+            	"data": [{
+            		"id": 43,
+            		"spuId": 11,
+            		"attrId": 7,
+            		"attrName": "入网型号",
+            		"attrValue": "LIO-AL00",
+            		"attrSort": null,
+            		"quickShow": 1
+            	}]
+            }
+
+
+
+AttrController：
+
+            /**
+             *
+             * @param spuId
+             * @return
+             *
+             * 根据spuId查询与之关联的所有参数
+             *
+             */
+            @RequestMapping("/base/listforspu/{spuId}")
+            public R getSpuList(@PathVariable Long spuId){
+                List<ProductAttrValueEntity> page= attrService.getSpuById(spuId);
+                return R.ok().put("data",page);
+            }
+
+自定义方法getSpuById：
+
+            /**
+             *
+             * @param spuId
+             * @return
+             *
+             * 根据spuId查询与之关联的所有参数
+             * 需要ProductAttrValueDao
+             *
+             */
+            @Override
+            public List<ProductAttrValueEntity> getSpuById(Long spuId) {
+            
+                List<ProductAttrValueEntity> finale=productAttrValueDao.selectList(new QueryWrapper<ProductAttrValueEntity>().eq("spu_id",spuId));
+                return finale;
+
+            }
+
+点进spu规格时，可以看到回显
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 仓库管理IX：修改Spu规格
+
+请求路径：
+
+            /product/attr/update/{spuId}
+
+请求参数：
+
+            [{
+            	"attrId": 7,
+            	"attrName": "入网型号",
+            	"attrValue": "LIO-AL00",
+            	"quickShow": 1
+            }, {
+            	"attrId": 14,
+            	"attrName": "机身材质工艺",
+            	"attrValue": "玻璃",
+            	"quickShow": 0
+            }, {
+            	"attrId": 16,
+            	"attrName": "CPU型号",
+            	"attrValue": "HUAWEI Kirin 980",
+            	"quickShow": 1
+            }]
+
+参数直接使用ProductAttrValueEntity的集合接收
+
+AttrController：
+
+            /**
+             * @param list,spuId
+             * @return
+             *
+             * 更新参数
+             *
+             * 要根据传回的spuId和productAttrValueEntity集合
+             * 更新这些productAttrValueEntity
+             *
+             */
+            @RequestMapping("/update/{spuId}")
+            @RequiresPermissions("product:attr:update")
+            public R updateBySpuId(@RequestBody List<ProductAttrValueEntity> list,@PathVariable Long spuId){
+                attrService.updateSpuAttr(list,spuId);
+
+                return R.ok();
+            }
+
+
+自定义方法updateBySpuAttr：
+
+            /**
+             * @param list,spuId
+             * @return
+             *
+             * 更新参数
+             *
+             * 要根据传回的spuId和productAttrValueEntity集合
+             * 更新这些productAttrValueEntity
+             *
+             */
+            @Override
+            public void updateSpuAttr(List<ProductAttrValueEntity> list, Long spuId) {
+                //更新时，需要将原先的数据删除
+                //删除也是根据attrId和spuId进行的
+                //然后再保存新的
+
+
+                for(ProductAttrValueEntity entity:list){
+                    Long attrId=entity.getAttrId();
+                    productAttrValueDao.delete(new QueryWrapper<ProductAttrValueEntity>().eq("attr_id",attrId).eq("spu_id",spuId));
+                    entity.setSpuId(spuId);
+                    productAttrValueDao.insert(entity);
+                }
+
+            }
+
+
+结果可以修改

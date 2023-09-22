@@ -35,18 +35,35 @@ public class SkuInfoController {
 
 
 
+    /**
+     * 列表
+     *
+     * 根据param列出sku信息
+     * param中的参数有：key、catelogId、brandId、min、max
+     * 注意表内的字段名还是catalogId
+     *
+     */
+
+    @RequestMapping("/list")
+    public R list(@RequestParam Map<String, Object> params){
+        PageUtils page = skuInfoService.getSkuInfo(params);
+        return R.ok().put("page", page);
+    }
 
 
-
-
-
-
-
-
-
-
-
-
+    /**
+     *
+     * @param skuId
+     * @return
+     *
+     * ware模块调用的方法
+     * 根据传来的skuId
+     * 查询sku的name
+     */
+    @RequestMapping("skuName")
+    public String getSkuName(@RequestParam Long skuId){
+        return skuInfoService.getSkuName(skuId);
+    }
 
 
 
@@ -67,11 +84,14 @@ public class SkuInfoController {
     //===================================================
 
 
+/*
 
 
-    /**
+    */
+/**
      * 列表
-     */
+     *//*
+
     @RequestMapping("/list")
     @RequiresPermissions("product:skuinfo:list")
     public R list(@RequestParam Map<String, Object> params){
@@ -80,6 +100,7 @@ public class SkuInfoController {
         return R.ok().put("page", page);
     }
 
+*/
 
     /**
      * 信息

@@ -30,3 +30,6 @@ mybatis-plus:
 server:
   port: 9900
 
+logging:
+  level:
+    com.katzenyasax.mall: debug

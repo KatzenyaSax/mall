@@ -8,6 +8,8 @@ import com.katzenyasax.mall.product.entity.*;
 import com.katzenyasax.mall.product.feign.CouponFeign;
 import com.katzenyasax.mall.product.vo.spu.*;
 import com.aliyuncs.utils.StringUtils;
+import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,7 +27,7 @@ import com.katzenyasax.common.utils.Query;
 import com.katzenyasax.mall.product.service.SpuInfoService;
 import org.springframework.transaction.annotation.Transactional;
 
-
+@Slf4j
 @Service("spuInfoService")
 public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> implements SpuInfoService {
 
@@ -58,12 +60,14 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
     CouponFeign couponFeign;
 
 
-
-
-
-
-
-
+    /**
+     *
+     * @param params
+     * @return
+     *
+     * mybatis plus自动生成的方法
+     * 查询所有spuInfoEntity
+     */
     @Override
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<SpuInfoEntity> page = this.page(
@@ -103,6 +107,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
         BeanUtils.copyProperties(vo,spuInfoEntity);
         spuInfoEntity.setCreateTime(new DateTime());
         spuInfoEntity.setUpdateTime(new DateTime());
+        spuInfoEntity.setPublishStatus(0);
         spuInfoDao.insert(spuInfoEntity);
 
         /** 2.spu描述图片，存在spu_info_desc */
@@ -248,12 +253,91 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
             skuFullReductionTO.setCountStatus(sku.getCountStatus());
             //如果sku内满减fullReduction和discount都为0，则不发起远程请求，也即是不需要添加至表内
             //只有二者有一个有意义，那就说明该优惠价有意义，加入表内
-            if(skuFullReductionTO.getFullCount().compareTo(BigDecimal.ZERO)==1 || skuFullReductionTO.getDiscount().compareTo(BigDecimal.ZERO)==1) {
+            if(skuFullReductionTO.getFullCount().compareTo(BigDecimal.ZERO) > 0 || skuFullReductionTO.getDiscount().compareTo(BigDecimal.ZERO) > 0) {
                 couponFeign.saveFullReduction(skuFullReductionTO);
             }
 
 
         }
+    }
+
+
+    /**
+     *
+     * @param params
+     * @return
+     *
+     * 查询符合条件的SpuInfoEntity并封装为page返回
+     *
+     * 包括模糊查询
+     */
+    @Override
+    public PageUtils getSpuInfo(@NotNull Map<String, Object> params) {
+        //params里面有key、catelogId、brandId、status
+
+        QueryWrapper<SpuInfoEntity> wrapper=new QueryWrapper<SpuInfoEntity>();
+        String key=(String) params.get("key");
+        if(!StringUtils.isEmpty(key)){
+            log.info("key not null: "+key);
+            wrapper.and(w->{
+               w.like("spu_name",key).or().like("spu_description",key).or().like("id",key);
+            });
+        }
+        String  catelogId=(String) params.get("catelogId");
+        if(catelogId!=null && !"0".equalsIgnoreCase(catelogId)){
+            log.info("catelogId not null: "+catelogId);
+            wrapper.eq("catalog_id",catelogId);
+        }
+        String  brandId=(String) params.get("brandId");
+        if(brandId!=null && !"0".equalsIgnoreCase(brandId)){
+            log.info("brandId not null: "+brandId);
+            wrapper.eq("brand_id",brandId);
+        }
+
+        String  status=(String) params.get("status");
+        if(!StringUtils.isEmpty(status)) {
+            log.info("status not null: "+status);
+            wrapper.eq("publish_status", status);
+        }
+
+        IPage<SpuInfoEntity> finale = this.page(
+                new Query<SpuInfoEntity>().getPage(params),
+                wrapper
+        );
+
+        return new PageUtils(finale);
+
+    }
+
+
+    /**
+     *
+     * @param spuId
+     *
+     * 根据spuId上架商品
+     *
+     *
+     */
+    @Override
+    public void upSpu(Long spuId) {
+        SpuInfoEntity entity=baseMapper.selectById(spuId);
+        entity.setPublishStatus(1);
+        baseMapper.updateById(entity);
+    }
+
+    /**
+     *
+     * @param spuId
+     *
+     * 根据spuId下架商品
+     *
+     *
+     */
+    @Override
+    public void downSpu(Long spuId) {
+        SpuInfoEntity entity=baseMapper.selectById(spuId);
+        entity.setPublishStatus(2);
+        baseMapper.updateById(entity);
     }
 
 }

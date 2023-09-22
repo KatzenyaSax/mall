@@ -19,7 +19,26 @@ spring:
 
 
 
+        - id: coupon-route
+          uri: http://localhost:5500
+          predicates:
+            - Path= /api/coupon/**
+          filters:
+            - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
+        - id: member-route
+          uri: http://localhost:6600
+          predicates:
+            - Path= /api/member/**
+          filters:
+            - RewritePath=/api/(?<segment>/?.*),/$\{segment}
+
+        - id: order-route
+          uri: http://localhost:7700
+          predicates:
+            - Path= /api/order/**
+          filters:
+            - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
         - id: product-route
           uri: http://localhost:8800
@@ -28,13 +47,14 @@ spring:
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
-
-        - id: product-route
-          uri: http://localhost:6600
+        - id: ware-route
+          uri: http://localhost:9900
           predicates:
-            - Path= /api/member/**
+            - Path= /api/ware/**
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
+
+
 
         - id: oss-policy
           uri: http://localhost:10200

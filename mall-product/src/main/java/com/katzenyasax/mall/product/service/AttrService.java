@@ -3,9 +3,11 @@ package com.katzenyasax.mall.product.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.mall.product.entity.AttrEntity;
+import com.katzenyasax.mall.product.entity.ProductAttrValueEntity;
 import com.katzenyasax.mall.product.vo.AttrVO_WithAttrGroupId;
 import com.katzenyasax.mall.product.vo.AttrVO_WithGroupIdAndPaths;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -28,5 +30,9 @@ public interface AttrService extends IService<AttrEntity> {
     AttrVO_WithGroupIdAndPaths getAttrWithGroupIdAndPath(Long attrId);
 
     void updateAttrWithGroupId(AttrVO_WithAttrGroupId vo);
+
+    List<ProductAttrValueEntity> getSpuById(Long spuId);
+
+    void updateSpuAttr(List<ProductAttrValueEntity> list, Long spuId);
 }
 

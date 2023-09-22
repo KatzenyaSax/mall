@@ -4,12 +4,8 @@ import cn.hutool.core.bean.BeanUtil;
 import com.aliyuncs.utils.StringUtils;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.katzenyasax.common.constant.ProductConstant;
-import com.katzenyasax.mall.product.dao.AttrAttrgroupRelationDao;
-import com.katzenyasax.mall.product.dao.AttrGroupDao;
-import com.katzenyasax.mall.product.dao.CategoryDao;
-import com.katzenyasax.mall.product.entity.AttrAttrgroupRelationEntity;
-import com.katzenyasax.mall.product.entity.AttrGroupEntity;
-import com.katzenyasax.mall.product.entity.CategoryEntity;
+import com.katzenyasax.mall.product.dao.*;
+import com.katzenyasax.mall.product.entity.*;
 import com.katzenyasax.mall.product.service.AttrAttrgroupRelationService;
 import com.katzenyasax.mall.product.service.CategoryService;
 import com.katzenyasax.mall.product.vo.AttrVO_WithAttrGroupId;
@@ -32,8 +28,6 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.common.utils.Query;
 
-import com.katzenyasax.mall.product.dao.AttrDao;
-import com.katzenyasax.mall.product.entity.AttrEntity;
 import com.katzenyasax.mall.product.service.AttrService;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +47,9 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
 
     @Autowired
     private CategoryService categoryService;
+
+    @Autowired
+    private ProductAttrValueDao productAttrValueDao;
 
 
     /**
@@ -340,22 +337,53 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
 
 
 
+    /**
+     *
+     * @param spuId
+     * @return
+     *
+     * 根据spuId查询与之关联的所有参数
+     * 需要ProductAttrValueDao
+     *
+     */
+    @Override
+    public List<ProductAttrValueEntity> getSpuById(Long spuId) {
+
+        List<ProductAttrValueEntity> finale=productAttrValueDao.selectList(new QueryWrapper<ProductAttrValueEntity>().eq("spu_id",spuId));
+        return finale;
+
+    }
 
 
 
 
 
 
+    /**
+     * @param list,spuId
+     * @return
+     *
+     * 更新参数
+     *
+     * 要根据传回的spuId和productAttrValueEntity集合
+     * 更新这些productAttrValueEntity
+     *
+     */
+    @Override
+    public void updateSpuAttr(List<ProductAttrValueEntity> list, Long spuId) {
+        //更新时，需要将原先的数据删除
+        //删除也是根据attrId和spuId进行的
+        //然后再保存新的
 
 
+        for(ProductAttrValueEntity entity:list){
+            Long attrId=entity.getAttrId();
+            productAttrValueDao.delete(new QueryWrapper<ProductAttrValueEntity>().eq("attr_id",attrId).eq("spu_id",spuId));
+            entity.setSpuId(spuId);
+            productAttrValueDao.insert(entity);
+        }
 
-
-
-
-
-
-
-
+    }
 
 
 }
