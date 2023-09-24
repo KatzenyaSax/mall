@@ -6061,3 +6061,1435 @@ AttrController：
 
 
 结果可以修改
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# elastic search
+#### p103、p104
+
+### 使用docker安装
+可视化界面使用kibana
+
+            docker pull elasticsearch:7.4.2
+            docker pull kibana:7.4.2
+
+### 创建实例化es容器：
+
+            mkdir -p /mydata/elasticsearch/config
+            mkdir -p /mydata/elasticsearch/data
+            echo "http.host: 0.0.0.0" >> /mydata/elasticsearch/config/elasticsearch.yml
+            chmod -R 777 /mydata/elasticsearch/ 
+                (保证权限)
+
+            docker run --name ES -p 9200:9200 -p 9300:9300 -e "discovery.type=single-node" -e ES_JAVA_OPTS="-Xms512m -Xmx512m" -v /mydata/elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml -v /mydata/elasticsearch/data:/usr/share/elasticsearch/data -v /mydata/elasticsearch/plugins:/usr/share/elasticsearch/plugins -d elasticsearch:7.4.2
+
+            
+此时es的ip和端口为192.168.74.130:9200，9300为集群环境下的和其他节点的通信端口
+将/usr/share/elasticsearch/config/elasticsearch.yml挂载到/mydata/elasticsearch/config/elasticsearch.yml
+将/usr/share/elasticsearch/data挂载到/mydata/elasticsearch/data
+将/usr/share/elasticsearch/plugins挂载到/mydata/elasticsearch/plugins
+
+访问：192.168.74.130:9200
+查询到：
+
+        {
+          "name" : "c7dd6e29859c",
+          "cluster_name" : "elasticsearch",
+          "cluster_uuid" : "R-ATqFpiR4WEOLpB8avx0g",
+          "version" : {
+            "number" : "7.4.2",
+            "build_flavor" : "default",
+            "build_type" : "docker",
+            "build_hash" : "2f90bbf7b93631e52bafb59b3b049cb44ec25e96",
+            "build_date" : "2019-10-28T20:40:44.881551Z",
+            "build_snapshot" : false,
+            "lucene_version" : "8.2.0",
+            "minimum_wire_compatibility_version" : "6.8.0",
+            "minimum_index_compatibility_version" : "6.0.0-beta1"
+          },
+          "tagline" : "You Know, for Search"
+        }
+
+表示安装成功了
+注意卸载重写创建es容器时，要删除mydata/elasticsearch里的文件
+
+### 创建实例化kibana容器：
+
+            docker run --name kibana -e ELASTICSEARCH_HOSTS=http://192.168.74.130:9200 -p 5601:5601 -d kibana:7.4.2
+
+此时kibana的ip和端口为：192.168.74.130:5601
+访问该地址，出现kibana的图形化界面表示成功了
+
+
+
+
+
+
+
+
+
+
+# es入门
+#### p105
+
+
+### _cat命令
+
+        node/health/master/indices
+
+
+### PUT（保存）
+
+类似于在关系型数据库中：创建数据库、创建表、存入数据
+PUT命令是在es中：进入索引、进入类型、存入数据
+
+例如：
+
+            192.168.74.130:9200/customer/external/1
+
+请求方式为PUT或POST，参数为：
+
+            {
+                "String":"Hello Elastic Search!"
+            }
+
+保存成功后，响应：
+
+            {
+                "_index": "customer",
+                "_type": "external",
+                "_id": "1",
+                "_version": 1,
+                "result": "created",
+                "_shards": {
+                    "total": 2,
+                    "successful": 1,
+                    "failed": 0
+                },
+                "_seq_no": 0,
+                "_primary_term": 1
+            }
+
+
+
+### GET
+
+类似于关系型数据库中查询数据，
+请求方式为GET
+
+            192.168.74.130:9200/customer/external/1
+
+响应为：
+
+            {
+                "_index": "customer",
+                "_type": "external",
+                "_id": "1",
+                "_version": 1,
+                "_seq_no": 0,
+                "_primary_term": 1,
+                "found": true,
+                "_source": {
+                    "String": "Hello Elastic Search!"
+                }
+            }
+
+
+
+
+### PUT（更新）
+
+
+PUT也可以更新，例如已经有了一个 192.168.74.130:9200/customer/external/1 ，再次发送：
+
+
+
+            {
+                "String":"Hello Elastic Search!",
+                "description":"updated"
+            }
+
+再次GET查询：
+
+            {
+                "_index": "customer",
+                "_type": "external",
+                "_id": "1",
+                "_version": 2,
+                "_seq_no": 1,
+                "_primary_term": 1,
+                "found": true,
+                "_source": {
+                    "String": "Hello Elastic Search!",
+                    "description": "updated"
+                }
+            }
+
+注意到_sourse中的数据变成了更新的值，
+_version也变成了2，表示该地址的数据第二个版本，
+_version不能用于控制并发
+
+_seq_no和_primary_term属于整个索引共用，是用来做乐观锁的，用来控制并发的，
+例如三个线程都想修改这条数据的情况下，所有线程都必须在_seq_no为1的情况下才能修改数据，因为这个时候_seq_no还是为1
+此时若线程2进入数据并修改后，version和_seq_no都+1，此时_seq_no就变成2了
+后续赶到的线程1和线程3，看到_seq_no不是1，已经变成2了，不满足修改条件了，那就直接放弃修改操作了
+
+
+值得注意的是，POST也可以进行修改数据，后面需要加上/_update，即：
+
+            192.168.74.130:9200/customer/external/1/_update
+
+它会先判断数据是否被修改：
+若确实被修改才会进行修改操作，更新结果result为updated，_version和_seq_no自增
+若未被修改则放弃操作，更新结果result为noop，表示未操作，且_version和_seq_no也不会自增
+
+
+
+
+
+### DELETE删除
+
+可以直接删除索引和数据，但是不能直接删除类型
+但是情况类型里的所有数据，就相当于删除了类型
+
+
+
+
+
+### _bulk批量操作
+
+在所有命令后加上/_bulk就是批量操作
+在kibana控制台操作：
+
+            POST customer/external/_bulk
+            {"index":{"_id":"2"}} 
+            {"sentence":"Hello there"}
+            {"index":{"_id":"3"}}
+            {"sentence":"this is id 3"}
+
+响应结果：
+
+            #! Deprecation: [types removal] Specifying types in bulk requests is deprecated.
+            {
+              "took" : 30,
+              "errors" : false,
+              "items" : [
+                {
+                  "index" : {
+                    "_index" : "customer",
+                    "_type" : "external",
+                    "_id" : "2",
+                    "_version" : 1,
+                    "result" : "created",
+                    "_shards" : {
+                      "total" : 2,
+                      "successful" : 1,
+                      "failed" : 0
+                    },
+                    "_seq_no" : 2,
+                    "_primary_term" : 1,
+                    "status" : 201
+                  }
+                },
+                {
+                  "index" : {
+                    "_index" : "customer",
+                    "_type" : "external",
+                    "_id" : "3",
+                    "_version" : 1,
+                    "result" : "created",
+                    "_shards" : {
+                      "total" : 2,
+                      "successful" : 1,
+                      "failed" : 0
+                    },
+                    "_seq_no" : 3,
+                    "_primary_term" : 1,
+                    "status" : 201
+                  }
+                }
+              ]
+            }
+
+表示操作成功了
+
+查询
+
+            GET customer/external/2
+
+响应：
+
+            #! Deprecation: [types removal] Specifying types in document get requests is deprecated, use the /{index}/_doc/{id} endpoint instead.
+            {
+              "_index" : "customer",
+              "_type" : "external",
+              "_id" : "2",
+              "_version" : 1,
+              "_seq_no" : 2,
+              "_primary_term" : 1,
+              "found" : true,
+              "_source" : {
+              "sentence" : "Hello there"
+              }
+            }
+
+查询：
+
+            #! Deprecation: [types removal] Specifying types in document get requests is deprecated, use the /{index}/_doc/{id} endpoint instead.
+            {
+              "_index" : "customer",
+              "_type" : "external",
+              "_id" : "3",
+              "_version" : 1,
+              "_seq_no" : 3,
+              "_primary_term" : 1,
+              "found" : true,
+              "_source" : {
+                "sentence" : "this is id 3"
+              }
+            }
+
+
+查询成功
+
+
+
+随后在 
+
+            PUT /bank/account/_bulk
+
+插入数据，数据文件已给出
+插入后，返回响应：
+
+            {
+                "took" : 909,
+                "errors" : false,
+                "items" : [
+                  {
+                    "index" : {
+                      "_index" : "bank",
+                      "_type" : "account",
+                      "_id" : "1",
+                      "_version" : 1,
+                      "result" : "created",
+                      "_shards" : {
+                        "total" : 2,
+                        "successful" : 1,
+                        "failed" : 0
+                      },
+                      "_seq_no" : 0,
+                      "_primary_term" : 1
+
+                      ······
+
+可以看到900ms，还是比较快的操作
+
+
+
+
+
+
+
+
+
+# es进阶
+#### p110
+
+先开个自启动
+
+            docker update [container id] --restart=always
+
+
+## SearchAPI
+
+### 后面加_search?条件，例如：
+
+            GET bank/_search?q=*&sort=account_number:asc
+
+请求方式GET，_bank表查询；
+查询范围未索引bank；
+q=*表示查询全部；
+&是多条件
+sort=account_number:asc表示按照account_number升序排列
+
+响应体：
+
+            {
+                "took" : 43,
+                "timed_out" : false,
+                "_shards" : {
+                  "total" : 1,
+                  "successful" : 1,
+                  "skipped" : 0,
+                  "failed" : 0
+                },
+                "hits" : {
+                  "total" : {
+                    "value" : 1000,
+                    "relation" : "eq"
+                  },
+                  "max_score" : null,
+                  "hits" : [
+                    {
+                      "_index" : "bank",
+                      "_type" : "account",
+                      "_id" : "0",
+                      "_score" : null,
+                      "_source" : {
+                        "account_number" : 0,
+                        "balance" : 16623,
+                        "firstname" : "Bradshaw",
+                        "lastname" : "Mckenzie",
+                        "age" : 29,
+                        "gender" : "F",
+                        "address" : "244 Columbus Place",
+                        "employer" : "Euron",
+                        "email" : "bradshawmckenzie@euron.com",
+                        "city" : "Hobucken",
+                        "state" : "CO"
+                      },
+                      "sort" : [
+                        0
+                      ]
+                    },
+                    {
+                      "_index" : "bank",
+                      "_type" : "account",
+                      "_id" : "1",
+                      "_score" : null,
+                      "_source" : {
+                        "account_number" : 1,
+                        "balance" : 39225,
+                        "firstname" : "Amber",
+                    ······
+
+会按照account_number升序排列
+
+### Query DSL
+
+例如不加?条件，直接传递参数，例如：
+
+            GET bank/_search
+            { 
+              "query": { 
+                "match": {
+                    "gender": "F"
+                }
+              },
+              "sort": [
+                { 
+                  "account_number": "asc"
+                }
+              ]，
+              "from": 0, 
+              "size":15 ,
+              "_source": ["firstname","lastname","gender","address"]
+            }
+
+
+1.此处match中表示匹配gender中包含F的数据，但是注意match不可以有多个，match并不是复杂匹配
+
+2.from表示id开始，size表示从id开始后查询几条数据
+
+3._source表示只展示特定字段
+
+
+
+
+### match查询
+#### p112
+
+query里面的匹配条件，
+例如：
+
+            "match":{
+                "address": "mill"
+            }
+
+表示匹配address字段中包含mill的数据
+
+而：
+
+            "match":{
+                "address": "mill road"
+            }
+
+则表示匹配address字段中包含mill或包含road的数据
+
+
+
+
+
+### match_phrase短语查询
+#### p113
+
+也是query里面的匹配条件，
+例如：
+
+            "match_phrase":{
+                "address": "mill road"
+            }
+
+表示匹配address字段包含mill road整个短语的数据
+
+
+
+### multi_match多字段查询
+#### p114
+
+也是query里面的匹配条件，
+例如：
+
+            "multi_match": 
+            { 
+                "query": "mill", 
+                "fields": ["state","address"]
+            }
+
+表示匹配state或address中包含mill的数据
+
+
+
+
+### bool符合查询
+#### p115
+
+也是query里的匹配条件，
+但是它可以包含其他任何查询语句
+例如：
+
+            "bool": { 
+                "must": [
+                    { 
+                        "match": { 
+                            "address": "mill" 
+                        } 
+                    },
+                    { 
+                        "match": { 
+                            "gender": "M" 
+                        } 
+                    },
+                    {
+                        "multi_match":{
+                            "query":"B b",
+                            "fields": ["lastname","firstname"]
+                        }
+                    }
+                ]
+            }
+
+表示同时查询address包含mill、gender包含M、lastname或firstname包含有B或b的所有数据
+
+这是must字段下
+除此之外还有和must一级的should、must_not、filter字段
+在查询和加分上有自己的功能
+区别在于：
+
+            1.must      查询        加分
+            2.must_not  不查询      不加分
+            3.should    不查询      加分
+            4.filter    查询        不加分
+
+
+
+
+
+
+
+## term匹配非文本
+#### p117
+
+和match差不多的，只不过不要用match匹配非文本，也不要使用term匹配文本
+而且term检索精确的非文本
+
+            "match": { 
+                "balance": "999" 
+            } 
+
+匹配balance字段为999的数据
+
+
+
+
+
+
+
+
+## match keyword和match_phrase的区别
+#### p117
+
+例如：
+
+            "match":{
+                "address.keyword":"mill road"
+            }
+
+和：
+
+            "match_phrase":{
+                "address":"mill road"
+            }
+
+前者表示，address必须是"mill road"这个精确的字符串
+但后者仅需要address中包含有"mill road"的完整字段就行
+
+
+
+
+
+
+
+
+
+## agg聚合
+#### p118
+
+可以针对query查询到的数据进行分析
+
+例如，查询所有人的年龄分布（term），并计算出平均年龄（avg）：
+
+            GET bank/_search
+            {
+              "query": {
+                "match_all": {}
+              }
+              , 
+              "from": 0,
+              "size": 15,
+
+              "aggs": {
+                "Age_Term": {
+                  "terms": {
+                    "field": "age",
+                    "size": 1000
+                  }
+                },
+                "Age_AVG":{
+                  "avg": {
+                    "field": "age"
+                  }
+                }
+              }
+            }
+
+查询结果上，除了有常规的查询数据外，还有：
+
+            "aggregations" : {
+            "Age_AVG" : {
+              "value" : 30.171
+            },
+            "Age_Term" : {
+              "doc_count_error_upper_bound" : 0,
+              "sum_other_doc_count" : 0,
+              "buckets" : [
+                {
+                  "key" : 31,
+                  "doc_count" : 61
+                },
+                {
+                  "key" : 39,
+                  "doc_count" : 60
+                },
+                {
+                  "key" : 26,
+                  "doc_count" : 59
+                },
+                {
+                  "key" : 32,
+                  "doc_count" : 52
+                },
+                {
+                  "key" : 35,
+                  "doc_count" : 52
+                },
+                {
+                  "key" : 36,
+                  "doc_count" : 52
+                },
+                {
+                  "key" : 22,
+                  "doc_count" : 51
+                },
+                {
+                  "key" : 28,
+                  "doc_count" : 51
+                },
+                {
+                  "key" : 33,
+                  "doc_count" : 50
+                },
+                {
+                  "key" : 34,
+                  "doc_count" : 49
+                },
+                {
+                  "key" : 30,
+                  "doc_count" : 47
+                },
+                {
+                  "key" : 21,
+                  "doc_count" : 46
+                },
+                {
+                  "key" : 40,
+                  "doc_count" : 45
+                },
+                {
+                  "key" : 20,
+                  "doc_count" : 44
+                },
+                {
+                  "key" : 23,
+                  "doc_count" : 42
+                },
+                {
+                  "key" : 24,
+                  "doc_count" : 42
+                },
+                {
+                  "key" : 25,
+                  "doc_count" : 42
+                },
+                {
+                  "key" : 37,
+                  "doc_count" : 42
+                },
+                {
+                  "key" : 27,
+                  "doc_count" : 39
+                },
+                {
+                  "key" : 38,
+                  "doc_count" : 39
+                },
+                {
+                  "key" : 29,
+                  "doc_count" : 35
+                }
+              ]
+            }
+          }
+
+其中可以看到Age_AVG为30.171，
+后面的Age_Term都是age的分布
+
+
+聚合可以嵌套，例如在上面的基础上，加上功能：计算每个年龄段的平均薪资balance
+则：
+
+            GET bank/_search
+            {
+              "query": {
+                "match_all": {}
+              },
+              "aggs": {
+                "Age_Term": {
+                  "terms": {
+                    "field": "age",
+                    "size": 1000
+                  },
+                  "aggs": {
+                    "Balance_AVG": {
+                      "avg": {
+                        "field": "balance"
+                      }
+                    }
+                  }
+                },
+                "Age_AVG":{
+                  "avg": {
+                    "field": "age"
+                  }
+                }
+              },
+              "size": 0
+            }
+
+在每一个term中再次进行了一项聚合，因为该term会查询出的该年龄段的所有人，这项聚合则会根据该年龄段内所有人的balance求得平均balance
+查询结果：
+
+            "aggregations" : {
+              "Age_AVG" : {
+                "value" : 30.171
+              },
+              "Age_Term" : {
+                "doc_count_error_upper_bound" : 0,
+                "sum_other_doc_count" : 0,
+                "buckets" : [
+                  {
+                    "key" : 31,
+                    "doc_count" : 61,
+                    "Balance_AVG" : {
+                      "value" : 28312.918032786885
+                    }
+                  },
+                  {
+                    "key" : 39,
+                    "doc_count" : 60,
+                    "Balance_AVG" : {
+                      "value" : 25269.583333333332
+                    }
+                  },
+                  {
+                    "key" : 26,
+                    "doc_count" : 59,
+                    "Balance_AVG" : {
+                      "value" : 23194.813559322032
+                    }
+                  },
+                  {
+                    "key" : 32,
+                    "doc_count" : 52,
+                    "Balance_AVG" : {
+                      "value" : 23951.346153846152
+                    }
+                  },
+                  {
+                    "key" : 35,
+                    "doc_count" : 52,
+                    "Balance_AVG" : {
+                      "value" : 22136.69230769231
+                    }
+                  },
+                  {
+                    "key" : 36,
+                    "doc_count" : 52,
+                    "Balance_AVG" : {
+                      "value" : 22174.71153846154
+                    }
+                  },
+                  {
+                    "key" : 22,
+                    "doc_count" : 51,
+                    "Balance_AVG" : {
+                      "value" : 24731.07843137255
+                    }
+                  },
+                  {
+                    "key" : 28,
+                    "doc_count" : 51,
+                    "Balance_AVG" : {
+                      "value" : 28273.882352941175
+                    }
+                  },
+                  {
+                    "key" : 33,
+                    "doc_count" : 50,
+                    "Balance_AVG" : {
+                      "value" : 25093.94
+                    }
+                  },
+                  {
+                    "key" : 34,
+                    "doc_count" : 49,
+                    "Balance_AVG" : {
+                      "value" : 26809.95918367347
+                    }
+                  },
+                  {
+                    "key" : 30,
+                    "doc_count" : 47,
+                    "Balance_AVG" : {
+                      "value" : 22841.106382978724
+                    }
+                  },
+                  {
+                    "key" : 21,
+                    "doc_count" : 46,
+                    "Balance_AVG" : {
+                      "value" : 26981.434782608696
+                    }
+                  },
+                  {
+                    "key" : 40,
+                    "doc_count" : 45,
+                    "Balance_AVG" : {
+                      "value" : 27183.17777777778
+                    }
+                  },
+                  {
+                    "key" : 20,
+                    "doc_count" : 44,
+                    "Balance_AVG" : {
+                      "value" : 27741.227272727272
+                    }
+                  },
+                  {
+                    "key" : 23,
+                    "doc_count" : 42,
+                    "Balance_AVG" : {
+                      "value" : 27314.214285714286
+                    }
+                  },
+                  {
+                    "key" : 24,
+                    "doc_count" : 42,
+                    "Balance_AVG" : {
+                      "value" : 28519.04761904762
+                    }
+                  },
+                  {
+                    "key" : 25,
+                    "doc_count" : 42,
+                    "Balance_AVG" : {
+                      "value" : 27445.214285714286
+                    }
+                  },
+                  {
+                    "key" : 37,
+                    "doc_count" : 42,
+                    "Balance_AVG" : {
+                      "value" : 27022.261904761905
+                    }
+                  },
+                  {
+                    "key" : 27,
+                    "doc_count" : 39,
+                    "Balance_AVG" : {
+                      "value" : 21471.871794871793
+                    }
+                  },
+                  {
+                    "key" : 38,
+                    "doc_count" : 39,
+                    "Balance_AVG" : {
+                      "value" : 26187.17948717949
+                    }
+                  },
+                  {
+                    "key" : 29,
+                    "doc_count" : 35,
+                    "Balance_AVG" : {
+                      "value" : 29483.14285714286
+                    }
+                  }
+                ]
+              }
+            }
+
+
+
+需求升级，不仅要查出所有年龄段内人的平均薪资，还有查出不同性别的平均薪资，
+则：
+
+            GET bank/_search
+            {
+              "query": {
+                "match_all": {}
+              },
+              "aggs": {
+                "Age_Term": {
+                  "terms": {
+                    "field": "age",
+                    "size": 1000
+                  },
+                  "aggs": {
+                    "gender_agg": {
+                      "terms": {
+                        "field": "gender.keyword",
+                        "size": 2
+                      },
+                      "aggs": {
+                        "balance_avg": {
+                          "avg": {
+                            "field": "balance"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "Age_AVG":{
+                  "avg": {
+                    "field": "age"
+                  }
+                }
+              }
+            }
+
+主要是在第一个年龄段的term下添加agg，对该年龄段下所有人进行聚合操作
+响应：
+
+          "aggregations" : {
+            "Age_AVG" : {
+              "value" : 30.171
+            },
+            "Age_Term" : {
+              "doc_count_error_upper_bound" : 0,
+              "sum_other_doc_count" : 0,
+              "buckets" : [
+                {
+                  "key" : 31,
+                  "doc_count" : 61,
+                  "gender_agg" : {
+                    "doc_count_error_upper_bound" : 0,
+                    "sum_other_doc_count" : 0,
+                    "buckets" : [
+                      {
+                        "key" : "M",
+                        "doc_count" : 35,
+                        "balance_avg" : {
+                          "value" : 29565.628571428573
+                        }
+                      },
+                      {
+                        "key" : "F",
+                        "doc_count" : 26,
+                        "balance_avg" : {
+                          "value" : 26626.576923076922
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "key" : 39,
+                  "doc_count" : 60,
+                  "gender_agg" : {
+                    "doc_count_error_upper_bound" : 0,
+                    "sum_other_doc_count" : 0,
+                    "buckets" : [
+                    ······
+
+可以看到，实现了需求
+在每个年龄段下，不仅有该年龄段的平均薪资
+还嵌套了一层聚合，将该年龄段所有人再次分成了不同性别
+而对应该年龄段下该性别的人，再次嵌套聚合，查出了该群体的平均薪资
+
+
+
+
+
+
+
+
+
+## mapping映射
+#### p119
+
+在创建索引时就对其文档映射规则进行指定，或者在索引创建新文档时也可以指定规则
+但是已经存在的文档不能指定规则
+
+例如：
+
+            PUT /my-index{ 
+                "mappings": { 
+                    "properties": {
+                        "age": { "type": "integer" }, 
+                        "email": { "type": "keyword" }, 
+                        "name": { "type": "text" }
+                    }
+                }
+            }
+
+创建了一个my-index索引，创建文档并指定了类型
+例如age类型为integer，那么只能使用term进行匹配
+email类型为keyword，那么只能使用精确匹配
+name类型为text文本类型，那么就可以使用模糊匹配，同时存储时其文本会被分词器自动分词存储
+
+
+在索引新创建一个指定映射关系的文档：
+
+            PUT /my-index/_mapping{ 
+                "properties": { 
+                    "employee-id": { 
+                        "type": "keyword", 
+                        "index": false
+                    }
+                }
+            }
+
+其中employee-id就是新建的文档
+type:keyword表示只能使用精确匹配
+index:false表示该字段并不会被检索（不会被查询到）。如果不写明这一条的话，默认为true，即会被检索
+
+
+
+
+## 数据迁移
+#### p121
+
+将一个索引的数据迁移到另一个索引
+例如：
+
+            POST _reindex
+            { 
+                "source": { 
+                    "index": "twitter"
+                },
+                "dest": { 
+                    "index": "new_twitter"
+                }
+            }
+
+source表示要迁移的索引
+dest表示迁移至的索引
+该方法就表示将twitter的数据迁移到new_twitter
+
+
+但是数据迁移可以达到更新文档映射规则的作用，创建新索引时，创建旧索引的同名文档但是类型指定为新的
+例如创建my-index时：
+
+        PUT /new-my-index{ 
+                "mappings": { 
+                    "properties": {
+                        "age": { "type": "long" }, 
+                        "email": { "type": "text" }, 
+                    }
+                }
+            }
+
+这样旧创建好了一个新的索引new-my-index，age改为long类型，email改为text
+之后进行数据迁移：
+
+            { 
+                "source": {
+                    "index": "my-index", 
+                    "type": "integer"
+                },
+                "dest": { 
+                    "index": "new-my-index"
+                }
+            }
+
+表示将原索引my-index下的integer类型的文档迁移到new-my-index
+而integer类型的文档中，只有age一个而且是新索引的同名文档，且新索引中age的类型为long，那么age迁移到新索引时类型也变成long
+如果integer类型的文档有新索引没有的，那么就单纯的迁移
+
+
+
+
+## 分词
+#### p122
+
+
+安装ik分词器
+地址
+
+            https://github.com/medcl/elasticsearch-analysis-ik
+
+下载文件后，在windows中解压到一个lk目录
+将其复制到ubuntu的 
+
+            /mydata/elasticsearch/plugins
+
+使用命令：
+
+            elasticsearch-plugin list
+
+查看是否安装了lk
+安装成功后，重启es容器
+在kibana中输入：
+
+            POST _analyze
+            { 
+              "analyzer": "ik_smart", 
+              "text": "我是中国人"
+            }
+
+让es分析每个词语
+正常来说，没有安装汉语分词时，也就是不是有analyzer:ik_smart时，分出来的应该是每个汉字一个词
+但是按照lk后：
+
+            {
+              "tokens" : [
+                {
+                  "token" : "我",
+                  "start_offset" : 0,
+                  "end_offset" : 1,
+                  "type" : "CN_CHAR",
+                  "position" : 0
+                },
+                {
+                  "token" : "是",
+                  "start_offset" : 1,
+                  "end_offset" : 2,
+                  "type" : "CN_CHAR",
+                  "position" : 1
+                },
+                {
+                  "token" : "中国人",
+                  "start_offset" : 2,
+                  "end_offset" : 5,
+                  "type" : "CN_WORD",
+                  "position" : 2
+                }
+              ]
+            }
+
+可以看到，确实分出来了
+
+
+ik_smart是一种ik分词模式，表示智能分词，根据语义分词
+但还有另一种模式：ik_max_word，会将所有可能的词语都分出来
+例如：
+
+            POST _analyze
+            { 
+              "analyzer": "ik_max_word", 
+              "text": "我是中国人"
+            }
+
+结果：
+
+            {
+              "tokens" : [
+                {
+                  "token" : "我",
+                  "start_offset" : 0,
+                  "end_offset" : 1,
+                  "type" : "CN_CHAR",
+                  "position" : 0
+                },
+                {
+                  "token" : "是",
+                  "start_offset" : 1,
+                  "end_offset" : 2,
+                  "type" : "CN_CHAR",
+                  "position" : 1
+                },
+                {
+                  "token" : "中国人",
+                  "start_offset" : 2,
+                  "end_offset" : 5,
+                  "type" : "CN_WORD",
+                  "position" : 2
+                },
+                {
+                  "token" : "中国",
+                  "start_offset" : 2,
+                  "end_offset" : 4,
+                  "type" : "CN_WORD",
+                  "position" : 3
+                },
+                {
+                  "token" : "国人",
+                  "start_offset" : 3,
+                  "end_offset" : 5,
+                  "type" : "CN_WORD",
+                  "position" : 4
+                }
+              ]
+            }
+
+可以看到基本上把所有的词都分析出来了
+
+
+
+
+
+
+
+## 自定义ik词库
+#### p124
+
+
+### 首先下载nginx
+
+在mydata/下创建一个nginx文件夹，进入该文件夹，用docker随意地创建一个实例：
+
+            docker run -p 80:80 --name nginx -d nginx:1.10
+
+这一步是为了将nginx的配置文件复制出来
+复制：
+
+            docker container cp nginx:/etc/nginx .
+
+注意别忘了后面的空格和点
+此时我们所处的文件夹是在mydata，后面的.就是表明将文件复制到当前文件夹下
+之后会恰好地复制到mydata中同样名为nginx的文件夹
+
+随后便可以关闭并移除nginx容器了
+
+将nginx文件夹改为conf：
+
+            mv nginx conf
+
+然后再创建一个nginx文件夹麻将conf移动端nginx文件夹内
+
+            mv conf nginx/
+
+将conf整个文件夹移动到nginx下
+
+随后再次运行nginx容器：
+
+            docker run -p 80:80 --name nginx -v /mydata/nginx/html:/usr/share/nginx/html -v /mydata/nginx/logs:/var/log/nginx -v /mydata/nginx/conf:/etc/nginx -d nginx:1.10
+
+访问80端口就可以看到页面了，虽然是403，但是还是会显示是nginx欢迎页面
+将静态页面html挂载到 /mydata/nginx/html
+将nginx所在文件夹挂载到/mydata/nginx
+将配置文件conf挂载到/mydata/nginx/conf
+
+
+在html文件夹下面的就是页面了，创建index.html就是默认页面
+在下面创建es文件夹，表示所有和es相关的文件都存在这里面
+之后使用 /es/ 就可以访问有关文件了
+
+例如在 /html下创建 /es/fenci.txt：
+
+            奇幻全能
+            邪王之龙
+            远古之龙
+            全知全能之书
+            刃王剑
+            十圣刃
+
+此时其路径就是：
+
+            http://192.168.74.130/es/fenci.txt
+
+
+
+
+### 自定义词库
+
+进入/mydata/elasticsearch/plugins/lk/config里面，修改IKAnalyzer.cfg.xml：
+
+            vim IKAnalyzer.cfg.xml
+
+将远程词库一栏取消注释，修改为：
+
+            <entry key="remote_ext_dict">http://192.168.74.130/es/fenci.txt</entry>
+
+表示可以找该路径获取分词
+
+修改完成后docker重启es和nginx
+
+貌似不行，原因未知
+
+
+
+
+# SpringBoot整合es
+
+
+
+## 安装
+#### p125
+
+使用 Elasticsearch-Rest-Client
+
+
+在总服务中创建mall-search，选择java web就可以
+老演员了
+导入依赖：
+
+            <!-- https://mvnrepository.com/artifact/org.elasticsearch.client/elasticsearch-rest-high-level-client -->
+            <dependency>
+                <groupId>org.elasticsearch.client</groupId>
+                <artifactId>elasticsearch-rest-high-level-client</artifactId>
+                <version>7.4.2</version>
+            </dependency>
+
+这是高阶的api
+在该pom的properties中加上：
+
+            <elasticsearch.version>7.4.2</elasticsearch.version>
+
+表示手动规定版本为7.4.2
+
+导入common包，要用到nacos
+
+
+
+
+## 配置
+#### p125
+
+
+
+application.yml添加：
+
+            spring:
+              cloud:
+                nacos:
+                  discovery:
+                    server-addr: 192.168.74.130:8848
+                    password: nacos
+                    username: nacos
+                    namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+              application:
+                name: mall-search
+            server:
+                port: 10300
+
+bootstrap添加：
+
+            spring:
+              cloud:
+                nacos:
+                  config:
+                    server-addr: 192.168.74.130:8848
+                    username: nacos
+                    password: nacos
+                    namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+            
+随后在启动类添加@EnableDiscoveryClient
+总之一定要弄好nacos注册中心和配置中心的配置
+
+
+其次还要排除数据源@SpringBootApplication(exclude = DataSourceAutoConfiguration.class)
+
+
+在search模块中加上config配置类，config.ESConfig：
+
+            @Configuration
+            public class ESConfig {
+                @Bean
+                public RestHighLevelClient EsClient(){
+                    RestHighLevelClient highLevelClient=new RestHighLevelClient(
+                            RestClient.builder(
+                                    new HttpHost("192.168.74.130",9200,"http")
+                            )
+                    );
+                    return  highLevelClient;
+                }
+            }
+
+工厂模式创建一个high level的client
+该工厂会使用RestClient的builder方法，根据ip地址、端口号、协议建造一个client并返还给工厂调用者
+
+
+定义一个test测试一下：
+
+            @SpringBootTest
+            @RunWith(SpringRunner.class)
+            class MallSearchTests {
+                @Autowired
+                private ESClientConfiguration client;
+                @Test
+                void contextLoads() {
+                    System.out.println(client);
+                }
+            }
+
+注意加上@Runwith(SpringRunner.class)注解
+
+测试结果：
+
+            com.katzenyasax.mall.search.config.ESClientConfiguration$$SpringCGLIB$$0@19a544cd
+
+
+
+
