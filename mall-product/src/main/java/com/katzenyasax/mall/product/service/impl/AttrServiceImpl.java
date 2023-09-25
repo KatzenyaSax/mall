@@ -131,9 +131,15 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
             //一定要判断，否则如果查到attr_id在关系表内不存在的话就会报错而无法允许
                 AttrGroupEntity attrGroupEntity = attrGroupDao.selectById(attrAttrgroupRelationEntity.getAttrGroupId());
                 //通过关系对象，获取对应的attrGroupId，并以此获取对应的attrGroup对象
-                String groupName = attrGroupEntity.getAttrGroupName();
+                try {
+                    String groupName = attrGroupEntity.getAttrGroupName();
+                    vo.setGroupName(groupName);
+                }catch (Exception e)
+                {
+                    vo.setGroupName(null);
+                }
                 //通过获取的attrGroup对象直接获取groupName
-                vo.setGroupName(groupName);
+
             }
             return vo;
         }).collect(Collectors.toList());

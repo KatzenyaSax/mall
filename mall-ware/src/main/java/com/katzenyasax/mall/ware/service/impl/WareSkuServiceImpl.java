@@ -1,7 +1,12 @@
 package com.katzenyasax.mall.ware.service.impl;
 
 import com.qiniu.util.StringUtils;
+import io.jsonwebtoken.Header;
+import org.apache.commons.collections.map.FixedSizeMap;
 import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -63,6 +68,27 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
         );
 
         return new PageUtils(finale);
+    }
+
+
+
+
+    /**
+     * 响应product模块的方法
+     * skuId，获取skuId对应的stock
+     * 返回值为一个map，包含该skuId对应的商品所处的不同仓库的id和各仓库内的库存
+     */
+    @Override
+    public Map<Long, Integer> getStockBySkuxId(Long skuId) {
+        List<WareSkuEntity> wareSkuEntities=baseMapper.selectList(new QueryWrapper<WareSkuEntity>().eq("sku_id",skuId));
+        Map<Long,Integer> finale=new HashMap<>();
+        if(!wareSkuEntities.isEmpty()) {
+            for (WareSkuEntity entity : wareSkuEntities) {
+                finale.put(entity.getWareId(), entity.getStock()-entity.getStockLocked());
+                //这里库存应该是总库存减去冻结的库存
+            }
+        }
+        return finale;
     }
 
 }

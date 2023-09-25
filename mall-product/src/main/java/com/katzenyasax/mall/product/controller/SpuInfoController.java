@@ -75,6 +75,10 @@ public class SpuInfoController {
      * 根据spuId上架
      * 就是把publish status改为1
      *
+     *
+     * 功能加强：
+     * 要加入es
+     *
      */
     @RequestMapping("/{spuId}/up")
     public R upSpu(@PathVariable Long spuId){

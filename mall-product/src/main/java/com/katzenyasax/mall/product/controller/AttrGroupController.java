@@ -11,6 +11,7 @@ import com.katzenyasax.mall.product.entity.AttrEntity;
 import com.katzenyasax.mall.product.service.AttrAttrgroupRelationService;
 import com.katzenyasax.mall.product.service.CategoryService;
 import com.katzenyasax.mall.product.service.impl.AttrAttrgroupRelationServiceImpl;
+import com.katzenyasax.mall.product.vo.AttrAttrGroupVO_AttrIdWithAttrGroupId;
 import com.katzenyasax.mall.product.vo.AttrAttrGroupVO_JustReceiveData;
 import com.katzenyasax.mall.product.vo.AttrGroupVO_WithAttrs;
 import io.swagger.models.auth.In;
@@ -186,9 +187,30 @@ public class AttrGroupController {
     }
 
 
+    /**
+     *
+     * @return
+     *
+     * 删除attr和attrGroup的联系
+     */
+    @RequestMapping("attr/relation/delete")
+    public R deleteRelation(@RequestBody AttrAttrGroupVO_AttrIdWithAttrGroupId[] vos){
+
+        attrGroupService.deleteRelation(vos);
+        return R.ok();
+    }
 
 
+    /**
+     * 要求删除group的同时，删除该group和其他attr的关联
+     */
+    @RequestMapping("/delete")
+    @RequiresPermissions("product:attrgroup:delete")
+    public R delete(@RequestBody Long[] attrGroupIds){
+        attrGroupService.removeGroupAndRelation(attrGroupIds);
 
+        return R.ok();
+    }
 
 
 
@@ -235,15 +257,14 @@ public class AttrGroupController {
         return R.ok();
     }
 
-    /**
+    /*
      * 删除
-     */
     @RequestMapping("/delete")
     @RequiresPermissions("product:attrgroup:delete")
     public R delete(@RequestBody Long[] attrGroupIds){
 		attrGroupService.removeByIds(Arrays.asList(attrGroupIds));
 
         return R.ok();
-    }
+    }*/
 
 }

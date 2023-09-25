@@ -1,11 +1,16 @@
 package com.katzenyasax.mall.product.service.impl;
 
 import cn.hutool.core.date.DateTime;
+import com.alibaba.fastjson.JSON;
+import com.katzenyasax.common.to.SkuEsModel;
 import com.katzenyasax.common.to.SkuFullReductionTO;
 import com.katzenyasax.common.to.SpuBoundsTO;
+import com.katzenyasax.common.utils.R;
 import com.katzenyasax.mall.product.dao.*;
 import com.katzenyasax.mall.product.entity.*;
 import com.katzenyasax.mall.product.feign.CouponFeign;
+import com.katzenyasax.mall.product.feign.SearchFeign;
+import com.katzenyasax.mall.product.feign.WareFeign;
 import com.katzenyasax.mall.product.vo.spu.*;
 import com.aliyuncs.utils.StringUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +64,12 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
     @Autowired
     CouponFeign couponFeign;
 
+    @Autowired
+    BrandDao brandDao;
+
+    @Autowired
+    CategoryDao categoryDao;
+
 
     /**
      *
@@ -95,8 +106,6 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
     //  该方法还有一些保存失败的可能性
     //  例如事务是否回滚？等等
     //  就放在以后看吧
-
-
     @Transactional
     @Override
     public void saveSpuVo(SpuSaveVO vo) {
@@ -272,6 +281,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
      * 包括模糊查询
      */
     @Override
+    @Transactional
     public PageUtils getSpuInfo(@NotNull Map<String, Object> params) {
         //params里面有key、catelogId、brandId、status
 
@@ -316,14 +326,108 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
      *
      * 根据spuId上架商品
      *
+     * 功能拓展：要求上架时，将该spu的所有信息、和spuId对应的所有sku存储至es
      *
      */
+    @Autowired
+    WareFeign wareFeign;
+    @Autowired
+    SearchFeign searchFeign;
     @Override
+    @Transactional
     public void upSpu(Long spuId) {
         SpuInfoEntity entity=baseMapper.selectById(spuId);
         entity.setPublishStatus(1);
         baseMapper.updateById(entity);
+
+        /**
+         * 接下来进行存储至es
+         */
+        //1.查出所有sku
+        List<SkuInfoEntity> skus=skuInfoDao.selectList(new QueryWrapper<SkuInfoEntity>().eq("spu_id",spuId));
+
+        /*2.处理attrs
+         * 注意在这个spu下，每个sku对应的attrs都是一样的
+         * 所以只需要查一遍，获取attrs后直接赋给所有sku就行
+         * 并且还要注意，查的应该是search_type=1，即可以用于查询的attr
+         * 在product_attr_value表中查，里面有attr和spu_id的对应关系，还有AttrEsModel要用的所有东西
+         */
+        List<ProductAttrValueEntity> attrEntities=this.getAttrThatCanBeSearchedBySpuId(spuId);
+        List<SkuEsModel.Attrs> attrs=new ArrayList<>();
+        //复制
+        if((attrEntities!=null&&!attrEntities.isEmpty())) {
+            //当spuId没有关联的sku时，attr直接为空集合
+            for (ProductAttrValueEntity attrEntity : attrEntities) {
+                SkuEsModel.Attrs attr = new SkuEsModel.Attrs();
+                BeanUtils.copyProperties(attrEntity, attr);
+                attrs.add(attr);
+            }
+        }
+        System.out.println(JSON.toJSONString(attrs));
+
+        //3.封装信息
+        List<SkuEsModel> skuEsModels=new ArrayList<>();
+        for (SkuInfoEntity info : skus) {
+            SkuEsModel model=new SkuEsModel();
+            /*
+             * 拷贝数据
+             * 不同的字段为：
+             * skuPrice     price
+             * skuImg       skuDefaultImg
+             *
+             * 缺失的字段：
+             * hasStock，关联spu的stock
+             * hotScore，根据点击率获取，后端不管
+             * brandName，根据brandId查
+             * brandImg，根据brandId查
+             * catalogName，根据catalogId查
+             *
+             */
+            //3.1复制对象
+            BeanUtils.copyProperties(info,model);
+
+            //3.2处理不同名称字段
+            model.setSkuPrice(info.getPrice());
+            model.setSkuImg(info.getSkuDefaultImg());
+
+            //3.3处理缺失字段
+            model.setBrandName(brandDao.selectById(model.getBrandId()).getName());
+            model.setCatalogName(categoryDao.selectById(model.getCatalogId()).getName());
+            model.setBrandImg(brandDao.selectById(model.getBrandId()).getLogo());
+                //TODO 热度评分需要更复杂的操作
+                //  目前就给设置个0得了
+            model.setHotScore(0L);
+            //需要远程调用ware了：通过sku_id在ware的数据库的ware_sku中查询stock；若stock不为空，且有一个键值对的value不为0，则hasStock设置为true
+            model.setHasStock(false);
+            Map<Long, Integer> stock = wareFeign.getStockBySkuId(model.getSkuId());
+            if (!stock.isEmpty() && stock != null) {
+                for (Map.Entry<Long, Integer> entry : stock.entrySet()) {
+                    if (entry.getValue() != 0) {
+                        model.setHasStock(true);
+                        break;
+                    }
+                }
+            }
+
+
+            //3.4处理attrs
+            //注意每一个sku的attrs都是在一个
+            model.setAttrs(attrs);
+
+            //3.5将该循环内的model加入skuEsMedels中sk
+            skuEsModels.add(model);
+        }
+        System.out.println(JSON.toJSONString(skuEsModels));
+
+        //4.远程添加至es
+        R r=searchFeign.SkuUp(skuEsModels);
+        System.out.println(r.toString());
+
+        //TODO:一些高级问题如何解决？例如接口幂等性、抑或是open feign的重试机制？
+
     }
+
+
 
     /**
      *
@@ -340,4 +444,41 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
         baseMapper.updateById(entity);
     }
 
+
+    /**
+     * =====================================================================================
+     */
+
+
+    /**
+     * 非接口方法
+     * 根据spuId查询所有可检索的attr
+     * 即searchType=1的所有attr
+     * 返回AttrEntity的List
+     */
+    public List<ProductAttrValueEntity> getAttrThatCanBeSearchedBySpuId(Long spuId){
+        //获取与spuId关联、且searchType为1的PAVE
+        //获取所有的attrId，根据spuId，从pav表中
+        List<Long> attrIds=new ArrayList<>();
+        for (ProductAttrValueEntity entity : productAttrValueDao.selectList(new QueryWrapper<ProductAttrValueEntity>().eq("spu_id", spuId))) {
+            attrIds.add(entity.getAttrId());
+        }
+        //构造内容物为空的返回值
+        List<ProductAttrValueEntity> finale=new ArrayList<>();
+        //遍历attrIds
+        //遍历时，根据attrId查询attrEntity，若发现search_id为1，则通过该attrId获取pave，并加入返回值
+        for(Long attrId:attrIds){
+            if(attrDao.selectById(attrId).getSearchType()==1){
+                ProductAttrValueEntity entity=productAttrValueDao.selectOne(new QueryWrapper<ProductAttrValueEntity>().eq("spu_id",spuId).and(
+                        w->w.eq("attr_id",attrId)));
+                finale.add(entity);
+            }
+        }
+
+
+
+
+
+        return finale;
+    }
 }

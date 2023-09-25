@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.mall.product.entity.AttrEntity;
 import com.katzenyasax.mall.product.entity.AttrGroupEntity;
+import com.katzenyasax.mall.product.vo.AttrAttrGroupVO_AttrIdWithAttrGroupId;
 import com.katzenyasax.mall.product.vo.AttrAttrGroupVO_JustReceiveData;
 import com.katzenyasax.mall.product.vo.AttrGroupVO_WithAttrs;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -35,5 +36,9 @@ public interface AttrGroupService extends IService<AttrGroupEntity> {
     void addRelation(List<AttrAttrGroupVO_JustReceiveData> vos);
 
     List<AttrGroupVO_WithAttrs> getAttrGroupWithsAttrs(Long catelogId);
+
+    void deleteRelation(AttrAttrGroupVO_AttrIdWithAttrGroupId[] vos);
+
+    void removeGroupAndRelation(Long[] attrGroupIds);
 }
 

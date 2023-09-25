@@ -8,6 +8,7 @@ import com.katzenyasax.mall.product.entity.AttrAttrgroupRelationEntity;
 import com.katzenyasax.mall.product.entity.AttrEntity;
 import com.katzenyasax.mall.product.entity.CategoryEntity;
 import com.katzenyasax.mall.product.service.CategoryService;
+import com.katzenyasax.mall.product.vo.AttrAttrGroupVO_AttrIdWithAttrGroupId;
 import com.katzenyasax.mall.product.vo.AttrAttrGroupVO_JustReceiveData;
 import com.katzenyasax.mall.product.vo.AttrGroupVO_WithAttrs;
 import io.netty.util.internal.StringUtil;
@@ -274,6 +275,42 @@ public class AttrGroupServiceImpl extends ServiceImpl<AttrGroupDao, AttrGroupEnt
             finale.add(vo);
         }
         return finale;
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     *
+     * @return
+     *
+     * 删除attr和attrId的联系
+     */
+    @Override
+    public void deleteRelation(AttrAttrGroupVO_AttrIdWithAttrGroupId[] vos) {
+        for(AttrAttrGroupVO_AttrIdWithAttrGroupId vo:vos){
+            Long attrId=vo.getAttrId();
+            Long attrGroupId=vo.getAttrGroupId();
+            attrAttrgroupRelationDao.delete(new QueryWrapper<AttrAttrgroupRelationEntity>().eq("attr_id",attrId).and(
+                    w->w.eq("attr_group_id",attrGroupId)));
+        }
+    }
+
+
+
+    /**
+     * 要求删除group的同时，删除该group和其他attr的关联
+     */
+    @Override
+    public void removeGroupAndRelation(Long[] attrGroupIds) {
+        for(Long groupId:attrGroupIds){
+            attrAttrgroupRelationDao.delete(new QueryWrapper<AttrAttrgroupRelationEntity>().eq("attr_group_id",groupId));
+        }
     }
 
 

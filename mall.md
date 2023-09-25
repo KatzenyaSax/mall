@@ -2554,6 +2554,8 @@ catelogId为0时默认查找所有
 
 
 
+
+
 #  商品服务III.属性分组：修改页面数据回显 
 
 
@@ -3406,7 +3408,30 @@ service中定义方法：
 
 要实现的功能是，任意删除一个属性或参数时，其在关系表内的相关数据也要删除
 
+AttrGroupController中：
 
+      /**
+       * 要求删除group的同时，删除该group和其他attr的关联
+       */
+      @RequestMapping("/delete")
+      @RequiresPermissions("product:attrgroup:delete")
+      public R delete(@RequestBody Long[] attrGroupIds){
+          attrGroupService.removeGroupAndRelation(attrGroupIds);
+
+          return R.ok();
+      }
+
+自定义方法removeGroupAndRelation：
+
+      /**
+       * 要求删除group的同时，删除该group和其他attr的关联
+       */
+      @Override
+      public void removeGroupAndRelation(Long[] attrGroupIds) {
+          for(Long groupId:attrGroupIds){
+              attrAttrgroupRelationDao.delete(new QueryWrapper<AttrAttrgroupRelationEntity>().eq("attr_group_id",groupId));
+          }
+      }
 
 
 
@@ -3812,6 +3837,62 @@ service中定义方法：
 
 完成功能
 
+
+
+
+
+#  商品服务VII：删除属性与参数间的关联 
+
+请求路径：
+
+      /product/attrgroup/attr/relation/delete
+
+请求参数：
+
+      [{"attrId":1,"attrGroupId":2}]
+
+是一个对象数组，定义一个vo：
+
+      @Data
+      public class AttrAttrGroupVO_AttrIdWithAttrGroupId {
+          private Long attrId;
+          private Long attrGroupId；
+      }
+
+AttrGroupController中：
+
+      /**
+       *
+       * @return
+       *
+       * 删除attr和attrId的联系
+       */
+      @RequestMapping("attr/relation/delete")
+      public R deleteRelation(@RequestBody AttrAttrGroupVO_AttrIdWithAttrGroupId[] vos){
+
+          attrGroupService.deleteRelation(vos);
+          return R.ok();
+      }
+
+自定义方法deleteRelation：
+
+      /**
+       *
+       * @return
+       *
+       * 删除attr和attrId的联系
+       */
+      @Override
+      public void deleteRelation(AttrAttrGroupVO_AttrIdWithAttrGroupId[] vos) {
+          for(AttrAttrGroupVO_AttrIdWithAttrGroupId vo:vos){
+              Long attrId=vo.getAttrId();
+              Long attrGroupId=vo.getAttrGroupId();
+              attrAttrgroupRelationDao.delete(new QueryWrapper<AttrAttrgroupRelationEntity>().eq("attr_id",attrId).and(
+                      w->w.eq("attr_group_id",attrGroupId)));
+          }
+      }
+
+测试样例就免了，结果是成功的
 
 
 
@@ -7490,6 +7571,752 @@ bootstrap添加：
 
             com.katzenyasax.mall.search.config.ESClientConfiguration$$SpringCGLIB$$0@19a544cd
 
+
+
+
+## 使用
+#### p126
+
+
+在配置类加一个通用配置：
+
+            /**
+             *  es官方建议的es通用设置
+             */
+            public static final RequestOptions COMMON_OPTIONS;
+            static {
+                RequestOptions.Builder builder = RequestOptions.DEFAULT.toBuilder();
+                COMMON_OPTIONS=builder.build();
+            }
+
+然后做一个存储数据的测试：
+
+            @Test
+            void IndexData() throws IOException {
+                /**
+                 * 任何请求首先要定义一个IndexRequest类型的对象才能实现   
+                 */
+                IndexRequest indexRequest=new IndexRequest("data_test");
+                indexRequest.id("1");
+                //任何情况下都要使用字符串形式
+                /**
+                 * 将要保存的数据准备好
+                 * 将其转化为json格式
+                 */
+                Data_Test dataTest=new Data_Test();
+                String json= JSON.toJSONString(dataTest);
+                indexRequest.source(json, XContentType.JSON);
+                /**
+                 * 进行存储
+                 */
+                IndexResponse indexResponse=client.EsClient().index(indexRequest,ESClientConfiguration.COMMON_OPTIONS);
+                    //此时的indexResponse用于执行indexRequest
+                /**
+                 * 打印结果测试
+                 */
+                System.out.println("indexResponse:"+indexResponse.toString());
+
+            }
+
+Date_Test是一个实体类
+运行结果：
+
+            indexResponse:
+                IndexResponse[
+                    index=data_test,
+                    type=_doc,
+                    id=1,
+                    version=1,
+                    result=created,
+                    seqNo=0,
+                    primaryTerm=1,
+                    shards={
+                        "total":2,
+                        "successful":1,
+                        "failed":0
+                    }
+                ]
+
+
+在kibana查询一下，在此之前是没有data_test这个索引的数据的：
+
+            GET data_test/_search
+
+结果：
+
+            {
+              "took" : 12,
+              "timed_out" : false,
+              "_shards" : {
+                "total" : 1,
+                "successful" : 1,
+                "skipped" : 0,
+                "failed" : 0
+              },
+              "hits" : {
+                "total" : {
+                  "value" : 1,
+                  "relation" : "eq"
+                },
+                "max_score" : 1.0,
+                "hits" : [
+                  {
+                    "_index" : "data_test",
+                    "_type" : "_doc",
+                    "_id" : "1",
+                    "_score" : 1.0,
+                    "_source" : { }
+                  }
+                ]
+              }
+            }
+
+看到确实是成功了
+_source为空，是因为保存对象之前没有设置任何值
+设置一下，再保存一下：
+
+            /**
+             * 将要保存的数据准备好
+             * 将其转化为json格式
+             */
+            Data_Test dataTest=new Data_Test();
+            dataTest.setName("NAME");
+            dataTest.setGender("M");
+            dataTest.setAge(20);
+            String json= JSON.toJSONString(dataTest);
+            indexRequest.source(json, XContentType.JSON);
+
+再次查询kibana：
+
+            {
+              "took" : 0,
+              "timed_out" : false,
+              "_shards" : {
+                "total" : 1,
+                "successful" : 1,
+                "skipped" : 0,
+                "failed" : 0
+              },
+              "hits" : {
+                "total" : {
+                  "value" : 1,
+                  "relation" : "eq"
+                },
+                "max_score" : 1.0,
+                "hits" : [
+                  {
+                    "_index" : "data_test",
+                    "_type" : "_doc",
+                    "_id" : "1",
+                    "_score" : 1.0,
+                    "_source" : {
+                      "age" : 20,
+                      "gender" : "M",
+                      "name" : "NAME"
+                    }
+                  }
+                ]
+              }
+            }
+
+_source不为空了，同时其version也自增1了，说明这是一个更新操作
+
+
+
+
+
+
+
+
+
+
+
+## 复杂检索
+#### p127
+
+
+复杂查询数据，索引就用bank吧
+
+测试：
+
+      /**
+       * 测试一下，查询数据操作
+       */
+      @Test
+      public void SearchData() throws IOException {
+          /**1.
+           * 查询首先要定义一个SearchRequest对象
+           * 指定查询的索引
+           * 这个对象只发挥存储命令的作用
+           * 不发挥构建命令、执行命令的作用
+           */
+          SearchRequest searchRequest=new SearchRequest();
+          searchRequest.indices("bank");
+
+          /**2.
+           * 随后创建一个SearchSourceBuilder对象
+           * 发挥构建命令的作用
+           * 需要将其交给searchRequest，表示器存储的一切命令都来源与这个searchBuilder
+           */
+          SearchSourceBuilder searchSourceBuilder=new SearchSourceBuilder();
+          {
+              /**
+               * 开始构造
+               * 例如实现一个功能：
+               * 查出每个年龄段人数及平均年龄，计算平均薪资balance
+               * 在kibana中命令为：
+               *
+               *          # 查出每个年龄段人数及平均年龄，计算平均薪资balance
+               *          GET bank/_search
+               *          {
+               *            "query": {
+               *              "match_all": {}
+               *            },
+               *
+               *            "aggs": {
+               *              "Age_Term": {
+               *                "terms": {
+               *                  "field": "age",
+               *                  "size": 1000
+               *                }
+               *              },
+               *              "Balance_AVG":{
+               *                "avg": {
+               *                  "field": "balance"
+               *                }
+               *              }
+               *            }
+               *          }
+               *
+               * 那么构造应该是：
+               */
+              //这个是最外最大的query，即查询
+              //此处matchAllQuery表示查询所有
+              searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+              /**
+               * 之后聚合函数
+               */
+              //根据年龄聚合
+              TermsAggregationBuilder termsAge = AggregationBuilders.terms("Age_Term").field("age").size(1000);
+              searchSourceBuilder.aggregation(termsAge);
+              //求出平均薪资
+              AvgAggregationBuilder avgBalance=AggregationBuilders.avg("Balance_Avg").field("balance");
+              searchSourceBuilder.aggregation(avgBalance);
+          }
+          System.out.println("检索条件："+ searchSourceBuilder);
+          searchRequest.source(searchSourceBuilder);
+
+          /**3.
+           * 执行searchRequest，使用client执行
+           */
+          SearchResponse searchResponse=client.EsClient().search(searchRequest,ESClientConfiguration.COMMON_OPTIONS);
+
+          /**4.
+           * 分析结果
+           */
+          //整个结果
+          System.out.println("查询结果："+searchResponse);
+          //命中结果
+          SearchHits hits=searchResponse.getHits();
+          SearchHit[] searchHits = hits.getHits();
+          for(SearchHit hit:searchHits){
+              String object= hit.getSourceAsString();
+              BankAccount account=JSON.parseObject(object, BankAccount.class);
+              System.out.println("account: "+account);
+          }
+
+          //运行时间
+          TimeValue took = searchResponse.getTook();
+          System.out.println("took: "+took.toString());
+
+          //聚合函数分析结果
+          Aggregations aggregations=searchResponse.getAggregations();
+          {
+              //所有年龄段
+              Terms AgeAvg = aggregations.get("Age_Term");
+              for (Terms.Bucket bucket : AgeAvg.getBuckets()) {
+                  String object = bucket.getKeyAsString();
+                  System.out.println("bucket: " + object);
+              }
+
+              //平均薪资
+              Avg balanceAvg=aggregations.get("Balance_Avg");
+              System.out.println("balance avg: "+balanceAvg.getValue());
+          }
+      }
+
+可以看到，整个过程无非四部：
+
+      1.创建请求对象Request，该请求对象用于存储完整的请求命令
+
+      2.创建构造器对象RequestBuilder构造命令，并将完整的命令交予请求对象
+
+      3.使用客户端对象Client执行命令，将执行结果封装为一个Response
+
+      4.分析Response，获取需要的信息
+
+以后照着这个格式抄就完事了
+
+
+
+
+
+
+
+
+
+
+
+# 商城业务：商品上架
+
+## sku保存至es的文档设计
+#### p128
+
+
+spu信息上传es的格式应该为：
+
+      { 
+        "mappings": { 
+          "properties": { 
+            "skuId": { 
+              "type": "long"
+            },
+            "spuId": { 
+              "type": "keyword"
+            ,"skuTitle": { 
+              "type": "text", 
+              "analyzer": "ik_smart"
+            },
+            "skuPrice": { 
+              "type": "keyword"
+            },
+            "skuImg": { 
+              "type": "keyword",
+              "index": false, 
+              "doc_values": false
+            },
+            "saleCount": { 
+              "type": "long"
+            },
+            "hasStock": { 
+              "type": "boolean"
+            },
+            "hotScore": { 
+              "type": "long"
+            },
+            "brandId": { 
+              "type": "long"
+            },
+            "catalogId": { 
+              "type": "long"
+            },
+            "brandName": { 
+              "type": "keyword", 
+              "index": false, 
+              "doc_values": false
+            },
+            "brandImg": { 
+              "type": "keyword", 
+              "index": false, 
+              "doc_values": false
+            },
+            "catalogName": { 
+              "type": "keyword", 
+              "index": false, 
+              "doc_values": false
+            },
+            "attrs": { 
+              "type": "nested", 
+              "properties": { 
+                "attrId": { 
+                  "type": "long"
+                },
+                "attrName": { "
+                type": "keyword", 
+                "index": false, 
+                "doc_values": false
+                },
+                "attrValue": { 
+                  "type": "keyword"
+                }
+              }
+            }
+          }
+        }
+      }
+
+直接将其PUT，存入到product索引：
+
+      PUT product
+
+响应：
+
+      {
+        "acknowledged" : true,
+        "shards_acknowledged" : true,
+        "index" : "product"
+      }
+
+表示成功了
+
+再来看建的索引
+其中index代表是否能被用于检索，例如spuImg，就是一串url，不应该作为检索的标识。默认为true
+doc_values代表是否能用于数据分析，例如聚合、排序等，如果不能则仅仅作为展示。默认为true
+hasStock表示该spu的商品有库存
+hotScore表示商品热度
+很重要的是，nested表示嵌入式对象
+
+以空间换时间，并发情况下空间（硬盘）反而不那么重要了，性能应当是考虑的第一要素
+这种设计下，当我们全文检索“手机”时，es会根据spuName进行匹配，从而直接将所有查到的spu数据列出
+也就是说，只需要查询一次，不需要再所谓地根据spuId查询对应的attr，不需要
+
+那么为什么不能将attrs根据spuId存入单独的索引？
+因为这样一来虽然优化了空间，但是每次查询时，首先要获取spu的信息，再通过spuId查询sku信息
+也就是说要经过两次检索
+当数据量足够大时，将会对性能带来非常大的压力
+因此并不适用于数据量特别大的应用场景
+
+
+
+
+
+
+
+## nested嵌入式对象
+#### p129
+
+为什么这么重要？
+例如我需要存入一个对象数组，里面包含两个对象：
+
+      obj1: {
+        firstname:one,
+        lastname:777
+        }
+      obj2:{
+        firstname:two,
+        lastname:888
+      }
+
+当没有nested标签时，es会将其处理为：
+
+      obj:{
+        firstname:[one,two],
+        lastname:[777,888]
+      }
+
+将所有同名字段弄成了一个数组，而我们实际上存的“对象数组”，成了一个“字段全是数组的单个对象”
+此时我们若想查询：
+
+      match:{
+        firstname:one,
+        lastname:888
+      }
+
+按照我们的设想，我们查询的是一个完整的对象，而这个对象实际上并不存在
+但是这样一来，es会显示可以查到，这就不符合我们的要求了
+因为它每个字段都会往字段的数组里找，找不到才怪了
+
+而使用nested标签可以禁止es将对象数组处理成字段全是数组的对象
+
+
+
+
+
+
+
+## 上架
+#### p130
+
+请求路径：
+
+      /product/spuinfo/{spuId}/up
+
+不仅要在mysql中上架，还要存入es
+
+
+1.在common模块的to中加上SkuESModel：
+      @Data
+      public class SkuEsModel {
+          private Long skuId;
+          private Long spuId;
+          private String skuTitle;
+          private BigDecimal skuPrice;
+          private String skuImg;
+          private Long saleCount;
+          private Boolean hasStock;
+          private Long hotScore;
+          private Long brandId;
+          private Long catalogId;
+          private String brandName;
+          private String brandImg;
+          private String catalogName;
+          private List<Attrs> attrs;
+          @Data
+          public static class Attrs {
+              private Long attrId;
+              private String attrName;
+              private String attrValue;
+          }
+      }private String attrValue;
+                  }
+  用于封装要存至es的数据
+2.在productService的upSpu方法中添加存入es的方法：
+       /**
+        *
+        * @param spuId
+        *
+        * 根据spuId上架商品
+        *
+        * 功能拓展：要求上架时，将该spu的所有信息、和spuId对应的所有sku存储至es
+        *
+        */
+        @Autowired
+        WareFeign wareFeign;
+        @Override
+        public void upSpu(Long spuId) {
+            SpuInfoEntity entity=baseMapper.selectById(spuId);
+            entity.setPublishStatus(1);
+            baseMapper.updateById(entity);
+            /**
+            * 接下来进行存储至es
+            */
+            //1.查出所有sku
+            List<SkuInfoEntity> skus=skuInfoDao.selectList(new QueryWrapper<SkuInfoEntity>().eq("spu_id",spuId));
+            /*2.处理attrs
+            * 注意在这个spu下，每个sku对应的attrs都是一样的
+            * 所以只需要查一遍，获取attrs后直接赋给所有sku就行
+            * 并且还要注意，查的应该是search_type=1，即可以用于查询的attr
+            * 在product_attr_value表中查，里面有attr和spu_id的对应关系，还有AttrEsModel要用的所有东西
+            */
+            List<ProductAttrValueEntity> attrEntities=this.getAttrThatCanBeSearchedBySpuId(spuId);
+            List<SkuEsModel.Attrs> attrs=new ArrayList<>();
+            //复制
+            if((attrEntities!=null&&!attrEntities.isEmpty())) {
+                //当spuId没有关联的sku时，attr直接为空集合
+                for (ProductAttrValueEntity attrEntity : attrEntities) {
+                    SkuEsModel.Attrs attr = new SkuEsModel.Attrs();
+                    BeanUtils.copyProperties(attrEntity, attr);
+                    attrs.add(attr);
+                }
+            }
+            System.out.println(JSON.toJSONString(attrs));
+            //3.封装信息
+            List<SkuEsModel> skuEsModels=new ArrayList<>();
+            for (SkuInfoEntity info : skus) {
+                SkuEsModel model=new SkuEsModel();
+                /*
+                * 拷贝数据
+                * 不同的字段为：
+                * skuPrice     price
+                * skuImg       skuDefaultImg
+                *
+                * 缺失的字段：
+                * hasStock，关联spu的stock
+                * hotScore，根据点击率获取，后端不管
+                * brandName，根据brandId查
+                * brandImg，根据brandId查
+                * catalogName，根据catalogId查
+                *
+                */
+                //3.1复制对象
+                BeanUtils.copyProperties(info,model);
+                //3.2处理不同名称字段
+                model.setSkuPrice(info.getPrice());
+                model.setSkuImg(info.getSkuDefaultImg());
+                //3.3处理缺失字段
+                model.setBrandName(brandDao.selectById(model.getBrandId()).getName());
+                model.setCatalogName(categoryDao.selectById(model.getCatalogId()).getName());
+                model.setBrandImg(brandDao.selectById(model.getBrandId()).getLogo());
+                    //TODO 热度评分需要更复杂的操作
+                    //  目前就给设置个0得了
+                model.setHotScore(0L);
+                //需要远程调用ware了：通过sku_id在ware的数据库的ware_sku中查询stock；若stock不为空，且有一个键值对的value不为0，则hasStock设置为true
+                {
+                    model.setHasStock(false);
+                    Map<Long, Integer> stock = wareFeign.getStockBySkuId(model.getSkuId());
+                    if (!stock.isEmpty() && stock != null) {
+                        for (Map.Entry<Long, Integer> entry : stock.entrySet()) {
+                            if (entry.getValue() != 0) {
+                                model.setHasStock(true);
+                                break;
+                            }
+                        }
+                    }
+                }
+                //3.4处理attrs
+                //注意每一个sku的attrs都是在一个
+                model.setAttrs(attrs);
+                //3.5将该循环内的model加入skuEsMedels中
+                skuEsModels.add(model);
+            }
+            System.out.println(JSON.toJSONString(skuEsModels));
+            //4.远程添加至es
+        }
+      
+主要干了四件事：
+      1.查出spuId对应的所有sku
+      2.查出spuId对应的所有可检索的attr，获取并封装成attrs
+      3.遍历sku，将sku的信息封装到model内
+        3.1.直接使用BeanUtils的复制功能，先复制同名的一部分数据
+        3.2.处理不同名，但代表相同含义的数据
+        3.3.获取缺失的字段（其中包含了跨服务操作）
+        3.4.设置attrs，每个sku的attrs都相同
+        3.5.将处理好数据的model加入到skuEsModel
+      4.连接es，存储skuEsModel序列化好的数据
+        
+
+3.接下来进行远程传输至es
+应该在mall-search中定义，ESController，在其中定义接口：
+
+      /**
+       *
+       * @param skuEsModels
+       * @return
+       *
+       * 上传skuEsModels到es
+       *
+       */
+      @RequestMapping("/up")
+      public R SpuUp(@RequestBody List<SkuEsModel> skuEsModels){
+          try {
+              eSService.SpuUp(skuEsModels);
+              return R.ok();
+          }catch (Exception e){
+              log.info("SpuUP(/search/es/up) 发生错误");
+              return R.error(BizCodeEnume.PRODUCT_ES_SAVE_EXCEPTION.getCode(),BizCodeEnume.PRODUCT_ES_SAVE_EXCEPTION.getMsg());
+          }
+          //TODO 更完善的异常反馈机制
+      }
+
+自定义方法SkuUp：
+
+      /**
+       *
+       * @param skuEsModels
+       * @return
+       *
+       * 上传skuEsModels到es
+       *
+       */
+      @Autowired
+      RestHighLevelClient highLevelClient;
+      @Override
+      public void SkuUp(List<SkuEsModel> skuEsModels) {
+          //创建批量操作指令
+          BulkRequest bulkRequest=new BulkRequest();
+          for(SkuEsModel model:skuEsModels){
+              //创建索引请求，表示在哪一个索引下进行操作
+              IndexRequest indexRequest=new IndexRequest(ESConstant.PRODUCT_INDEX);
+              //表示在该索引的哪一个id进行操作，由于此处的skuId是唯一的，因此id直接使用skuId
+              indexRequest.id(model.getSkuId().toString());
+              //获取存储数据的json格式
+              String data= JSON.toJSONString(model);
+              //指定索引请求的json请求来源
+              indexRequest.source(data, XContentType.JSON);
+              //将该次遍历得到的json指令拼接到总的批量操作
+              bulkRequest.add(indexRequest);
+          }
+          //执行批量操作指令，记得抛异常
+          try {
+              highLevelClient.bulk(bulkRequest,ESClientConfiguration.COMMON_OPTIONS);
+          } catch (IOException e) {
+              log.info("！！保存失败！！");
+          }
+      }
+
+接下来在product建立SearchFeign，远程调用search：
+
+      @FeignClient("mall-search")
+      public interface SearchFeign {
+          /**
+           *
+           * @param skuEsModels
+           * @return
+           *
+           * 上传skuEsModels到es
+           *
+           */
+          @RequestMapping("/search/es/up")
+          R SkuUp(@RequestBody List<SkuEsModel> skuEsModels);
+      }
+
+在方法中调用：
+
+      R r=searchFeign.SkuUp(skuEsModels);
+
+最后在整个SpuUp方法加上注解：
+
+      @Transactional
+
+保证整个方法执行结果一致
+
+
+4.查询结果
+模拟执行一个上架操作，成功之后
+在kibana中查询：
+
+      GET product/_search
+      {
+        "query": {
+          "match_all": {}
+        },
+        "size": 1000
+      }
+
+应该会出现：
+
+      {
+  "took" : 0,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 26,
+      "relation" : "eq"
+    },
+    "max_score" : 1.0,
+    "hits" : [
+      {
+        "_index" : "product",
+        "_type" : "_doc",
+        "_id" : "1",
+        "_score" : 1.0,
+        "_source" : {
+          "attrs" : [
+            {
+              "attrId" : 15,
+              "attrName" : "CPU品牌",
+              "attrValue" : "以官网信息为准"
+            },
+            {
+              "attrId" : 16,
+              "attrName" : "CPU型号",
+              "attrValue" : "HUAWEI Kirin 980"
+            }
+          ],
+          "brandId" : 9,
+          "brandImg" : "https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/huawei.png",
+          "brandName" : "华为",
+          "catalogId" : 225,
+          "catalogName" : "手机",
+          "hasStock" : false,
+          "hotScore" : 0,
+          "saleCount" : 0,
+          "skuId" : 1,
+          "skuImg" : "https://gulimall-hello.oss-cn-beijing.aliyuncs.com/2019-11-26/60e65a44-f943-4ed5-87c8-8cf90f403018_d511faab82abb34b.jpg",
+          "skuPrice" : 6299.0,
+          "skuTitle" : "华为 HUAWEI Mate 30 Pro 星河银 8GB+256GB麒麟990旗舰芯片OLED环幕屏双4000万徕卡电影四摄4G全网通手机",
+          "spuId" : 11
+        }
+      },
+      ······
+
+添加成功了
 
 
 

@@ -3,6 +3,7 @@ package com.katzenyasax.mall.ware.controller;
 import java.util.Arrays;
 import java.util.Map;
 
+import io.swagger.models.auth.In;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,7 +53,16 @@ public class WareSkuController {
 
 
 
-
+    /**
+     * 响应product模块的方法
+     * skuId，获取skuId对应的stock
+     * 返回值为一个map，包含该skuId对应的商品所处的不同仓库的id和各仓库内的库存
+     */
+    @RequestMapping("/stock/{skuId}")
+    Map<Long,Integer> getStockBySkuId(@PathVariable Long skuId){
+        Map<Long, Integer> finale=wareSkuService.getStockBySkuxId(skuId);
+        return finale;
+    }
 
 
 
