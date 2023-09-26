@@ -8631,7 +8631,7 @@ p138
                                           }
                                   ).collect(Collectors.toList());
                                   //此时catalogIII就是该二级菜单下面的所有三级菜单
-  
+
                                   Catalog2VO ii = new Catalog2VO();
                                   //ii是该二级菜单的封装对象
                                   ii.setCatalog1Id(I.getCatId().toString());
@@ -8642,12 +8642,183 @@ p138
                               }
                       ).collect(Collectors.toList());
                       //此时catalogII就是一级菜单下的所有二级菜单
-  
+
                       return catalogII;
                   }
           ));
           return finale;
       }
+
+
+完成
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 商城业务：域名
+
+p139
+
+
+## switchhosts反向代理
+
+
+先考虑本机访问域名的情况，修改本机域名和ip的映射规则
+使用switchhosts
+
+管理员启动
+
+不过貌似域名不能加点，加了没法访问
+
+
+不过：
+
+      192.168.74.130 katzenyasax-mall
+
+访问katzenyasax-mall可以访问到虚拟机
+
+
+
+
+## 配置nginx
+
+目的是要，把路由里的那个ip：localhost改成katzenyasax-mall
+
+在mydata/nginx/conf/conf.d/里面添加mall.conf（复制旁边那个default.conf）
+在里面改：
+
+      server_name  katzenyasax-mall;
+
+删掉location里的东西，改成：
+
+      location / {
+        proxy_pass http://10.60.50.85:8800;
+      }
+
+改成windows本机地址，端口表示商品服务，因为商城首页是通过8800的product服务开启的
+保存后退出，重启nginx
+
+此时直接在本机访问katzenyasax-mall，就可以访问到商城首页了
+
+
+
+
+原理就是：
+
+      1.在windows上使用switchhosts，配置katzenyasax-mall为ip：192.168.74.130
+        这样一来，原本我们直接访问192.168.74.130可以访问到虚拟机，katzenyasax-mall则不行。
+        但是现在配置之后，katzenyasax-mall和192.168.74.130拥有同等效力了
+
+      2.在nginx上配置，监控80端口（即http协议）时，如果监控到访问到该虚拟机的域名为katzenyasax-mall，直接放行到10.60.50.85:8800
+        而10.60.50.85:8800就是本机的商城首页
+        故此时规则再次改变：katzenyasax-mall和192.168.74.130不再拥有同等效力
+        192.168.74.130直接访问虚拟机
+        但是katzenyasax-mall直接被nginx代理回本机8800端口
+
+
+
+
+## 负载均衡到网关
+        
+
+但是我们的目的是，单纯地把localhost:10100改成katzenyasax-mall
+这样一来如果我要单独访问库存模块，也就是访问：
+
+      katzenyasax-mall:8001
+
+理论上会等于：
+
+      localhost:8001
+
+但实际上，根本不行
+这样配置下的katzenyasax-mall只能接收单独的katzenyasax-mall
+
+
+怎么搞？
+去到nginx总配置：mydata/nginx/conf/nginx.conf，在http块中添加：
+
+      upstream mall{
+        server 10.60.50.85:10100;
+      }
+
+mall表示上游服务器的名字，也就是windows本机开启的服务器
+server后表示windows本机上，网关的ip和地址
+目前只部署了一台网关，因此只加一个
+保存退出
+
+
+随后到config.d/mall.conf内，修改location内容，不再直接代理到特定的ip和端口，而是代理给整个上游服务器，mall：
+
+      location / {
+        proxy_set_header Host $host;
+        proxy_pass http://mall;
+      }
+
+另外proxy_set_header Host $host项是为了保留请求头，如果不设置会导致单独请求katzenyasax-mall时无效
+保存退出后，重启nginx
+
+
+随后配置gateway模块的application：
+添加：
+
+          - id: host-route
+            uri: lb://mall-product
+            predicates:
+              - Host=**.katzenyasax-mall
+
+使用Host断言，表示当域名为**.katzenyasax-mall时，路由到mall-product模块，而lb就表示使用动态服务名而非ip端口
+mall-product是nacos中的服务名，这些都是基于nacos实现的
+
+
+这样一来，访问：
+
+      http://katzenyasax-mall/api/product/category/list/tree
+
+和访问：
+
+      http://localhost:10100/api/product/category/list/tree
+
+的结果应该是一样的
+事实也是如此
+
+
+
+
+
+
+
+
+
+## 复盘
+
+1.首先在windows上配置域名katzenyasax-mall，其映射的ip为192.168.74.130也即是虚拟机的ip
+  此时二者享有同等效力，且katzenyasax-mall将永远享有代替ip访问虚拟机的效力
+
+2.配置好nginx后，虚拟机的80也就是http协议的端口
+  若发现域名katzenyasax-mall，有两种结果：
+
+3.一种是单独的katzenysax-mall作为请求，则直接路由给主机的网关，
+  主机网关收到这个特殊请求后，会经由特殊的方法，将其路由到mall-product模块的主页
+
+4.另一种是katzenyasax/api/xxx，这种请求会直接路由/api即以后的请求给主机单独网关（localhost:10100）
+  网关会根据路由来的/api/xxx来判定该请求路由到哪一个服务（mall-xxx）
+
+
+
+最终达成了：
+首先katzenyasax-mall可以代替虚拟机ip，直接访问虚拟机部署的服务，
+其次katzenyasax-mall单独作为请求时，直接访问商城首页
+最后katzenyasax-mall后面接上/api/xx后，可以直接替代网关的ip和端口
+
 
 
 

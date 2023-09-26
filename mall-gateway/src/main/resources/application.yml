@@ -20,35 +20,35 @@ spring:
 
 
         - id: coupon-route
-          uri: http://localhost:5500
+          uri: lb://mall-coupon
           predicates:
             - Path= /api/coupon/**
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
         - id: member-route
-          uri: http://localhost:6600
+          uri: lb://mall-member
           predicates:
             - Path= /api/member/**
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
         - id: order-route
-          uri: http://localhost:7700
+          uri: lb://mall-order
           predicates:
             - Path= /api/order/**
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
         - id: product-route
-          uri: http://localhost:8800
+          uri: lb://mall-product
           predicates:
             - Path= /api/product/**
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
         - id: ware-route
-          uri: http://localhost:9900
+          uri: lb://localhost:9900
           predicates:
             - Path= /api/ware/**
           filters:
@@ -64,13 +64,17 @@ spring:
             - RewritePath= /api/(?<segment>/?.*),/$\{segment}
 
         - id: admin-route
-          uri: http://localhost:8080
+          uri: lb://mall-Admin
           predicates:
             - Path= /api/**
           filters:
             - RewritePath=/api/(?<segment>/?.*),/renren-fast/$\{segment}
 
 
+        - id: host-route
+          uri: lb://mall-product
+          predicates:
+            - Host=**.katzenyasax-mall
 
 
 
