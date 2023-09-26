@@ -14,7 +14,8 @@ spring:
 
   application:
     name: mall-product
-
+  thymeleaf:
+    cache: false
 
 
 

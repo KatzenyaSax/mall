@@ -35,6 +35,9 @@
 
 # docker
 
+
+## docker安装
+
 I.安装
 
             1.网址：https://zhuanlan.zhihu.com/p/143156163
@@ -90,7 +93,7 @@ II.配置docker阿里云镜像下载地址
 
 
 
-# docker安装mysql
+## docker安装mysql
             
 
 I.安装
@@ -174,7 +177,7 @@ V.在挂载文件夹写入配置文件my.cnf:
 
 
 
-# docker安装redis
+## docker安装redis
 
 I.直接pull redis，创建实例并运行：
 
@@ -235,7 +238,11 @@ IV.连接
 
 
 
-# 创建微服务模块
+# 搭建微服务总框架
+
+
+
+## 创建微服务模块
 
 最先要导入的是：Web/SpringWeb、SpringCloudRoutine/OpenFeign.
 所有模块的父包名（组织名）都应该是：com.katzenyasax.mall.
@@ -274,7 +281,7 @@ IV.连接
 
 
 
-# 数据库初始化 
+## 数据库初始化 
 
 连接docker部署的mysql，都创建数据库：
 
@@ -292,7 +299,7 @@ ms为manage system的缩写
 
 
 
-# 使用开源项目模板创建后台管理系统
+## 使用开源项目模板创建后台管理系统
 
 人人开源：renren-fast、renren-fats-vue、renren-generator
 
@@ -365,7 +372,7 @@ renren-fast-vue，前端工程用vscode打开
 
 
 
-# 逆向工程
+## 逆向工程
 
 克隆renren-fast-generator，删除.git，导入mall总服务，标记为模块.
 加入mall的pom.xml中
@@ -630,6 +637,9 @@ member:
 
 # nacos 
 
+
+## 配置nacos
+
             1.引入nacos依赖：
 
                     <!-- 引入 SpringMVC 相关依赖，并实现对其的自动配置 -->
@@ -720,7 +730,7 @@ member:
 
 
 
-# open feign 微服务间远程调用
+## open feign 微服务间远程调用
 
 依赖为spring-cloud-open-feign，创建项目时引入就行
 还要引入一个依赖：
@@ -812,7 +822,7 @@ member:
 
 
 
-# nacos 作为配置中心
+## nacos 作为配置中心
 
 引入依赖：
 
@@ -903,7 +913,7 @@ springboot启动类运行后，会给出对应的服务在nacos配置中心上�
 
 
 
-# nacos 配置中心细节 
+## nacos 配置中心细节 
 
 I.命名空间
 用来配置隔离的，例如创建开发空间、生产空间等，对应开发环境、生产环境等
@@ -1026,7 +1036,10 @@ II.手动加载nacos中的配置文件到微服务
 
 
 
-# 商品服务I.三级分类：方法 
+# 商品服务I：分类
+
+
+## 方法实现 
 
 首先导入数据到pms_category，表示商品的分类
 商品种类分为3级，要求查出所有的分类，并根据父子关系进行组装
@@ -1155,7 +1168,7 @@ product服务的CategoryController中，没有对应的方法，因此自己定�
 
 
 
-#  商品服务I.三级分类：网关配置 
+##  网关配置 
 
 首先登录renren fast vue的管理界面
 注意要在vscode中打开，不要用cmd打开
@@ -1377,7 +1390,7 @@ url设置为：/product/category
 
 
 
-# 跨域
+## 跨域
 
 就是不能使用另一个网站的，非简单方法
 因为前端登录界面，它发出的任何请求都是我们设定的：http://localhost:10100/api
@@ -1443,7 +1456,7 @@ url设置为：/product/category
 
 
 
-# 商品服务I.三级分类：树形分类的前端展示 
+## 树形分类的前端展示 
 
 在网关加入：
 
@@ -1539,7 +1552,7 @@ url设置为：/product/category
 
 
 
-#  商品服务I.三级分类：树形分类的删除 
+## 树形分类的删除 
 
 路径为：http://localhost:10100/api/product/category/delete
 请求方式为post，前端传输json到后端，后端将json的数据打包为对象，再进行逻辑处理
@@ -1648,7 +1661,7 @@ CategoryController中已有了一个delete方法：
 
 
 
-#  商品服务I.三级分类：树形分类的新增 
+## 树形分类的新增 
 
 
 前端请求路径：
@@ -1669,7 +1682,7 @@ CategoryController中已有了一个delete方法：
 
 
 
-#  商品服务I.三级分类：树形分类的拖拽排序 
+## 树形分类的拖拽排序 
 
 
 前端请求路径：
@@ -1724,7 +1737,10 @@ CategoryController中已有了一个delete方法：
 
 
 
-#  商品服务II.品牌管理 
+#  商品服务II.品牌
+
+
+## 品牌
 
 
 BrandController：关于品牌的所有handler
@@ -1769,7 +1785,7 @@ BrandService，BrandServiceImpl：关于品牌的所有方法
                 return R.ok();
             }
 
-共用update就行了，因为这是只对show_status起作用的特殊update
+公用update就行了，因为这是只对show_status起作用的特殊update
 
 
 
@@ -1780,7 +1796,7 @@ BrandService，BrandServiceImpl：关于品牌的所有方法
 
 
 
-#  商品服务II.品牌管理：云存储服务 
+## 云存储服务 
 
 
 
@@ -1976,7 +1992,7 @@ access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
 
 
 
-#  商品服务II.品牌管理：品牌图片上传与显示 
+## 品牌图片上传与显示 
 
 
 将其加入网关，要达成的目的应该是：
@@ -2025,7 +2041,7 @@ access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
 
 
 
-#  商品服务II.品牌管理：后端数据校验 
+## 后端数据校验 
 
 
 数据提交后端后，封装为BrandEntity，其中的数据虚经过校验
@@ -2100,7 +2116,7 @@ Integer一般用@NotNull
 
 
 
-#  商品服务II.品牌管理：统一异常处理 
+## 统一异常处理 
 
 
 用于集中处理数据异常
@@ -2229,7 +2245,7 @@ post一个：
 
 
 
-#  商品服务II.品牌管理：分组异常处理 
+## 分组异常处理 
 
 
 
@@ -2344,7 +2360,7 @@ post一个：
 
 
 
-#  商品服务II.品牌管理：自定义数据校验 
+## 自定义数据校验 
 
 
 
@@ -2433,6 +2449,35 @@ post一个：
 
 
 
+##  品牌的查询 
+
+
+模糊查询，更改BrandServiceImpl下面的方法为：
+
+            @Override
+            public PageUtils queryPage(Map<String, Object> params) {
+                //获取关键字key
+                String key=(String) params.get("key");
+                log.info(String.valueOf((key==null)));
+                //若关键字key不为空：
+                if(key!=null){
+        
+                    //进行对name和descript的模糊匹配
+                    QueryWrapper<BrandEntity> wrapper=new QueryWrapper<BrandEntity>().like("name",key).or().like("descript",key);
+                    return new PageUtils(this.page(new Query<BrandEntity>().getPage(params),wrapper));
+        
+        
+                }
+                //若关键字不为空
+                IPage<BrandEntity> page = this.page(
+                        new Query<BrandEntity>().getPage(params),
+                        new QueryWrapper<BrandEntity>()
+                );
+                return new PageUtils(page);
+            }
+
+结果是查到了
+但其实不用判断key是否为空，即使为空的话也只是为数据添加了一个开放的判断标准罢了
 
 
 
@@ -2441,8 +2486,11 @@ post一个：
 
 
 
-#  商品服务III.属性分组 
 
+#  商品服务III.属性
+
+
+## 查询属性
 
 商品系统/平台管理/属性分组
 
@@ -2556,7 +2604,7 @@ catelogId为0时默认查找所有
 
 
 
-#  商品服务III.属性分组：修改页面数据回显 
+## 属性修改页面的数据回显 
 
 
 
@@ -2660,7 +2708,7 @@ catelogId为0时默认查找所有
 
 
 
-#  分页 
+##  有关分页页面下的页数
 
 
 发现问题：
@@ -2697,35 +2745,6 @@ catelogId为0时默认查找所有
 
 
 
-#  商品服务II.品牌管理 查询 
-
-
-模糊查询，更改BrandServiceImpl下面的方法为：
-
-            @Override
-            public PageUtils queryPage(Map<String, Object> params) {
-                //获取关键字key
-                String key=(String) params.get("key");
-                log.info(String.valueOf((key==null)));
-                //若关键字key不为空：
-                if(key!=null){
-        
-                    //进行对name和descript的模糊匹配
-                    QueryWrapper<BrandEntity> wrapper=new QueryWrapper<BrandEntity>().like("name",key).or().like("descript",key);
-                    return new PageUtils(this.page(new Query<BrandEntity>().getPage(params),wrapper));
-        
-        
-                }
-                //若关键字不为空
-                IPage<BrandEntity> page = this.page(
-                        new Query<BrandEntity>().getPage(params),
-                        new QueryWrapper<BrandEntity>()
-                );
-                return new PageUtils(page);
-            }
-
-结果是查到了
-但其实不用判断key是否为空，即使为空的话也只是为数据添加了一个开放的判断标准罢了
 
 
 
@@ -2738,8 +2757,10 @@ catelogId为0时默认查找所有
 
 
 
+#  商品服务IV.品牌和分类的关联
 
-#  商品服务IV.品牌和商品分类的级联 
+
+## 品牌和分类关联的查询
 
 
 商品分类和品牌呈多对多的关系
@@ -2820,7 +2841,7 @@ controller中定义：
 
 
 
-#  商品服务IV.新增、保存品牌和商品分类的级联 
+## 新增、品牌和分类关联的新增、保存 
 
 
 请求路径：
@@ -2881,7 +2902,7 @@ save改为自定义方法saveName
 
 
 
-#  商品服务IV.品牌和商品分类级联一致性问题 
+## 品牌和商品分类关联的一致性问题 
 
 
 由于我们的relation表存储的是商品分类和品牌的关系，那么其数据应该和上述两张表的数据一致
@@ -3020,8 +3041,10 @@ save改为自定义方法saveName
 
 
 
-#  商品服务V：查询规格参数和销售属性 
+#  商品服务V：参数
 
+
+## 参数的查询
 
 二者共用同一个表，区别在于attr_type
 为0：普通规格参数
@@ -3302,7 +3325,7 @@ service中定义方法：
 
 
 
-#  商品服务VI：属性和参数级联新增 
+## 参数的新增 
 
 请求参数：
 
@@ -3402,7 +3425,7 @@ service中定义方法：
 
 
 
-#  商品服务VI：属性和参数级联删除 
+##  参数和属性的关联删除 
 
 
 
@@ -3457,7 +3480,7 @@ AttrGroupController中：
 
 
 
-#  魔法值 
+##  魔法值 
 
 
 消除魔法值
@@ -3532,7 +3555,7 @@ AttrGroupController中：
 
 
 
-#  商品服务VI：规格参数和销售属性的修改页面的回显 
+##  参数修改页面的数据回显 
 
 请求路径：
 
@@ -3667,7 +3690,7 @@ AttrGroupController中：
 
 
 
-#  商品服务VI：规格参数和销售属性的修改 
+## 参数的修改 
 
 
 
@@ -3758,6 +3781,9 @@ AttrGroupController中：
 #  商品服务VII：属性与参数间的关联 
 
 
+
+## 属性和参数关联的查询
+
 属性与参数之间的关联
 查询与一个属性进行关联的所有属性
 请求路径
@@ -3841,7 +3867,7 @@ AttrGroupController中：
 
 
 
-#  商品服务VII：删除属性与参数间的关联 
+## 属性和参数关联的删除
 
 请求路径：
 
@@ -3904,7 +3930,7 @@ AttrGroupController中：
 
 
 
-#  商品服务VII：查询与属性未关联的参数 
+## 查询与属性未关联的参数 
 
 
 请求路径：
@@ -3985,7 +4011,7 @@ AttrGroupController：
 
 
 
-#  商品服务VII：新增属性与参数的关联 
+## 属性和参数关联的新增 
 
 
 查询是可以查询了，但是没法新增
@@ -4067,7 +4093,7 @@ AttrGroupController:
 
 
 
-#  商品维护I：用户等级信息 
+#  商品维护I：用户等级信息
 
 商品维护/发布商品，进入该页面时发出请求：
 
@@ -4091,7 +4117,7 @@ AttrGroupController:
 
 
 
-#  商品维护II：发布商品/基本信息，查询与分类绑定的所有品牌 
+## 发布商品/基本信息，查询与分类绑定的所有品牌 
 
 
 发布商品的第一个页面，选择商品分类后，会发出请求：
@@ -4181,7 +4207,7 @@ AttrGroupController:
 
 
 
-#  商品维护III：发布商品/基本信息，查询与分类绑定的所有品牌 
+##  发布商品/基本信息，查询与分类绑定的所有品牌 
 
 
 请求路径：
@@ -4431,7 +4457,9 @@ CatelgoryBrandRelationController中：
 
 
 
-#  商品维护IV 商品新增 
+#  商品维护
+
+## 商品新增 
 
 逆向生成的所有vo，删除getter/setter，添加@Data
 有关价格的全用BigDecimal
@@ -4754,7 +4782,7 @@ SkuFullReductionController：
 
 
 
-# 商品维护IV 商品新增的优化
+## 商品新增的优化
 
 
 
@@ -4858,7 +4886,7 @@ SkuFullReductionController：
 
 
 
-# 商品维护V：检索SPU
+## 检索SPU
 
 请求路径：
 
@@ -4983,7 +5011,7 @@ SpuInfoController中：
 
 
 
-# 商品维护VI：SPU商品上架下架管理
+## SPU商品上架下架管理
 
 请求路径：
 
@@ -5062,7 +5090,7 @@ SpuInfoController中：
 
 
 
-# 商品维护VII：检索SKU
+## 检索SKU
 
 请求路径：
 
@@ -5183,7 +5211,9 @@ SkuInfoController中：
 
 
 
-# 仓库管理I：仓库列表
+# 仓库管理
+
+## 仓库列表
 
 
 首先ware服务加入网关
@@ -5270,7 +5300,7 @@ ware服务中，WareInfoController：
 
 
 
-# 仓库管理II：查询库存
+## 查询库存
 
 请求路径：
 
@@ -5333,7 +5363,7 @@ WareSkuController中：
 
 
 
-# 仓库管理III：采购需求
+## 采购需求
 
 请求路径：
 
@@ -5403,7 +5433,11 @@ PurchaseDetailController中：
 
 可以查询
 
-# 许可管理IV：查询未领取的采购单
+
+
+
+
+##  许可管理IV：查询未领取的采购单
 
 请求路径：
 
@@ -5450,7 +5484,7 @@ PurchaseController：
 
 
 
-# 仓库管理V：合并采购单
+## 合并采购单
 
 采购需求需要合并为采购单
 请求路径：
@@ -5611,7 +5645,7 @@ PurchaseController中：
 
 
 
-# 仓库管理VI：领取采购单
+## 领取采购单
 
 请求路径：
 
@@ -5708,7 +5742,7 @@ PurchaseController：
 
 
 
-# 仓库管理VII：完成采购
+## 完成采购
 
 请求路径：
 
@@ -5989,7 +6023,7 @@ PurchaseController：
 
 
 
-# 仓库管理VIII：获取Spu规格
+## 获取Spu规格
 
 请求路径：
 
@@ -6064,7 +6098,7 @@ AttrController：
 
 
 
-# 仓库管理IX：修改Spu规格
+## 修改Spu规格
 
 请求路径：
 
@@ -6166,15 +6200,15 @@ AttrController：
 
 
 # elastic search
-#### p103、p104
+p103、p104
 
-### 使用docker安装
+## 使用docker安装
 可视化界面使用kibana
 
             docker pull elasticsearch:7.4.2
             docker pull kibana:7.4.2
 
-### 创建实例化es容器：
+## 创建实例化es容器：
 
             mkdir -p /mydata/elasticsearch/config
             mkdir -p /mydata/elasticsearch/data
@@ -6214,7 +6248,7 @@ AttrController：
 表示安装成功了
 注意卸载重写创建es容器时，要删除mydata/elasticsearch里的文件
 
-### 创建实例化kibana容器：
+## 创建实例化kibana容器：
 
             docker run --name kibana -e ELASTICSEARCH_HOSTS=http://192.168.74.130:9200 -p 5601:5601 -d kibana:7.4.2
 
@@ -6231,15 +6265,15 @@ AttrController：
 
 
 # es入门
-#### p105
+ p105
 
 
-### _cat命令
+## _cat命令
 
         node/health/master/indices
 
 
-### PUT（保存）
+## PUT（保存）
 
 类似于在关系型数据库中：创建数据库、创建表、存入数据
 PUT命令是在es中：进入索引、进入类型、存入数据
@@ -6273,7 +6307,7 @@ PUT命令是在es中：进入索引、进入类型、存入数据
 
 
 
-### GET
+## GET
 
 类似于关系型数据库中查询数据，
 请求方式为GET
@@ -6298,7 +6332,7 @@ PUT命令是在es中：进入索引、进入类型、存入数据
 
 
 
-### PUT（更新）
+## PUT（更新）
 
 
 PUT也可以更新，例如已经有了一个 192.168.74.130:9200/customer/external/1 ，再次发送：
@@ -6348,7 +6382,7 @@ _seq_no和_primary_term属于整个索引共用，是用来做乐观锁的，用
 
 
 
-### DELETE删除
+## DELETE删除
 
 可以直接删除索引和数据，但是不能直接删除类型
 但是情况类型里的所有数据，就相当于删除了类型
@@ -6357,7 +6391,7 @@ _seq_no和_primary_term属于整个索引共用，是用来做乐观锁的，用
 
 
 
-### _bulk批量操作
+## _bulk批量操作
 
 在所有命令后加上/_bulk就是批量操作
 在kibana控制台操作：
@@ -6494,7 +6528,7 @@ _seq_no和_primary_term属于整个索引共用，是用来做乐观锁的，用
 
 
 # es进阶
-#### p110
+p110
 
 先开个自启动
 
@@ -6597,8 +6631,8 @@ sort=account_number:asc表示按照account_number升序排列
 
 
 
-### match查询
-#### p112
+## match查询
+ p112
 
 query里面的匹配条件，
 例如：
@@ -6621,8 +6655,8 @@ query里面的匹配条件，
 
 
 
-### match_phrase短语查询
-#### p113
+## match_phrase短语查询
+ p113
 
 也是query里面的匹配条件，
 例如：
@@ -6635,8 +6669,8 @@ query里面的匹配条件，
 
 
 
-### multi_match多字段查询
-#### p114
+## multi_match多字段查询
+ p114
 
 也是query里面的匹配条件，
 例如：
@@ -6652,8 +6686,8 @@ query里面的匹配条件，
 
 
 
-### bool符合查询
-#### p115
+## bool符合查询
+p115
 
 也是query里的匹配条件，
 但是它可以包含其他任何查询语句
@@ -6699,7 +6733,7 @@ query里面的匹配条件，
 
 
 ## term匹配非文本
-#### p117
+ p117
 
 和match差不多的，只不过不要用match匹配非文本，也不要使用term匹配文本
 而且term检索精确的非文本
@@ -6718,7 +6752,7 @@ query里面的匹配条件，
 
 
 ## match keyword和match_phrase的区别
-#### p117
+p117
 
 例如：
 
@@ -6743,8 +6777,8 @@ query里面的匹配条件，
 
 
 
-## agg聚合
-#### p118
+## agg聚合 
+p118
 
 可以针对query查询到的数据进行分析
 
@@ -7166,8 +7200,8 @@ query里面的匹配条件，
 
 
 
-## mapping映射
-#### p119
+## mapping映射 
+p119
 
 在创建索引时就对其文档映射规则进行指定，或者在索引创建新文档时也可以指定规则
 但是已经存在的文档不能指定规则
@@ -7208,8 +7242,8 @@ index:false表示该字段并不会被检索（不会被查询到）。如果不
 
 
 
-## 数据迁移
-#### p121
+## 数据迁移 
+p121
 
 将一个索引的数据迁移到另一个索引
 例如：
@@ -7261,8 +7295,8 @@ dest表示迁移至的索引
 
 
 
-## 分词
-#### p122
+## 分词 
+p122
 
 
 安装ik分词器
@@ -7382,8 +7416,8 @@ ik_smart是一种ik分词模式，表示智能分词，根据语义分词
 
 
 
-## 自定义ik词库
-#### p124
+## 自定义ik词库 
+p124
 
 
 ### 首先下载nginx
@@ -7466,8 +7500,8 @@ ik_smart是一种ik分词模式，表示智能分词，根据语义分词
 
 
 
-## 安装
-#### p125
+## 安装 
+p125
 
 使用 Elasticsearch-Rest-Client
 
@@ -7495,8 +7529,8 @@ ik_smart是一种ik分词模式，表示智能分词，根据语义分词
 
 
 
-## 配置
-#### p125
+## 配置 
+p125
 
 
 
@@ -7574,8 +7608,8 @@ bootstrap添加：
 
 
 
-## 使用
-#### p126
+## 使用 
+p126
 
 
 在配置类加一个通用配置：
@@ -7731,8 +7765,8 @@ _source不为空了，同时其version也自增1了，说明这是一个更新�
 
 
 
-## 复杂检索
-#### p127
+## 复杂检索 
+p127
 
 
 复杂查询数据，索引就用bank吧
@@ -7867,10 +7901,15 @@ _source不为空了，同时其version也自增1了，说明这是一个更新�
 
 
 
+
+
+
+
+
 # 商城业务：商品上架
 
-## sku保存至es的文档设计
-#### p128
+## sku保存至es的文档设计 
+p128
 
 
 spu信息上传es的格式应该为：
@@ -7982,8 +8021,8 @@ hotScore表示商品热度
 
 
 
-## nested嵌入式对象
-#### p129
+## nested嵌入式对象 
+p129
 
 为什么这么重要？
 例如我需要存入一个对象数组，里面包含两个对象：
@@ -8024,8 +8063,8 @@ hotScore表示商品热度
 
 
 
-## 上架
-#### p130
+## 上架 
+p130
 
 请求路径：
 
@@ -8317,6 +8356,302 @@ hotScore表示商品热度
       ······
 
 添加成功了
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 商城业务：首页
+
+
+
+## thymeleaf渲染首页 
+p136
+
+
+在product模块引入依赖：
+
+      <!-- thymeleaf 渲染首页的依赖 -->
+      <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-thymeleaf -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-thymeleaf</artifactId>
+      </dependency>
+
+将静态页面放入static，动态页面放入templates
+这俩都是默认的资源存放处，无需配置便可生效
+
+在application内关闭缓存：
+
+      spring:
+        thymeleaf:
+          cache: false
+
+此时启动服务，访问对应的路径便可以看到首页
+
+
+
+
+
+
+
+## dev-tools渲染一级菜单 
+p137
+
+
+创建web模块，创建IndexController：
+
+      @Controller
+      public class IndexController {
+      
+          @Autowired
+          CategoryService categoryService;
+
+
+
+          @GetMapping({"/","/index"})
+          public String getIndex(Model model){
+              /*
+              查出所有的一级分类
+              对于分类，我们有categoryService进行查询，但是默认查的是三级分类
+              我们再在里面创建一个方法查一级分类就好了
+               */
+              List<CategoryEntity> ones=categoryService.listOne();
+              /*
+              model是springmvc提供的一个接口，用于传递数据的
+               */
+              model.addAttribute("categories",ones);
+              return "index";
+          }
+
+      }
+
+自定义方法listOne：
+
+      /**
+       * @return
+       *
+       * 查出所有的一级分类
+       * 返回一级分类实体的集合
+       *
+       */
+      @Override
+      public List<CategoryEntity> listOne() {
+          //查出所有分类
+          List<CategoryEntity> entities=baseMapper.selectList(null);
+          //获取一级子类
+          List<CategoryEntity> oneCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==1).toList();
+          return oneCategory;
+      }
+
+
+
+前端项目每次改完非常麻烦，因此这里使用devtools实现热更新
+
+引入依赖：
+
+      <!-- devtool的依赖 -->
+      <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-devtools -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-devtools</artifactId>
+          <optional>true</optional>
+      </dependency>
+
+一定要写<optional>true</optional>，这才算是真正导入了
+这个依赖可以实现热更新，前端项目的更改可以不用重启微服务了
+只需要ctrl f9重新编译html就可以了
+
+
+
+在此之前，向前端传递了一个模型model，其中数据表示为传递的参数categoriesOne
+故需要在前端工程index.html中指定数据的标识
+和谷粒商城给的源码里的html一样，改个名就行了
+
+
+
+
+## dev-tools渲染二三级菜单 
+p138
+
+
+原本的二三级菜单是写在json里的，前端直接到static里面找
+但是要实现前端往服务器找二三级菜单才行，因为菜单是存在数据库中的，是变化的
+
+照着json文件里的格式，发现，一级菜单的格式为：
+
+      "1": [
+        Object{...},
+        Object{...},
+        Object{...},
+        Object{...},
+        Object{...},
+        Object{...},
+        Object{...},
+        Object{...},
+        Object{...},
+        Object{...},
+        Object{...},
+        Object{...}
+    ],
+
+算是一个String和Object数组的map，object也就是二级菜单的对象
+二级菜单的格式为：
+
+      {
+        "catalog1Id":"1",
+        "catalog3List":Array[4],
+        "id":"1",
+        "name":"电子书刊"
+      }
+
+其catalog3List的数组包含的就是三级菜单
+但是三级菜单的格式则为：
+
+      {
+        "catalog2Id":"1",
+        "id":"1",
+        "name":"电子书"
+      }
+
+三级菜单下面就没有四级菜单了，故不需要再来一个四级菜单数组的成员变量
+
+而且注意，三级菜单的名字需要是：catalog3List
+
+定义vo：
+
+      @Data
+      @AllArgsConstructor
+      @NoArgsConstructor
+      public class Catalog2VO {
+          private String catalog1Id;
+          private List<Catalog3VO> catalog3List;
+          private String id;
+          private String name;
+          @Data
+          @NoArgsConstructor
+          @AllArgsConstructor
+          public static class Catalog3VO{
+              private String catalog2Id;
+              private String id;
+              private String name;
+          }
+      }
+
+
+
+定义好之后，要让前端向后端发送请求，获取所有三级菜单处理好的json数据
+那就不能向静态文件夹发请求了，要自己定义一个接口，该接口的请求为为：
+
+      /index/catalog.json
+
+那么在catalogLoader.js中：
+
+      $.getJSON("index/catalog.json",function (data) {    （2）
+
+在IndexController中定义：
+
+      /**
+       *
+       * @return
+       *
+       * 查询一级分类下所有的二三级菜单，返回一级分类的Map
+       *
+       */
+      @ResponseBody
+      @GetMapping("/index/catalog.json")
+      public Map<String, List<Catalog2VO>> getCatalogJson(){
+          Map<String, List<Catalog2VO>> map=categoryService.getCatalogJson();
+          return map;
+      }
+
+自定义方法getCatalogJson：
+
+      /**
+       *
+       * @return
+       *
+       * 查询一级分类下所有的二三级菜单，返回一级分类的Map
+       * 
+       * 思路是：
+       * 遍历一级菜单：
+       * {
+       *      遍历到单个一级菜单时，获取其所有二级菜单
+       *      遍历二级菜单：
+       *      {
+       *          遍历到单个二级菜单时，获取其所有三级菜单
+       *          遍历三级菜单：
+       *           {
+       *               将三级菜单信息封装
+       *               将封装信息返回上一级，作为本单个二级菜单下三级菜单集合的一部分
+       *           }
+       *           将遍历结果封装为集合
+       *           将封装信息返回上一级，作为本单个一级菜单下二级菜单集合的一部分
+       *      }
+       *      将遍历结果封装为集合
+       *      将封装信息直接赋给本单个一级菜单，作为本当一级菜单下二级菜单集合
+       * }     
+       */
+      @Override
+      public Map<String, List<Catalog2VO>> getCatalogJson() {
+          //查出所有一级菜单：
+          List<CategoryEntity> listI=this.listOne();
+          Map<String, List<Catalog2VO>> finale = listI.stream().collect(Collectors.toMap(
+                  k -> k.getCatId().toString(),
+                  //遍历到单个一级菜单
+                  I -> {
+                      //查出该一级菜单下所有二级菜单：
+                      List<CategoryEntity> listII = baseMapper.selectList(new QueryWrapper<CategoryEntity>().eq("parent_cid", I.getCatId()));
+                      List<Catalog2VO> catalogII = listII.stream().map(
+                              //遍历到单个二级菜单
+                              II -> {
+                                  //查出该二级菜单下所有三级菜单：
+                                  List<CategoryEntity> listIII = baseMapper.selectList(new QueryWrapper<CategoryEntity>().eq("parent_cid", II.getCatId()));
+                                  List<Catalog2VO.Catalog3VO> catalogIII = listIII.stream().map(
+                                          //遍历到单个三级菜单
+                                          III -> {
+                                              Catalog2VO.Catalog3VO iii = new Catalog2VO.Catalog3VO();
+                                              //iii是该三级菜单的封装对象
+                                              iii.setCatalog2Id(II.getCatId().toString());
+                                              iii.setId(III.getCatId().toString());
+                                              iii.setName(III.getName());
+                                              return iii;
+                                          }
+                                  ).collect(Collectors.toList());
+                                  //此时catalogIII就是该二级菜单下面的所有三级菜单
+  
+                                  Catalog2VO ii = new Catalog2VO();
+                                  //ii是该二级菜单的封装对象
+                                  ii.setCatalog1Id(I.getCatId().toString());
+                                  ii.setId(II.getCatId().toString());
+                                  ii.setName(II.getName());
+                                  ii.setCatalog3List(catalogIII);
+                                  return ii;
+                              }
+                      ).collect(Collectors.toList());
+                      //此时catalogII就是一级菜单下的所有二级菜单
+  
+                      return catalogII;
+                  }
+          ));
+          return finale;
+      }
+
+
+
+
 
 
 
