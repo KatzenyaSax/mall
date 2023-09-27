@@ -57,7 +57,9 @@ public class IndexController {
     @ResponseBody
     @GetMapping("/index/catalog.json")
     public Map<String, List<Catalog2VO>> getCatalogJson(){
+        Long l=System.currentTimeMillis();
         Map<String, List<Catalog2VO>> map=categoryService.getCatalogJson();
+        System.out.println("耗时："+(System.currentTimeMillis()-l));
         return map;
     }
 

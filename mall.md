@@ -217,7 +217,7 @@ IV.连接
 
 
 
-# 配置git
+# git
 
 安装git
 
@@ -1604,7 +1604,7 @@ CategoryController中已有了一个delete方法：
 只需要在存储在表内的数据对应的Bean的判断项，也即是CategoryEntity的showStatus打上注解：
 
             @TableLogic
-	        private Integer showStatus;
+	          private Integer showStatus;
 
 随后在product模块的application中添加：
 
@@ -8821,6 +8821,512 @@ mall-product是nacos中的服务名，这些都是基于nacos实现的
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 性能
+p141
+
+
+
+## JMeter压测
+p142
+
+压测商城主页
+50个线程，每个循环20次
+总1000次请求，
+路径：
+
+      katzenyasax-mall
+
+结果：
+
+          样本      平均    中位   90     95     99    最小  最大   异常   吞吐量     接收       发送
+TOTAL	    1000	    1113	  23	  3046	 7124	  15446	 13	  31643	 0.0	  21.67%  	562.33	   2.50
+
+吞吐量仅21.67/sec
+可以看到性能并不好，很差，接下来进行优化
+
+
+
+
+## JVM模型
+p144
+
+其实整个jvm，堆区是最好优化的
+
+
+
+
+## 垃圾回收机制
+p144
+
+首先堆区分为两个大区：新生代和老年代
+新生代又分为：伊甸园区Eden和幸存者区Survivor
+
+
+  1 新创对象在堆区开辟空间时，先来到新生代区的伊甸园区，并判断是否有足够空间：
+
+      1.1 若足够，则直接存入伊甸园区
+
+      1.2 若不够，则进行MinorGC（伊甸园区清理垃圾），清理伊甸园区内存
+          清除未在使用的内存占用者（无用对象），将还在用的内存占用者（旧对象）移入幸存者区，或者引入老生代区：
+
+          1.2.1 若幸存者区空间足够，将旧对象存入幸存者区，同时该旧对象年龄加一
+                此时要进行年龄判断：
+
+                1.2.1.1 若年龄大于15，则旧对象准备存入老生代区，进入 1.3.2 进行判断
+
+          1.2.2 若不够，则直接存入老生代区
+
+      1.3 随后判断伊甸园区是否有足够空间：
+
+          1.3.1 若现在已经足够，则存入伊甸园区
+
+          1.3.2 若还是不够，则准备存入老生代区前判断老生代区空间是否足够：
+
+              1.3.2.1 若足够，直接存入老生代区
+
+              1.3.2.2 若不够，进行FullGC（整个堆空间清理垃圾），再次判断老生代空间是否足够：
+
+                  1.3.2.2.1 若足够，存入老生代区
+
+                  1.3.2.2.2 若不够，则报异常，提示内存不足
+
+
+
+
+## 监控堆区内存情况
+p145
+
+使用jvisualvm
+下载jvisualvm，jdk8以后不再集成到jdk了，需要自行下载
+
+要监控垃圾回收的情况，安装插件：Visual GC
+
+
+
+
+
+## 中间件对性能的影响
+p146
+
+### 测试nginx性能
+
+直接web服务器ip地址：
+
+      192.168.74.130:80
+
+协议为http
+会直接访问到nginx
+在jmeter中创建该ip的压测，准备进行
+
+同时开启docker检测nginx：
+
+      docker stats
+
+开启压测，发现nginx主要吃cpu，基本上90%网上
+反而是内存基本没怎么变过，一直是3.6MB左右
+吞吐量4918.3/sec
+
+
+### 测试网关性能
+
+路径：
+
+      localhost:10100
+
+协议为http
+
+开启压测发现吃cpu，开启后直接50%上下
+内存还好，不能说特别爆，没吃满内存上限
+MinorCG次数比较多，404次，耗时672.44ms
+吞吐量1439/sec
+
+
+### 测试首页
+p147
+
+如果不经过任何中间件，直接访问服务，压测其性能
+
+路径：
+
+      http://localhost:8800
+
+50个线程每个10次
+
+开启压测
+
+发现cpu25%到35%直接，不是太吃cpu
+内存比较稳定，没吃满上限
+吞吐量218/sec
+
+所以实际上回传三级分类业务本身是比较慢的，需要优化
+不过可以知道主要的原因还是查数据库耗了太多时间（db）
+
+
+
+### 测试商城首页全量数据
+
+路径为
+
+      localhost:8800
+
+50个线程每个10次
+协议http
+高级里勾选获取http传输的所有资源
+
+开启压测
+
+cnm，非常爆
+cpu直接干到50%上下，峰值60%
+吞吐量仅仅14.9/sec
+
+应该是加载静态资源的缘故
+
+
+
+
+### 结论
+
+1.中间件越多性能越差，特别是与网络直接相关的中间件，性能损失很大
+
+2.除了中间件，还有数据库（DB）、模板渲染（themeleaf）、静态资源等
+  不过还是DB的影响最大
+
+
+
+
+
+
+
+## 初步优化
+
+### 数据库
+
+根据某个字段查询时，可以对基于字段建立索引，可以大幅提升查询的效率
+但是相应的，由于建立索引后数据库存储结构变化了，增删改的效率会大幅降低
+但是在用户层面上，大部分情况请求数据库的操作都是查，增删改的操作频率还是太少了
+所以增加索引就看取舍了
+
+例如我们的首页展示业务，也需要查出三级分类，即从category表中根据parent_cid查，所以可以基于parent_cid建立索引：
+
+      create index pms_category_parent_cid_index on pms_category (parent_cid);
+
+在IndexController对应方法上加：
+
+      /**
+      *
+      * @return
+      *
+      * 查询一级分类下所有的二三级菜单，返回一级分类的Map
+      *
+      */
+      @ResponseBody
+      @GetMapping("/index/catalog.json")
+      public Map<String, List<Catalog2VO>> getCatalogJson(){
+          Long time=System.currentTimeMillis();
+          Map<String, List<Catalog2VO>> map=categoryService.getCatalogJson();
+          System.out.println(System.currentTimeMillis()-time);
+          return map;
+      }
+
+每次访问，结果基本如下：
+
+      建立索引前：644
+      建立索引后：198
+
+快了一大半吧
+
+
+
+
+### themeleaf
+
+其实开启缓存是可以提升性能的，不过提升可能不大
+但是还是将application.yml的
+
+      spring:
+          thymeleaf:
+            cache: true
+
+开启缓存
+
+
+
+
+
+### 日志
+
+其实关闭数据库输出日志也是可以的，配置：
+
+      logging:
+        level:
+          com.katzenyasax.mall: error
+
+把debug缓存error，报错时才输出日志
+
+
+
+
+
+
+### 初优化后压测
+
+
+已经完成了初步的优化，再次进行商城首页压测，看看吞吐量会不会提升：
+请求路径：
+
+      localhost:8800
+
+50个线程每个10次
+
+吞吐量：334.4/sec
+
+可以看到确实是比218/sec快了不少
+
+
+
+
+
+再来看看全链路
+路径：
+
+      katzenyasax-mall
+
+50个线程每个100次
+
+结果：
+
+          样本      平均    中位   90     95     99    最小  最大   异常   吞吐量     接收       发送
+TOTAL	    5000	    398	    115	  248	   1042	  7206	 13	  31648	  0.0	  80/sec	  2074.08	   9.22
+
+吞吐量：80/sec
+
+
+快了不少
+
+
+
+
+
+
+
+
+### nginx动静分离
+p148
+
+1.将product模块下static里的index文件夹复制到 /mydata/nginx/html/static
+
+2.将index.html的所有 href=" 替换为 href="/static/ ，使用ctrl+r
+  所有的 script src=" 替换为 script src="/static/ 
+  所有的 img src=" 替换为 img src="/static/
+  所有的 src=" 替换为 src="/static/
+
+3.配置nginx：/mydata/nginx/conf， conf.d/mall.conf
+  添加：
+
+    location /static/ {
+      root /usr/share/nginx/html;
+    }
+
+表示mall的静态资源要去到/usr/share/nginx/html/static里面找
+也就是挂载到/mydata/nginx/html/static
+
+4.保存，重启nginx，重新访问
+  会发现katzenyasax-mall可以访问了
+  而如果删除了product下面的static，那么localhost:8800就已经访问不到静态资源了
+
+
+
+
+
+### 三级分类优化
+p150
+
+优化CategoryService和IndexService中的方法：，
+CategoryService中：
+
+      @Override
+      public List<CategoryEntity> listAsTree() {
+        /**
+         * 只需要连接一次数据库
+         * 性能好
+         */
+        //查出所有菜单
+        List<CategoryEntity> listAll=baseMapper.selectList(null);
+        //查出所有一级菜单：
+        List<CategoryEntity> listI=listAll.stream().filter(c->c.getParentCid()==0).collect(Collectors.toList());
+        return listI.stream().map(
+                I->{
+                    List<CategoryEntity> listII=listAll.stream().filter(c->c.getParentCid()==I.getCatId()).collect(Collectors.toList());
+                    List<CategoryEntity> ii = listII.stream().map(
+                            II->{
+                                List<CategoryEntity> listIII=listAll.stream().filter(c->c.getParentCid()==II.getCatId()).collect(Collectors.toList());
+                                List<CategoryEntity> iii = listIII.stream().map(
+                                        III -> {
+                                            III.setChildren(null);
+                                            return III;
+                                        }
+                                ).collect(Collectors.toList());
+                                II.setChildren(iii);
+                                return II;
+                            }
+                    ).collect(Collectors.toList());
+                    I.setChildren(ii);
+                    return I;
+                }
+        ).collect(Collectors.toList());
+      }
+
+IndexService中：
+
+      @Override
+      public Map<String, List<Catalog2VO>> getCatalogJson() {
+        /**
+         * 一次性查出所有的数据，在处理过程中不再连接数据库
+         */
+        //查出所有数据
+        List<CategoryEntity> listAll=baseMapper.selectList(new QueryWrapper<>());
+        //查出所有一级分类
+        List<CategoryEntity> listI=listAll.stream().filter(c->c.getParentCid()==0).collect(Collectors.toList());
+        Map<String, List<Catalog2VO>> finale = listI.stream().collect(Collectors.toMap(
+                k -> k.getCatId().toString(),
+                //遍历到单个一级菜单
+                I -> {
+                    //查出该一级菜单下所有二级菜单：
+                    List<CategoryEntity> listII = listAll.stream().filter(c->c.getParentCid()==I.getCatId()).collect(Collectors.toList());
+                    List<Catalog2VO> catalogII = listII.stream().map(
+                            //遍历到单个二级菜单
+                            II -> {
+                                //查出该二级菜单下所有三级菜单：
+                                List<CategoryEntity> listIII = listAll.stream().filter(c->c.getParentCid()==II.getCatId()).collect(Collectors.toList());
+                                List<Catalog2VO.Catalog3VO> catalogIII = listIII.stream().map(
+                                        //遍历到单个三级菜单
+                                        III -> {
+                                            Catalog2VO.Catalog3VO iii = new Catalog2VO.Catalog3VO();
+                                            //iii是该三级菜单的封装对象
+                                            iii.setCatalog2Id(II.getCatId().toString());
+                                            iii.setId(III.getCatId().toString());
+                                            iii.setName(III.getName());
+                                            return iii;
+                                        }
+                                ).collect(Collectors.toList());
+                                //此时catalogIII就是该二级菜单下面的所有三级菜单
+
+                                Catalog2VO ii = new Catalog2VO();
+                                //ii是该二级菜单的封装对象
+                                ii.setCatalog1Id(I.getCatId().toString());
+                                ii.setId(II.getCatId().toString());
+                                ii.setName(II.getName());
+                                ii.setCatalog3List(catalogIII);
+                                return ii;
+                            }
+                    ).collect(Collectors.toList());
+                    //此时catalogII就是一级菜单下的所有二级菜单
+
+                    return catalogII;
+                }
+        ));
+        return finale；
+      }
+
+
+再来看看加载三级分类的耗时：
+
+      耗时：59
+      耗时：25
+      耗时：20
+      耗时：22
+
+只有第一次耗时比较多
+
+
+
+
+
+
+
+# 缓存
+P151
+
+
+将更新频率少、访问次数多的数据放入redis缓存，实现一次加载以后直接拿来用的目的
+
+
+## 本地缓存的问题
+
+无法适配分布式架构，本地缓存的作用对象始终是单一的一台服务器，无法有效作用于其他同服务的服务器
+
+并且容易出现，同服务但不同服务器做出了不同的修改，因此相互本地缓存不一致，导致在不同服务器上相同标识的数据不一致
+
+
+
+# SpringBoot整合redis
+
+
+## 安装
+p151
+
+product模块引入依赖：
+
+      <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-data-redis -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-data-redis</artifactId>
+          <version>3.1.3</version>
+      </dependency>
+
+随后在application中配置：
+
+      spring:
+        data:
+          redis:
+            host: 192.168.74.130
+            port: 6379
+
+
+
+## 使用
+p152
+
+定义测试方法：
+
+      /**
+       * redis连接器
+       */
+      @Autowired
+      StringRedisTemplate stringRedisTemplate;
+      @Test
+      public void RedisTest01(){
+          //让连接器创建一个操作杠杆，用于直接操作redis
+          ValueOperations<String,String> ops=stringRedisTemplate.opsForValue();
+          //存入一个数据
+          ops.set("Hello","Redis!"+ UUID.randomUUID());
+          //查询，并输出
+          System.out.println(ops.get("Hello"));
+      }
+
+运行：
+
+      Redis!4a2fbeee-99a3-4bce-bfad-aa6fe4180cd0
+
+可以查到
+再到redisinsight里面查一查，确实存入了
 
 
 

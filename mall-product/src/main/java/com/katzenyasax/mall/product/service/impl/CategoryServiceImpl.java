@@ -50,7 +50,13 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
 
     @Override
     public List<CategoryEntity> listAsTree() {
-        /*//查出所有分类
+
+        /**
+         * 虽然只需要和数据库连接一次
+         * 但是循环很多次
+         * 所以性能不算好
+         */
+       /* //查出所有分类
         List<CategoryEntity> entities=baseMapper.selectList(null);
         //获取一级子类
         List<CategoryEntity> oneCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==1).toList();
@@ -65,18 +71,22 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
                     category2.getChildren().add(category3);
                 }
             }
-        }
-        //从二级子类开始遍历，将二级子类组装到一级子类
+        }        //从二级子类开始遍历，将二级子类组装到一级子类
+
         for(CategoryEntity category2:twoCategory){
             for(CategoryEntity category1:oneCategory){
                 if(category2.getParentCid()==category1.getCatId()){
                     category1.getChildren().add(category2);
                 }
             }
-        }*/
+        }
+        return oneCategory;*/
 
 
-        //查出所有一级菜单：
+        /**
+         * 效率低下，有多少条数据就进行多少次连接
+         */
+        /*//查出所有一级菜单：
         List<CategoryEntity> listI=this.listOne();
         return listI.stream().map(
                 I->{
@@ -97,13 +107,55 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
                     I.setChildren(ii);
                     return I;
                 }
+        ).collect(Collectors.toList());*/
+
+
+        /**
+         * 只需要连接一次数据库
+         * 性能好
+         */
+        //查出所有菜单
+        List<CategoryEntity> listAll=baseMapper.selectList(null);
+        //查出所有一级菜单：
+        List<CategoryEntity> listI=listAll.stream().filter(c->c.getParentCid()==0).collect(Collectors.toList());
+        return listI.stream().map(
+                I->{
+                    List<CategoryEntity> listII=listAll.stream().filter(c->c.getParentCid()==I.getCatId()).collect(Collectors.toList());
+                    List<CategoryEntity> ii = listII.stream().map(
+                            II->{
+                                List<CategoryEntity> listIII=listAll.stream().filter(c->c.getParentCid()==II.getCatId()).collect(Collectors.toList());
+                                List<CategoryEntity> iii = listIII.stream().map(
+                                        III -> {
+                                            III.setChildren(null);
+                                            return III;
+                                        }
+                                ).collect(Collectors.toList());
+                                II.setChildren(iii);
+                                return II;
+                            }
+                    ).collect(Collectors.toList());
+                    I.setChildren(ii);
+                    return I;
+                }
         ).collect(Collectors.toList());
+
+
+
+
     }
 
 
-
-
-    //逻辑删除
+    /**
+     *
+     * @param list
+     *
+     * 逻辑删除
+     * 不删除category本身，只将其show_status改成0
+     * 相当于变相的update
+     *
+     * 当然这是经过配置的操作cv v v vvvvvvvnnv                        v vvvvvvvvv
+     *
+     */
     @Override
     public void hideByIds(List<Long> list) {
         //TODO 1.判断数据是否被引用
@@ -198,7 +250,10 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
      */
     @Override
     public Map<String, List<Catalog2VO>> getCatalogJson() {
-        //查出所有一级菜单：
+        /**
+         * 效率低下，有多少数据就要和数据库连接多少次
+         */
+        /*//查出所有一级菜单：
         List<CategoryEntity> listI=this.listOne();
         Map<String, List<Catalog2VO>> finale = listI.stream().collect(Collectors.toMap(
                 k -> k.getCatId().toString(),
@@ -238,7 +293,59 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
                     return catalogII;
                 }
         ));
+        return finale;*/
+
+        /**
+         * 一次性查出所有的数据，在处理过程中不再连接数据库
+         */
+        //查出所有数据
+        List<CategoryEntity> listAll=baseMapper.selectList(new QueryWrapper<>());
+        //查出所有一级分类
+        List<CategoryEntity> listI=listAll.stream().filter(c->c.getParentCid()==0).collect(Collectors.toList());
+        Map<String, List<Catalog2VO>> finale = listI.stream().collect(Collectors.toMap(
+                k -> k.getCatId().toString(),
+                //遍历到单个一级菜单
+                I -> {
+                    //查出该一级菜单下所有二级菜单：
+                    List<CategoryEntity> listII = listAll.stream().filter(c->c.getParentCid()==I.getCatId()).collect(Collectors.toList());
+                    List<Catalog2VO> catalogII = listII.stream().map(
+                            //遍历到单个二级菜单
+                            II -> {
+                                //查出该二级菜单下所有三级菜单：
+                                List<CategoryEntity> listIII = listAll.stream().filter(c->c.getParentCid()==II.getCatId()).collect(Collectors.toList());
+                                List<Catalog2VO.Catalog3VO> catalogIII = listIII.stream().map(
+                                        //遍历到单个三级菜单
+                                        III -> {
+                                            Catalog2VO.Catalog3VO iii = new Catalog2VO.Catalog3VO();
+                                            //iii是该三级菜单的封装对象
+                                            iii.setCatalog2Id(II.getCatId().toString());
+                                            iii.setId(III.getCatId().toString());
+                                            iii.setName(III.getName());
+                                            return iii;
+                                        }
+                                ).collect(Collectors.toList());
+                                //此时catalogIII就是该二级菜单下面的所有三级菜单
+
+                                Catalog2VO ii = new Catalog2VO();
+                                //ii是该二级菜单的封装对象
+                                ii.setCatalog1Id(I.getCatId().toString());
+                                ii.setId(II.getCatId().toString());
+                                ii.setName(II.getName());
+                                ii.setCatalog3List(catalogIII);
+                                return ii;
+                            }
+                    ).collect(Collectors.toList());
+                    //此时catalogII就是一级菜单下的所有二级菜单
+
+                    return catalogII;
+                }
+        ));
         return finale;
+
+
+
+
+
     }
 
 

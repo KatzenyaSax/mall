@@ -16,6 +16,11 @@ spring:
     name: mall-product
   thymeleaf:
     cache: false
+  data:
+    redis:
+      host: 192.168.74.130
+      port: 6379
+
 
 
 
@@ -38,7 +43,7 @@ server:
 
 logging:
   level:
-    com.katzenyasax.mall: debug
+    com.katzenyasax.mall: error
 
 
 
