@@ -59,7 +59,7 @@ public class IndexController {
     public Map<String, List<Catalog2VO>> getCatalogJson(){
         Long l=System.currentTimeMillis();
         Map<String, List<Catalog2VO>> map=categoryService.getCatalogJson();
-        System.out.println("耗时："+(System.currentTimeMillis()-l));
+        System.out.println("list token："+(System.currentTimeMillis()-l));
         return map;
     }
 

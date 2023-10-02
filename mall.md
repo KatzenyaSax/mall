@@ -1,3 +1,52 @@
+<!--
+ *                   江城子 . 程序员之歌
+ * 
+ *               十年生死两茫茫，写程序，到天亮。
+ *                   千行代码，Bug何处藏。
+ *               纵使上线又怎样，朝令改，夕断肠。
+ * 
+ *               领导每天新想法，天天改，日日忙。
+ *                   相顾无言，惟有泪千行。
+ *               每晚灯火阑珊处，夜难寐，加班狂。
+ * 
+ *
+ *
+ *                        _oo0oo_
+ *                       o8888888o
+ *                       88" . "88
+ *                       (| -_- |)
+ *                       0\  =  /0
+ *                     ___/`---'\___
+ *                   .' \\|     |// '.
+ *                  / \\|||  :  |||// \
+ *                 / _||||| -:- |||||- \
+ *                |   | \\\  - /// |   |
+ *                | \_|  ''\---/''  |_/ |
+ *                \  .-\__  '-'  ___/-. /
+ *              ___'. .'  /--.--\  `. .'___
+ *           ."" '<  `.___\_<|>_/___.' >' "".
+ *          | | :  `- \`.;`\ _ /`;.`/ - ` : | |
+ *          \  \ `_.   \_ __\ /__ _/   .-` /  /
+ *      =====`-.____`.___ \_____/___.-`___.-'=====
+ *                        `=---='
+ * 
+ * 
+ *      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * 
+ *            佛祖保佑     永不宕机     永无BUG
+ * 
+ *        佛曰:  
+ *                写字楼里写字间，写字间里程序员；  
+ *                程序人员写程序，又拿程序换酒钱。  
+ *                酒醒只在网上坐，酒醉还来网下眠；  
+ *                酒醉酒醒日复日，网上网下年复年。  
+ *                但愿老死电脑间，不愿鞠躬老板前；  
+ *                奔驰宝马贵者趣，公交自行程序员。  
+ *                别人笑我忒疯癫，我笑自己命太贱；  
+ *                不见满街漂亮妹，哪个归得程序员？
+ -->
+
+
 
 
 # springboot版本：3.1.3
@@ -8752,6 +8801,7 @@ p139
 
 mall表示上游服务器的名字，也就是windows本机开启的服务器
 server后表示windows本机上，网关的ip和地址
+注意每次连接不同网时主机的ip都会变，每次都要改nginx的配置
 目前只部署了一台网关，因此只加一个
 保存退出
 
@@ -9327,6 +9377,316 @@ p152
 
 可以查到
 再到redisinsight里面查一查，确实存入了
+
+
+
+## 改造三级分类
+p153
+
+
+第一次访问到三级分类后，将三级分类存入redis缓存，下一次再查询时便不需要再经过mysql查询，直接从redis中获取
+因此对两个三级分类的方法进行改写，
+为了方便，直接创建一个新的方法，原先方法进行改名备份：
+
+商城首页：
+
+      /**
+       *
+       * @return
+       *
+       * 使用redis改写的新·三级分类方法
+       */
+      @Override
+      public Map<String, List<Catalog2VO>> getCatalogJson() {
+          /**
+           * 1.从redis中拿取数据
+           * 2.判断数据是否为空
+           * 3.1.若为空，则从数据库中调取，并存入redis
+           * 3.2.若不为空，则无需查库，直接返回
+           */
+          //让连接器创建一个操作杠杆，用于直接操作redis
+          ValueOperations<String,String> ops=stringRedisTemplate.opsForValue();
+          //获取json字符串，redis中名为：CatalogJson
+          String catalogJson=ops.get("CatalogJson");
+          //判断catalogJson是否为空
+          if(StringUtils.isEmpty(catalogJson)){
+              //若为空，代表redis中还未有该json数据
+              //则通过数据库获取数据，并存入json字符串数据
+              Map<String, List<Catalog2VO>> finale=this.getCatalogJson_DB();
+              ops.set("CatalogJson",JSON.toJSONString(finale));
+              return finale;
+          }
+          else{
+              //若不为空，则直接将redis中获取的json字符串反序列化为对象，返回对象
+              Map<String, List<Catalog2VO>> finale=JSON.parseObject(catalogJson, new TypeReference<Map<String, List<Catalog2VO>>>() {});
+              return finale;
+          }
+      }
+
+树形：
+
+       /**
+       *
+       * @return
+       *
+       * 经过redis缓存判断的三级菜单
+       *
+       */
+      @Override
+      public List<CategoryEntity> listAsTree(){
+          //让连接器创建一个操作杠杆，用于直接操作redis
+          ValueOperations<String,String> ops=stringRedisTemplate.opsForValue();
+          //获取json字符串，redis中名为：CatalogListAsTree
+          String catalogListAsTree=ops.get("CatalogListAsTree");
+          //判断catalogListAsTree是否为空
+          if(StringUtils.isEmpty(catalogListAsTree)){
+              //若为空，代表redis中还未有该json数据
+              //则通过数据库获取数据，并存入json字符串数据
+              List<CategoryEntity> finale=this.listAsTree_DB();
+              ops.set("CatalogListAsTree",JSON.toJSONString(finale));
+              return finale;
+          }
+          else{
+              //若不为空，则直接将redis中获取的json字符串反序列化为对象，返回对象
+              List<CategoryEntity> finale=JSON.parseObject(catalogListAsTree,new TypeReference<List<CategoryEntity>>(){});
+              return finale;
+          }
+      }
+
+记得import的TypeReference是这一个：
+
+      import com.alibaba.fastjson.TypeReference;
+
+
+
+
+测试：
+首页三级分类，redis中无该缓存，耗时：
+
+      耗时：28
+      耗时：3
+      耗时：4
+      耗时：4
+      耗时：5
+      耗时：5
+
+树形三级分类，redis中无该缓存。耗时：
+
+      list/tree：token：43
+      list/tree：token：13
+      list/tree：token：9
+      list/tree：token：9
+      list/tree：token：7
+      list/tree：token：3
+
+可以看到，这个效率基本上在300%以上，非常给力
+
+
+
+
+
+## 缓存的一系列问题
+p155
+
+
+
+### 缓存穿透
+
+若一个方法内，本该从redis读取一个数据data，但该数据在redis中不存在kv对，那么我们读取的data就为空，经过判断此时应该访问数据库获取data，
+但问题是，如果访问数据库时，恰好数据库中也不存在data对应的数据，那么我们获取的data永远内容为空，并且还会将data存入redis，
+所以实际上缓存根本没有作用，还会拖累占用服务器部分性能，连同全盘扫描数据库，效率可以说非常低下
+
+理论上不应该出现这种情况，
+但在某些不可预测的情况下，该情况是可能出现的，并且有可能形成循环，对redis和数据库都是不小的压力，从而大幅降低服务器的性能
+例如有人利用该漏洞故意请求查询不存在的数据，那么很可能造成服务器崩溃
+
+
+
+解决？
+
+将这个不存在数据按照kv存入redis，只不过v为null
+同时设定过期时间，三五分钟的都行，在这个时间段内访问它的结果都是null
+设置null时，存入一个内容为空的实例对象就行了
+
+
+
+### 缓存雪崩
+
+指redis中存在一个kv键值对，对所有可以读取它的服务器的过期时间相同，过期时可能造成大量服务器无法同时读取，从而将同时读取数据库造成数据库崩溃的现象
+
+
+
+解决？
+
+在固定的过期时间上加一个Random值，尽量不造成其对大量服务器同时失效的情况
+
+
+
+
+
+
+
+
+
+### 缓存击穿
+
+一个被经常高并发请求访问的数据，在失效的时候，原本的高并发请求不再发往redis而是发往数据库，造成数据库失效的现象
+
+
+
+解决？
+
+加锁，先放一个请求进锁进来查库，后面的请求都等待
+等先进来的请求查到库后把结果存入redis，后面的请求直接从redis查，不用经过数据库了
+
+
+
+
+
+
+
+
+
+
+
+## 解决缓存穿透和缓存雪崩
+p155
+
+      Map<String, List<Catalog2VO>> finale=this.getCatalogJson_DB();
+      if(finale==null){
+        //若从数据库中获取来的也为空
+        finale=new HashMap<>();
+        //直接将finale赋为空内容对象
+      }
+      ops.set("CatalogJson",JSON.toJSONString(finale),300+(new Random().nextInt(150)), TimeUnit.SECONDS);
+      //设置过期时间，标准过期时间300s，在此基础上加上0-149秒的随机时间
+
+在第一次从redis中读取数据为空时，访问数据库后再次添加判断，若finale为空（空指针），则将其赋值为空内容对象
+除此之外设置标准300s、随机为0到149s的随机随机
+
+
+
+
+
+## 解决缓存击穿
+p156
+
+### 本地锁
+
+加在查数据库的两个DB内
+以this为锁，表示单个进程上锁，解锁后其余进程进来后还要从redis查是不是有数据，如果有就不用再查数据库了
+而redis中的数据自然也是第一个单例进程查库得到数据并存入数据库的结果
+以首页分类的哪个为例；
+
+      public Map<String, List<Catalog2VO>> getCatalogJson_DB() {
+        /**
+         * 上锁
+         * 先从redis读取，没有才进行查库
+         * 查到库后，不管是哪一个进程都要存进redis
+         * 后续进来的就不用再查库了
+         */
+        synchronized (this) {
+            //让连接器创建一个操作杠杆，用于直接操作redis
+            ValueOperations<String, String> ops = stringRedisTemplate.opsForValue();
+            //获取json字符串，redis中名为：CatalogJson
+            String catalogJson = ops.get("CatalogJson");
+            if (StringUtils.isEmpty(catalogJson)) {
+                /**
+                 * ============================================ 查库 ===========================================================
+                 * 一次性查出所有的数据，在处理过程中不再连接数据库
+                 *
+                 * redis中查不到数据时，才进行查库
+                 *
+                 */
+                //查出所有数据
+                List<CategoryEntity> listAll = baseMapper.selectList(new QueryWrapper<>());
+                //查出所有一级分类
+                List<CategoryEntity> listI = listAll.stream().filter(c -> c.getParentCid() == 0).collect(Collectors.toList());
+                Map<String, List<Catalog2VO>> finale = listI.stream().collect(Collectors.toMap(
+                        k -> k.getCatId().toString(),
+                        //遍历到单个一级菜单
+                        I -> {
+                            //查出该一级菜单下所有二级菜单：
+                            List<CategoryEntity> listII = listAll.stream().filter(c -> c.getParentCid() == I.getCatId()).collect(Collectors.toList());
+                            List<Catalog2VO> catalogII = listII.stream().map(
+                                    //遍历到单个二级菜单
+                                    II -> {
+                                        //查出该二级菜单下所有三级菜单：
+                                        List<CategoryEntity> listIII = listAll.stream().filter(c -> c.getParentCid() == II.getCatId()).collect(Collectors.toList());
+                                        List<Catalog2VO.Catalog3VO> catalogIII = listIII.stream().map(
+                                                //遍历到单个三级菜单
+                                                III -> {
+                                                    Catalog2VO.Catalog3VO iii = new Catalog2VO.Catalog3VO();
+                                                    //iii是该三级菜单的封装对象
+                                                    iii.setCatalog2Id(II.getCatId().toString());
+                                                    iii.setId(III.getCatId().toString());
+                                                    iii.setName(III.getName());
+                                                    return iii;
+                                                }
+                                        ).collect(Collectors.toList());
+                                        //此时catalogIII就是该二级菜单下面的所有三级菜单
+
+                                        Catalog2VO ii = new Catalog2VO();
+                                        //ii是该二级菜单的封装对象
+                                        ii.setCatalog1Id(I.getCatId().toString());
+                                        ii.setId(II.getCatId().toString());
+                                        ii.setName(II.getName());
+                                        ii.setCatalog3List(catalogIII);
+                                        return ii;
+                                    }
+                            ).collect(Collectors.toList());
+                            //此时catalogII就是一级菜单下的所有二级菜单
+
+                            return catalogII;
+                        }
+                  ));
+                  /**
+                   * ============================================================================================================
+                   */
+                  if(finale==null){
+                      //若从数据库中获取来的也为空
+                      finale=new HashMap<>();
+                      //直接将finale赋为空内容对象
+                  }
+                  ops.set("CatalogJson",JSON.toJSONString(finale),300+(new Random().nextInt(150)), TimeUnit.SECONDS);
+                  //存入
+                  return finale;
+              }
+              else{
+                  //若不为空，则直接将redis中获取的json字符串反序列化为对象，返回对象
+                  Map<String, List<Catalog2VO>> finale=JSON.parseObject(catalogJson, new TypeReference<Map<String, List<Catalog2VO>>> (){});
+                  return finale;
+              }
+          }
+      }
+
+
+在查库的方法内，对整个查库方法进行再次封装加锁，锁头为当前的单例进程
+若当前进程未结束，锁住整个synchronized代码块
+若当前进程查不到redis数据，则进行查库，无论结果是否为空内容，都将其存入redis，存储完毕后释放锁
+若当前进程查到了redis数据，则无需再进行查库，直接返回redis获取的数据并释放锁
+
+
+但是值得注意的是，它的性能比分布式锁的性能快
+在特定场景，可以替代分布式锁
+
+
+
+但是在分布式场景下，其缺点：只能锁住当前服务的进程，锁不住其他服务
+其结果为，在redis中无缓存时恰好多台同服务的服务器同时开始执行同一个指令，那么几乎在最开始每个服务的进程都会进锁并查库
+总的看来，服务部署到多少台服务器上，就会最多查多少次库
+
+
+
+
+
+
+
+### 分布式锁
+
+
+
+
 
 
 

@@ -1,31 +1,38 @@
 package com.katzenyasax.mall.product.service.impl;
 
-import com.katzenyasax.mall.product.vo.catalogVO.Catalog2VO;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.aliyuncs.utils.StringUtils;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.common.utils.Query;
-
 import com.katzenyasax.mall.product.dao.CategoryDao;
 import com.katzenyasax.mall.product.entity.CategoryEntity;
 import com.katzenyasax.mall.product.service.CategoryService;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import com.katzenyasax.mall.product.vo.catalogVO.Catalog2VO;
+import lombok.extern.slf4j.Slf4j;
+import com.alibaba.fastjson.TypeReference;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.stereotype.Service;
 
-import static com.fasterxml.jackson.databind.type.LogicalType.Collection;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 
 @Service("categoryService")
 @Slf4j
 public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity> implements CategoryService {
+
+
+    @Autowired
+    StringRedisTemplate stringRedisTemplate;
+
+
 
     @Override
     public PageUtils queryPage(Map<String, Object> params) {
@@ -38,111 +45,11 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     }
 
 
-    /**
-     * @return
-     *
-     *
-     * 获取商品分类
-     * 按照树形三级分类
-     *
-     *
-     */
-
-    @Override
-    public List<CategoryEntity> listAsTree() {
-
-        /**
-         * 虽然只需要和数据库连接一次
-         * 但是循环很多次
-         * 所以性能不算好
-         */
-       /* //查出所有分类
-        List<CategoryEntity> entities=baseMapper.selectList(null);
-        //获取一级子类
-        List<CategoryEntity> oneCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==1).toList();
-        //获取所有二级子类
-        List<CategoryEntity> twoCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==2).toList();
-        //获取所有三级子类
-        List<CategoryEntity> threeCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==3).toList();
-        //从三级子类开始遍历，将三级子类组装到二级子类
-        for(CategoryEntity category3:threeCategory){
-            for(CategoryEntity category2:twoCategory){
-                if(category3.getParentCid()==category2.getCatId()){
-                    category2.getChildren().add(category3);
-                }
-            }
-        }        //从二级子类开始遍历，将二级子类组装到一级子类
-
-        for(CategoryEntity category2:twoCategory){
-            for(CategoryEntity category1:oneCategory){
-                if(category2.getParentCid()==category1.getCatId()){
-                    category1.getChildren().add(category2);
-                }
-            }
-        }
-        return oneCategory;*/
-
-
-        /**
-         * 效率低下，有多少条数据就进行多少次连接
-         */
-        /*//查出所有一级菜单：
-        List<CategoryEntity> listI=this.listOne();
-        return listI.stream().map(
-                I->{
-                    List<CategoryEntity> listII=baseMapper.selectList(new QueryWrapper<CategoryEntity>().eq("parent_cid",I.getCatId()));
-                    List<CategoryEntity> ii = listII.stream().map(
-                            II->{
-                                List<CategoryEntity> listIII=baseMapper.selectList(new QueryWrapper<CategoryEntity>().eq("parent_cid",II.getCatId()));
-                                List<CategoryEntity> iii = listIII.stream().map(
-                                        III -> {
-                                            III.setChildren(null);
-                                            return III;
-                                        }
-                                ).collect(Collectors.toList());
-                                II.setChildren(iii);
-                                return II;
-                            }
-                    ).collect(Collectors.toList());
-                    I.setChildren(ii);
-                    return I;
-                }
-        ).collect(Collectors.toList());*/
-
-
-        /**
-         * 只需要连接一次数据库
-         * 性能好
-         */
-        //查出所有菜单
-        List<CategoryEntity> listAll=baseMapper.selectList(null);
-        //查出所有一级菜单：
-        List<CategoryEntity> listI=listAll.stream().filter(c->c.getParentCid()==0).collect(Collectors.toList());
-        return listI.stream().map(
-                I->{
-                    List<CategoryEntity> listII=listAll.stream().filter(c->c.getParentCid()==I.getCatId()).collect(Collectors.toList());
-                    List<CategoryEntity> ii = listII.stream().map(
-                            II->{
-                                List<CategoryEntity> listIII=listAll.stream().filter(c->c.getParentCid()==II.getCatId()).collect(Collectors.toList());
-                                List<CategoryEntity> iii = listIII.stream().map(
-                                        III -> {
-                                            III.setChildren(null);
-                                            return III;
-                                        }
-                                ).collect(Collectors.toList());
-                                II.setChildren(iii);
-                                return II;
-                            }
-                    ).collect(Collectors.toList());
-                    I.setChildren(ii);
-                    return I;
-                }
-        ).collect(Collectors.toList());
 
 
 
 
-    }
+
 
 
     /**
@@ -153,7 +60,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
      * 不删除category本身，只将其show_status改成0
      * 相当于变相的update
      *
-     * 当然这是经过配置的操作cv v v vvvvvvvnnv                        v vvvvvvvvv
+     * 当然这是经过配置的操作
      *
      */
     @Override
@@ -204,6 +111,15 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     }
 
 
+
+
+
+/**
+ * ================================================ 指令三级分类 ===============================================================
+ */
+
+
+
     /**
      * @return
      *
@@ -221,6 +137,172 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     }
 
 
+
+    /**
+     * @return
+     *
+     *
+     * 获取商品分类
+     * 按照树形三级分类
+     *
+     * 该方法已弃用
+     *
+     */
+    public List<CategoryEntity> listAsTree_DB() {
+
+        synchronized (this) {
+            //让连接器创建一个操作杠杆，用于直接操作redis
+            ValueOperations<String, String> ops = stringRedisTemplate.opsForValue();
+            //获取json字符串，redis中名为：CatalogJson
+            String catalogListAsTree = ops.get("CatalogListAsTree");
+            if (StringUtils.isEmpty(catalogListAsTree)) {
+                System.out.println("锁内，redis中无数据，查库");
+
+                /**
+                 * 虽然只需要和数据库连接一次
+                 * 但是循环很多次
+                 * 所以性能不算好
+                 */
+                /* //查出所有分类
+                        List<CategoryEntity> entities=baseMapper.selectList(null);
+                        //获取一级子类
+                        List<CategoryEntity> oneCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==1).toList();
+                        //获取所有二级子类
+                        List<CategoryEntity> twoCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==2).toList();
+                        //获取所有三级子类
+                        List<CategoryEntity> threeCategory=entities.stream().filter(categoryEntity -> categoryEntity.getCatLevel()==3).toList();
+                        //从三级子类开始遍历，将三级子类组装到二级子类
+                        for(CategoryEntity category3:threeCategory){
+                            for(CategoryEntity category2:twoCategory){
+                                if(category3.getParentCid()==category2.getCatId()){
+                                    category2.getChildren().add(category3);
+                                }
+                            }
+                        }        //从二级子类开始遍历，将二级子类组装到一级子类
+                        for(CategoryEntity category2:twoCategory){
+                            for(CategoryEntity category1:oneCategory){
+                                if(category2.getParentCid()==category1.getCatId()){
+                                    category1.getChildren().add(category2);
+                                }
+                            }
+                        }
+                        return oneCategory;*/
+                /**
+                 * 效率低下，有多少条数据就进行多少次连接
+                 */
+                /*//查出所有一级菜单：
+                        List<CategoryEntity> listI=this.listOne();
+                        return listI.stream().map(
+                                I->{
+                                    List<CategoryEntity> listII=baseMapper.selectList(new QueryWrapper<CategoryEntity>().eq("parent_cid",I.getCatId()));
+                                    List<CategoryEntity> ii = listII.stream().map(
+                                            II->{
+                                                List<CategoryEntity> listIII=baseMapper.selectList(new QueryWrapper<CategoryEntity>().eq("parent_cid",II.getCatId()));
+                                                List<CategoryEntity> iii = listIII.stream().map(
+                                                        III -> {
+                                                            III.setChildren(null);
+                                                            return III;
+                                                        }
+                                                ).collect(Collectors.toList());
+                                                II.setChildren(iii);
+                                                return II;
+                                            }
+                                    ).collect(Collectors.toList());
+                                    I.setChildren(ii);
+                                    return I;
+                                }
+                        ).collect(Collectors.toList());*/
+                /**
+                 * 只需要连接一次数据库
+                 * 性能好
+                 *
+                 * ========================================================= 查库 =========================================================================
+                 */
+                //查出所有菜单
+                List<CategoryEntity> listAll = baseMapper.selectList(null);
+                //查出所有一级菜单：
+                List<CategoryEntity> listI = listAll.stream().filter(c -> c.getParentCid() == 0).collect(Collectors.toList());
+                List<CategoryEntity> finale= listI.stream().map(
+                        I -> {
+                            List<CategoryEntity> listII = listAll.stream().filter(c -> c.getParentCid() == I.getCatId()).collect(Collectors.toList());
+                            List<CategoryEntity> ii = listII.stream().map(
+                                    II -> {
+                                        List<CategoryEntity> listIII = listAll.stream().filter(c -> c.getParentCid() == II.getCatId()).collect(Collectors.toList());
+                                        List<CategoryEntity> iii = listIII.stream().map(
+                                                III -> {
+                                                    III.setChildren(null);
+                                                    return III;
+                                                }).collect(Collectors.toList());
+                                        II.setChildren(iii);
+                                        return II;
+                                    }).collect(Collectors.toList());
+                            I.setChildren(ii);
+                            return I;
+                        }).collect(Collectors.toList());
+                /**
+                 * ===========================================================================================================================
+                 */
+                if(finale==null){
+                    //若从数据库中获取来的也为空
+                    finale=new ArrayList<>();
+                    //直接将finale赋为空内容对象
+                }
+                ops.set("CatalogListAsTree",JSON.toJSONString(finale),300+(new Random().nextInt(150)), TimeUnit.SECONDS);
+                //存入
+                return finale;
+            }
+            else{
+                System.out.println("锁内，redis中有数据，直接返回");
+                //若不为空，则直接将redis中获取的json字符串反序列化为对象，返回对象
+                List<CategoryEntity> finale=JSON.parseObject(catalogListAsTree,new TypeReference<List<CategoryEntity>>(){});
+                return finale;
+            }
+        }
+        //锁
+
+    }
+
+
+    /**
+     *
+     * @return
+     *
+     * 经过redis缓存判断的三级菜单
+     *
+     */
+    @Override
+    public List<CategoryEntity> listAsTree(){
+        //让连接器创建一个操作杠杆，用于直接操作redis
+        ValueOperations<String,String> ops=stringRedisTemplate.opsForValue();
+        //获取json字符串，redis中名为：CatalogListAsTree
+        String catalogListAsTree=ops.get("CatalogListAsTree");
+        //判断catalogListAsTree是否为空
+        if(StringUtils.isEmpty(catalogListAsTree)){
+            System.out.println("redis中无数据，将进锁查库...");
+            //若为空，代表redis中还未有该json数据
+            //则通过数据库获取数据，并存入json字符串数据
+            List<CategoryEntity> finale=this.listAsTree_DB();
+            if(finale==null){
+                //若从数据库中获取来的也为空
+                finale=new ArrayList<>();
+                //直接将finale赋为空内容对象
+            }
+            ops.set("CatalogListAsTree",JSON.toJSONString(finale),300+(new Random().nextInt(150)), TimeUnit.SECONDS);
+            //设置过期时间，标准过期时间300s，在此基础上加上0-149秒的随机时间
+            return finale;
+        }
+        else{
+            System.out.println("redis中有数据，直接返回");
+            //若不为空，则直接将redis中获取的json字符串反序列化为对象，返回对象
+            List<CategoryEntity> finale=JSON.parseObject(catalogListAsTree,new TypeReference<List<CategoryEntity>>(){});
+            return finale;
+        }
+    }
+
+
+/**
+ * ======================================================= 首页三级分类 ===========================================================================
+  */
 
 
     /**
@@ -247,9 +329,9 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
      *      将遍历结果封装为集合
      *      将封装信息直接赋给本单个一级菜单，作为本当一级菜单下二级菜单集合
      * }
+     * ***********************此方法已经废弃**************************
      */
-    @Override
-    public Map<String, List<Catalog2VO>> getCatalogJson() {
+    public Map<String, List<Catalog2VO>> getCatalogJson_DB() {
         /**
          * 效率低下，有多少数据就要和数据库连接多少次
          */
@@ -294,60 +376,132 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
                 }
         ));
         return finale;*/
-
         /**
-         * 一次性查出所有的数据，在处理过程中不再连接数据库
+         * 上锁
+         * 先从redis读取，没有才进行查库
+         * 查到库后，不管是哪一个进程都要存进redis
+         * 后续进来的就不用再查库了
          */
-        //查出所有数据
-        List<CategoryEntity> listAll=baseMapper.selectList(new QueryWrapper<>());
-        //查出所有一级分类
-        List<CategoryEntity> listI=listAll.stream().filter(c->c.getParentCid()==0).collect(Collectors.toList());
-        Map<String, List<Catalog2VO>> finale = listI.stream().collect(Collectors.toMap(
-                k -> k.getCatId().toString(),
-                //遍历到单个一级菜单
-                I -> {
-                    //查出该一级菜单下所有二级菜单：
-                    List<CategoryEntity> listII = listAll.stream().filter(c->c.getParentCid()==I.getCatId()).collect(Collectors.toList());
-                    List<Catalog2VO> catalogII = listII.stream().map(
-                            //遍历到单个二级菜单
-                            II -> {
-                                //查出该二级菜单下所有三级菜单：
-                                List<CategoryEntity> listIII = listAll.stream().filter(c->c.getParentCid()==II.getCatId()).collect(Collectors.toList());
-                                List<Catalog2VO.Catalog3VO> catalogIII = listIII.stream().map(
-                                        //遍历到单个三级菜单
-                                        III -> {
-                                            Catalog2VO.Catalog3VO iii = new Catalog2VO.Catalog3VO();
-                                            //iii是该三级菜单的封装对象
-                                            iii.setCatalog2Id(II.getCatId().toString());
-                                            iii.setId(III.getCatId().toString());
-                                            iii.setName(III.getName());
-                                            return iii;
-                                        }
-                                ).collect(Collectors.toList());
-                                //此时catalogIII就是该二级菜单下面的所有三级菜单
+        synchronized (this) {
+            //让连接器创建一个操作杠杆，用于直接操作redis
+            ValueOperations<String, String> ops = stringRedisTemplate.opsForValue();
+            //获取json字符串，redis中名为：CatalogJson
+            String catalogJson = ops.get("CatalogJson");
+            if (StringUtils.isEmpty(catalogJson)) {
 
-                                Catalog2VO ii = new Catalog2VO();
-                                //ii是该二级菜单的封装对象
-                                ii.setCatalog1Id(I.getCatId().toString());
-                                ii.setId(II.getCatId().toString());
-                                ii.setName(II.getName());
-                                ii.setCatalog3List(catalogIII);
-                                return ii;
-                            }
-                    ).collect(Collectors.toList());
-                    //此时catalogII就是一级菜单下的所有二级菜单
+                System.out.println("锁内，redis无数据，查库");
 
-                    return catalogII;
+                /**
+                 * ============================================ 查库 ===========================================================
+                 * 一次性查出所有的数据，在处理过程中不再连接数据库
+                 *
+                 * redis中查不到数据时，才进行查库
+                 *
+                 */
+                //查出所有数据
+                List<CategoryEntity> listAll = baseMapper.selectList(new QueryWrapper<>());
+                //查出所有一级分类
+                List<CategoryEntity> listI = listAll.stream().filter(c -> c.getParentCid() == 0).collect(Collectors.toList());
+                Map<String, List<Catalog2VO>> finale = listI.stream().collect(Collectors.toMap(
+                        k -> k.getCatId().toString(),
+                        //遍历到单个一级菜单
+                        I -> {
+                            //查出该一级菜单下所有二级菜单：
+                            List<CategoryEntity> listII = listAll.stream().filter(c -> c.getParentCid() == I.getCatId()).collect(Collectors.toList());
+                            List<Catalog2VO> catalogII = listII.stream().map(
+                                    //遍历到单个二级菜单
+                                    II -> {
+                                        //查出该二级菜单下所有三级菜单：
+                                        List<CategoryEntity> listIII = listAll.stream().filter(c -> c.getParentCid() == II.getCatId()).collect(Collectors.toList());
+                                        List<Catalog2VO.Catalog3VO> catalogIII = listIII.stream().map(
+                                                //遍历到单个三级菜单
+                                                III -> {
+                                                    Catalog2VO.Catalog3VO iii = new Catalog2VO.Catalog3VO();
+                                                    //iii是该三级菜单的封装对象
+                                                    iii.setCatalog2Id(II.getCatId().toString());
+                                                    iii.setId(III.getCatId().toString());
+                                                    iii.setName(III.getName());
+                                                    return iii;
+                                                }).collect(Collectors.toList());
+                                        //此时catalogIII就是该二级菜单下面的所有三级菜单
+                                        Catalog2VO ii = new Catalog2VO();
+                                        //ii是该二级菜单的封装对象
+                                        ii.setCatalog1Id(I.getCatId().toString());
+                                        ii.setId(II.getCatId().toString());
+                                        ii.setName(II.getName());
+                                        ii.setCatalog3List(catalogIII);
+                                        return ii;
+                                    }).collect(Collectors.toList());
+                            //此时catalogII就是一级菜单下的所有二级菜单
+                            return catalogII;
+                        }));
+                /**
+                 * =====================================================================================================================
+                 *
+                 * 查完库还要进行存入
+                 *
+                 *
+                 */
+                if(finale==null){
+                    //若从数据库中获取来的也为空
+                    finale=new HashMap<>();
+                    //直接将finale赋为空内容对象
                 }
-        ));
-        return finale;
-
-
-
-
-
+                ops.set("CatalogJson",JSON.toJSONString(finale),300+(new Random().nextInt(150)), TimeUnit.SECONDS);
+                //存入
+                return finale;
+            }
+            else{
+                System.out.println("锁内，redis中有数据，直接返回");
+                //若不为空，则直接将redis中获取的json字符串反序列化为对象，返回对象
+                Map<String, List<Catalog2VO>> finale=JSON.parseObject(catalogJson, new TypeReference<Map<String, List<Catalog2VO>>> (){});
+                return finale;
+            }
+        }
+        //锁
     }
 
 
+    /**
+     *
+     * @return
+     *
+     * 使用redis改写的新·三级分类方法
+     */
+    @Override
+    public Map<String, List<Catalog2VO>> getCatalogJson() {
+        /**
+         * 1.从redis中拿取数据
+         * 2.判断数据是否为空
+         * 3.1.若为空，则从数据库中调取，并存入redis
+         * 3.2.若不为空，则无需查库，直接返回
+         */
+        //让连接器创建一个操作杠杆，用于直接操作redis
+        ValueOperations<String,String> ops=stringRedisTemplate.opsForValue();
+        //获取json字符串，redis中名为：CatalogJson
+        String catalogJson=ops.get("CatalogJson");
+        //判断catalogJson是否为空
+        if(StringUtils.isEmpty(catalogJson)){
+            System.out.println("redis中无数据，将进锁查库...");
+            //若为空，代表redis中还未有该json数据
+            //则通过数据库获取数据，并存入json字符串数据
+            Map<String, List<Catalog2VO>> finale=this.getCatalogJson_DB();
+            if(finale==null){
+                //若从数据库中获取来的也为空
+                finale=new HashMap<>();
+                //直接将finale赋为空内容对象
+            }
+            ops.set("CatalogJson",JSON.toJSONString(finale),300+(new Random().nextInt(150)), TimeUnit.SECONDS);
+            //设置过期时间，标准过期时间300s，在此基础上加上0-149秒的随机时间
+            return finale;
+        }
+        else{
+            System.out.println("redis中有数据，直接返回");
+            //若不为空，则直接将redis中获取的json字符串反序列化为对象，返回对象
+            Map<String, List<Catalog2VO>> finale=JSON.parseObject(catalogJson, new TypeReference<Map<String, List<Catalog2VO>>>(){});
+            return finale;
+        }
 
+
+    }
 }

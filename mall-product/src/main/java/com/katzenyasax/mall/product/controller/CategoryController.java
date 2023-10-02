@@ -35,7 +35,9 @@ public class CategoryController {
     //商品三级分类
     @RequestMapping("/list/tree")
     public R listTree(){
+        Long l=System.currentTimeMillis();
         List<CategoryEntity> categoryEntities=categoryService.listAsTree();
+        System.out.println("list/tree：token："+(System.currentTimeMillis()-l));
         return R.ok().put("success", categoryEntities);
     }
 
@@ -47,6 +49,7 @@ public class CategoryController {
         for(Long id:catIds){
             categoryBrandRelationService.deleteCategory(id);
         }
+
         return R.ok();
     }
 

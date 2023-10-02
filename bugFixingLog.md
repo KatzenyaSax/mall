@@ -1,3 +1,11 @@
+<!--
+ * @Author: InnerSekiro a18290531268@163.com
+ * @Date: 2023-09-25 21:43:28
+ * @LastEditors: InnerSekiro a18290531268@163.com
+ * @LastEditTime: 2023-10-02 16:02:21
+ * @FilePath: \undefinedc:\Users\ASUS\Desktop\IDEA\mall\bugFixingLog.md
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
 ## 2023/9/25
 
 补充了下列功能：
@@ -35,4 +43,17 @@
 
 
 
+
+## 2023/10/1
+
+更新了以下内容：
+    1.使用redis缓存方法改写了两个三级分类业务
+
+
+
+
+## 2023/10/2
+
+更新了以下内容：
+    1.为三级分类加上了本地锁
 

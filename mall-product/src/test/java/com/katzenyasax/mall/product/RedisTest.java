@@ -1,10 +1,8 @@
 package com.katzenyasax.mall.product;
 
-import io.lettuce.core.Value;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.redis.core.RedisKeyValueTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
@@ -28,6 +26,8 @@ public class RedisTest {
         //查询，并输出
         System.out.println(ops.get("Hello"));
     }
+
+
 
 
 
