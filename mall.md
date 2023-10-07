@@ -9683,6 +9683,268 @@ p156
 
 
 ### 分布式锁
+p158
+
+
+一个进程抢占到锁后，在redis中set一个kv:lock,1，表示此时该线程抢占到锁；
+其他进程查到redis中有lock时，便不再进去，但是一直等待锁的释放，也就是redis中查不到lock
+
+可能的问题：
+
+  1.进程进锁后，因不可抗原因，而在删除锁前便强制停止，造成锁未释放且无法再释放的问题
+    解决：在进锁时，便要设置过期时间
+
+  2.当前进程业务超时，导致业务还在执行时锁就被删除了，此时会有新的进程得到锁，若当前进程业务完成后，删除的锁实际上是别人的锁
+    解决：将锁的值设置为uuid，这样一来删除锁时就要判断是否未自己的锁，如果是则删除，如果不是则啥也不干
+
+  3.从开始判断锁是否为自己并已经拿取锁的值、到值传输到判断语句这段时间内，若锁恰好过期，则其他进程进锁后，锁的值便不是自己的值了
+    但问题是我们拿到锁的值的时候锁并未过期，值仍未自己的uuid，此后删除锁时其实删的是别人的锁
+    所以结论是删除锁（包括执行判断、拿取值、删除锁）必须是一整个原子操作
+    解决：使用lua脚本：
+
+        String script="if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end";
+        stringRedisTemplate.execute(new DefaultRedisScript<Integer>(script,Ling.class),Arrays.asList("lock"),uuid);
+
+    也就是将删除锁的操作全部交给redis封装的api执行，对于java来说这是一个原子操作，
+    redis封装了该方法会将所有的获取、判断、传输的操作封装，
+    jvm就不需要再手动判断、获取等，排除了数据传输的时间差等带来的问题
+
+  4.锁的自动续期
+    最理想的情况就是业务执行过程中锁一直有效
+
+
+
+但是压测看来，似乎有点不太稳定
+
+
+
+
+
+
+
+# Redisson
+
+前面的锁综合性能都不好
+redisson的性能会好一些，此处使用原生依赖可以更好理解redisson的原理和运行方式
+
+
+## 安装与配置
+p160
+
+第一次时，引入：
+
+      <!-- https://mvnrepository.com/artifact/org.redisson/redisson -->
+      <dependency>
+          <groupId>org.redisson</groupId>
+          <artifactId>redisson</artifactId>
+          <version>3.23.5</version>
+      </dependency>
+
+创建配置类config/RedissonConfiguration：
+
+      @Configuration
+      public class RedissonConfiguration {
+      
+          /**
+           * 
+           * @return
+           * 
+           * redisson配置类
+           * 
+           */
+          @Bean(destroyMethod = "shutdown")//销毁方法为shutdown
+          RedissonClient redissonClient(){
+              //创建配置
+              Config config=new Config();
+              config.useSingleServer().setAddress("redis://192.168.74.130:6379");
+              //根据配置实例化redisson的客户端
+              RedissonClient redissonClient= Redisson.create(config);
+              return redissonClient;
+          }
+      }
+
+测试一下：
+
+      @Autowired
+      RedissonConfiguration redissonConfiguration;
+      @Test
+      void printRedisson(){
+          System.out.println(redissonConfiguration);
+      }
+
+结果：
+
+      com.katzenyasax.mall.product.config.RedissonConfiguration$$SpringCGLIB$$0@6a4ba6f4
+
+打印出了实例化配置类的地址，说明可以加载
+
+注意，redis的地址必须以redis://或rediss://开头，像这种单独以ip开头的是不行的，例如：
+
+      setAddress("redis://192.168.74.130:6379")：可以
+      setAddress("192.168.74.130:6379")：不可以
+
+
+
+
+
+## 可重入锁Lock
+p160
+p161
+
+解决了两个问题：
+
+
+      1.死锁问题，也是看门狗机制实现，即是没有在业务中手动解锁，当没有进程占用该锁时，当锁的ttl结束时该锁自动释放
+
+      2.锁的自动续期问题，保证进程从运行开始到结束始终占用同一把锁
+        即看门狗机制，若有进程占用该锁仍在运行，但ttl快结束了，那么锁的时长会自动蓄满；
+        默认ttl为30秒，每隔10秒或有进程占用该锁时，自动蓄满至30秒，
+        也可以获取锁时自定义，但是不会自动续期，且必须要大于业务的执行时间，
+        否则该进程业务结束释放锁时，会被系统判断当前已经是其他进程的锁而报错
+
+虽然当时，还是推荐使用自定义ttl的方式，因为自动续期浪费的资源太高了，
+而满足一个进程占用同一把锁也只需要把ttl设置大一点就行了，
+比如就设置成30秒，有整整30秒的时间给进程发挥，
+执行完了直接手动解锁不谈，要是30秒进程业务都还执行不完，说明进程已经死了，这已经不是业务本身的问题了，而是数据库连接不上这种外部问题
+但是不管怎样，30秒不管你进程是死是活，redis都会自动强制解锁
+
+实现：
+
+      RLock lock = redissonClient.getLock("LOCK");
+      lock.lock(30,TimeUnit.SECONDS);
+
+其中getLock的里面参数随便写，只要是同一个名字就代表是同一把锁
+
+
+除此之外还可以让锁在一段时间内尝试上锁，该时间段内上不了锁就不上了，
+业务lock方法默认是阻塞式上锁，进程永远会自旋上锁，上不了锁就没完的那种
+实现：
+
+      RLock lock = redissonClient.getLock("LOCK");
+      boolean ifLocked = lock.tryLock(30,100,TimeUtil.SECONDS);
+
+自旋100秒，上不了锁就不上了
+而且有个boolean返回值，表示是否上锁，可以根据这个来判断要不要执行业务
+
+
+
+
+## 公平锁FairLock
+p162
+
+所有进程会排队一个一个拿锁，一个进程解锁后，下一个进程拿锁，不会像非公平锁一样一个进程解锁后所有的锁竞争拿锁
+
+实现：
+
+      RLock fairLock = redissonClient.getFairLock("FAIRLOCK");
+
+其他使用和其他一样
+
+
+
+## 读写锁ReadWirteLock
+p162
+
+可以实现进程修改数据和读取数据的严谨性，保证读取到的永远是最新数据，
+例如一个进程正在修改数据，另一个进程想读取该数据，那就必须等待上一个进程修改数据完成后才能读取到。
+
+      1.读可以所有进程并发读，
+      2.但是写必须成为一个单独进程，不能和读并发，也不能和其他写并发，
+      3.读的过程中有进程写时，写必须等待读完成
+
+实现(写);
+
+      RLock wrLock = redissonClient.getWriteReadLock("WRLOCK");
+      try{
+        wrLock.writeLock().lock();
+        *写数据的业务*
+      } catch(Exception e){
+        
+      } finally{
+        wrLock.wirteLock().unlock();
+      }
+
+实现(读);
+
+      RLock wrLock = redissonClient.getWriteReadLock("WRLOCK");
+      wrLock.readLock().lock();
+      *读数据的业务*
+      wrLock.readLock().unlock();
+
+
+
+## 信号量Semaphore
+p165
+
+一个限制进程并发数的量，
+一个进程执行时，信号量减一(release())，一直减到0时不再可减
+进程结束时，信号量加一(aquire())，一直加到设定量时不再可加
+
+除此之外tryAcquire和tryRelease表示如果可以的话就加和减，如果不可以那就算了，就瞅一眼
+一样有一个boolean的返回值
+
+实现：
+
+      RSemaphore semaphore = redissonClient.getSemaphore("SEMAPHORE");
+
+
+
+
+## 闭锁CountDownLatch
+p164
+
+一个闭锁关联若干个进程，关联应当是一个进程结束后闭锁计数减一，当所有进程都完成，即闭锁计数为0时，闭锁才关闭
+该关联是逻辑关联，没有任何物理关联手段，编写和维护全为手动
+
+实现：
+
+      RCountDownLatch latch = redissonClient.getCountDownLatch("LATCH");
+      latch.trySetCount(10);
+      latch.await();
+
+设置10个关联进程
+关联进程实现：
+
+      RCountDownLatch latch = redissonClient.getCountDownLatch("LATCH");
+      *业务*
+      latch.countDown();
+
+完成时，latch的计数减一
+
+
+
+
+
+
+
+
+
+## 缓存一致性
+p166
+
+改造三级分类，使用redisson分布式锁
+首先三级分类的锁是用来放入仅仅一个进程查数据库的，而redisson可以保证只有一个进程进锁
+因此锁用于放入进程，一个普通的可重入锁便可以
+其次读写顺序要规范，若redis中没有数据时则写入，此时使用写锁；而这样一来其他读取的情况则要加上读锁。
+
+但是问题来了，每次只存一次，过期时间后重新存，万一这个期间数据修改了呢？
+这就牵扯到缓存一致性问题了
+两种解决方法
+1.双写模式，修改数据的时候修改缓存
+2.失效模式，修改数据后让缓存失效，并让下一个查询缓存的进程进锁查询
+
+但是缺点是：
+1.双写模式会造成脏读，造成暂时脏数据的存在，但是由于数据以数据库为准，因此等缓存失效后查库存入的缓存一定是最新的数据，满足最终一致性
+2.失效模式会造成读和写的无序混乱，有可能读和写不会按照顺序来
+
+解决方案：
+1.加过期时间，可以满足大部分场景
+2.再加个读写锁，保证读写分离
+
+当然也有完美方案，即使用中间件canal订阅binlog，不需要我们手动更新缓存了，他会自动监听数据库更新状况，并映射到缓存
+
+
+但是针对特别热点的数据来说，一般不存在缓存中，直接采用查库的方式
 
 
 

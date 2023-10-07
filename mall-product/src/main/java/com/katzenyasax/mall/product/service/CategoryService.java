@@ -28,9 +28,8 @@ public interface CategoryService extends IService<CategoryEntity> {
 
     Long[] getCategoryPath(Long categoryId);
 
+    Map<String, List<Catalog2VO>> getCatalogJson();
 
     List<CategoryEntity> listOne();
-
-    Map<String, List<Catalog2VO>> getCatalogJson();
 }
 

@@ -2,10 +2,11 @@
  * @Author: InnerSekiro a18290531268@163.com
  * @Date: 2023-09-25 21:43:28
  * @LastEditors: InnerSekiro a18290531268@163.com
- * @LastEditTime: 2023-10-02 16:02:21
+ * @LastEditTime: 2023-10-07 15:39:53
  * @FilePath: \undefinedc:\Users\ASUS\Desktop\IDEA\mall\bugFixingLog.md
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
+
 ## 2023/9/25
 
 补充了下列功能：
@@ -56,4 +57,20 @@
 
 更新了以下内容：
     1.为三级分类加上了本地锁
+
+
+
+
+## 2023/10/7
+
+更新了以下内容：
+    1.为三级分类加上了原生分布式锁
+    2.将三级分类改造为使用redisson分布式锁进行缓存
+    
+
+
+
+
+
+
 
