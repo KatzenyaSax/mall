@@ -8,7 +8,6 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.common.utils.Query;
-import com.katzenyasax.mall.product.config.RedissonConfiguration;
 import com.katzenyasax.mall.product.dao.CategoryDao;
 import com.katzenyasax.mall.product.entity.CategoryEntity;
 import com.katzenyasax.mall.product.service.CategoryService;
@@ -18,6 +17,8 @@ import org.redisson.api.RLock;
 import org.redisson.api.RReadWriteLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -77,6 +78,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
      * 当然这是经过配置的操作
      *
      */
+    @CacheEvict(value = {"product-category"},key="'listOne'") //删除缓存
     @Override
     public void hideByIds(List<Long> list) {
         //TODO 1.判断数据是否被引用
@@ -92,6 +94,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     //用于排序
     @Override
     public void Sort(CategoryEntity[] category) {
+        //TODO 批量排序
 
     }
 
@@ -124,6 +127,10 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
         //直接返回
     }
 
+/**
+ * ========================================================== 商城首页业务 ==============================================================================================
+ * ============================================================================================================================================================
+ */
 
     /**
      *
@@ -131,8 +138,10 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
      *
      * 获取一级分类
      */
+    @Cacheable(value = {"product-category"},key="#root.method.name")
     @Override
     public List<CategoryEntity> listOne() {
+        System.out.println("缓存：获取到了一级分类...");
         List<CategoryEntity> listAll=baseMapper.selectList(null);
         List<CategoryEntity> finale=listAll.stream().filter(c->c.getCatLevel()==1).collect(Collectors.toList());
         return finale;
@@ -364,14 +373,14 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
         try {
 
             finale = this.getListTreeDB();  //封装的方法，从库中获取三级分类
-            if (finale == null) {       //若从数据库中获取来的也为空
+            /**if (finale == null) {       //若从数据库中获取来的也为空
                 finale = new ArrayList<>();     //直接将finale赋为空内容对象
             }
 
             RReadWriteLock readWriteLock = redissonClient.getReadWriteLock("CatalogListAsTree_ReadWriteLock");  //读写锁
             readWriteLock.writeLock().lock(30, TimeUnit.SECONDS);    //写锁上锁
             ops.set("CatalogListAsTree", JSON.toJSONString(finale), 300 + (new Random().nextInt(150)), TimeUnit.SECONDS);     //数据存入redis
-            readWriteLock.writeLock().unlock();  //写锁解锁
+            readWriteLock.writeLock().unlock();  //写锁解锁*/
         } finally {
             lock.unlock();  //解锁进程
         }
@@ -387,6 +396,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
      * 经过redis缓存判断的三级菜单
      *
      */
+    @Cacheable(value = {"product-category"},key="'CatalogListAsTree'")
     @Override
     public List<CategoryEntity> listAsTree(){
         ValueOperations<String,String> ops= redisTemplate.opsForValue();    //让连接器创建一个操作杠杆，用于直接操作redis
@@ -403,13 +413,16 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
             //List<CategoryEntity> finale=this.listAsTree_RedisLock();  //进分布式锁查数据
             List<CategoryEntity> finale=this.listAsTree_RedissonLock();     //使用redisson分布式锁
 
-            if(finale==null){   //若从数据库中获取来的也为空
-                finale=new ArrayList<>();   //直接将finale赋为空内容对象
-            }
-
-            readWriteLock.readLock().lock(30,TimeUnit.SECONDS); //写锁上锁
-            ops.set("CatalogListAsTree",JSON.toJSONString(finale),300+(new Random().nextInt(150)), TimeUnit.SECONDS);   //设置过期时间，标准过期时间300s，在此基础上加上0-149秒的随机时间
-            readWriteLock.readLock().unlock();  //写锁过期
+            /**
+             *
+             *
+             * if(finale==null){   //若从数据库中获取来的也为空
+             *     finale=new ArrayList<>();   //直接将finale赋为空内容对象
+             * }
+ *
+             * readWriteLock.readLock().lock(30,TimeUnit.SECONDS); //写锁上锁
+             * ops.set("CatalogListAsTree",JSON.toJSONString(finale),300+(new Random().nextInt(150)), TimeUnit.SECONDS);   //设置过期时间，标准过期时间300s，在此基础上加上0-149秒的随机时间
+             * readWriteLock.readLock().unlock();  //写锁过期*/
 
             return finale;
         }
@@ -687,14 +700,18 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
         try {
 
             finale = this.getCatalogsDB();      //封装的方法，从库中获取三级分类
-            if (finale == null) {           //若从数据库中获取来的也为空
-                finale = new HashMap<>();       //直接将finale赋为空内容对象
-            }
-
-            RReadWriteLock readWriteLock = redissonClient.getReadWriteLock("CatalogJson_ReadWriteLock");  //读写锁
-            readWriteLock.writeLock().lock(30, TimeUnit.SECONDS);    //写锁上锁
-            ops.set("CatalogJson", JSON.toJSONString(finale), 300 + (new Random().nextInt(150)), TimeUnit.SECONDS); //数据存入redis
-            readWriteLock.writeLock().unlock();         //写锁解锁
+            /**
+             *
+             * 手动存缓存
+             *
+             * if (finale == null) {           //若从数据库中获取来的也为空
+             *     finale = new HashMap<>();       //直接将finale赋为空内容对象
+             * }
+ *
+             * RReadWriteLock readWriteLock = redissonClient.getReadWriteLock("CatalogJson_ReadWriteLock");  //读写锁
+             * readWriteLock.writeLock().lock(30, TimeUnit.SECONDS);    //写锁上锁
+             * ops.set("CatalogJson", JSON.toJSONString(finale), 300 + (new Random().nextInt(150)), TimeUnit.SECONDS); //数据存入redis
+             * readWriteLock.writeLock().unlock();         //写锁解锁*/
         } finally {
             lock.unlock();      //解锁进程
         }
@@ -713,6 +730,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
      *
      * 使用redis改写的新·首页三级分类方法
      */
+    @Cacheable(value = {"product-category"},key="'CatalogJson'")
     @Override
     public Map<String, List<Catalog2VO>> getCatalogJson() {
         /**
@@ -735,13 +753,17 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
             //Map<String, List<Catalog2VO>> finale=this.getCatalogs_RedisLock();    //使用分布式锁
             Map<String, List<Catalog2VO>> finale=this.getCatalogs_RedissonLock();   //使用redisson分布式锁
 
-            if(finale==null){   //若从数据库中获取来的也为空
-                finale=new HashMap<>(); //直接将finale赋为空内容对象
-            }
-
-            readWriteLock.writeLock().lock(30,TimeUnit.SECONDS);        //写锁上锁
-            ops.set("CatalogJson",JSON.toJSONString(finale),300+(new Random().nextInt(150)), TimeUnit.SECONDS);     //设置过期时间，标准过期时间300s，在此基础上加上0-149秒的随机时间
-            readWriteLock.writeLock().unlock();     //写锁解锁
+            /**
+             *
+             *
+             *
+             * if(finale==null){   //若从数据库中获取来的也为空
+             *     finale=new HashMap<>(); //直接将finale赋为空内容对象
+             * }
+ *
+             * readWriteLock.writeLock().lock(30,TimeUnit.SECONDS);        //写锁上锁
+             * ops.set("CatalogJson",JSON.toJSONString(finale),300+(new Random().nextInt(150)), TimeUnit.SECONDS);     //设置过期时间，标准过期时间300s，在此基础上加上0-149秒的随机时间
+             * readWriteLock.writeLock().unlock();     //写锁解锁*/
 
             return finale;
         }

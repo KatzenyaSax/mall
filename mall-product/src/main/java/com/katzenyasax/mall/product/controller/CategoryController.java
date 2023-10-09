@@ -6,6 +6,8 @@ import com.katzenyasax.mall.product.entity.CategoryEntity;
 import com.katzenyasax.mall.product.service.CategoryService;
 import com.katzenyasax.mall.product.service.impl.CategoryBrandRelationServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
@@ -43,6 +45,7 @@ public class CategoryController {
 
 
     //逻辑删除
+    @CacheEvict(value = {"product-category"},allEntries = true)
     @RequestMapping("/delete")
     public R deleteSafe(@RequestBody Long[] catIds){
         categoryService.hideByIds(Arrays.asList(catIds));
@@ -56,6 +59,7 @@ public class CategoryController {
 
 
     //拖拽功能排序
+    @CacheEvict(value = {"product-category"},allEntries = true)
     @RequestMapping("/update/sort")
     public R updateSort(@RequestBody CategoryEntity[] category){
         categoryService.updateBatchById(Arrays.stream(category).toList());
@@ -92,6 +96,8 @@ public class CategoryController {
     /**
      * 保存
      */
+
+    @CacheEvict(value = {"product-category"},allEntries = true)
     @RequestMapping("/save")
     public R save(@RequestBody CategoryEntity category){
 		categoryService.save(category);
@@ -106,6 +112,7 @@ public class CategoryController {
      *
      *
      */
+    @CacheEvict(value = {"product-category"},allEntries = true)
     @RequestMapping("/update")
     public R update(@RequestBody CategoryEntity category){
 		categoryService.updateById(category);

@@ -9946,6 +9946,484 @@ p166
 
 但是针对特别热点的数据来说，一般不存在缓存中，直接采用查库的方式
 
+最终方案，首页三级分类：
+
+      /**
+       * 分布式锁
+       * 进程查不到redis中数据时，通过该分布式锁查库
+       *
+       * 使用redisson分布式锁
+       * 仅有一个进程可以进入，也即是一旦进入进程说明redis中一定没有想要的数据
+       * 故不需要针对进来的多余进程进行二次判断redis
+       *
+       */
+      public Map<String, List<Catalog2VO>> getCatalogs_RedissonLock() {
+          System.out.println("redisson锁内...");
+          Map<String, List<Catalog2VO>> finale;       //返回值实例化对象
+          ValueOperations<String, String> ops = redisTemplate.opsForValue();      //让连接器创建一个操作杠杆ops，用于直接操作redis
+          RLock lock=redissonClient.getLock("CatalogJson_Lock");    //获取可重入锁，锁整个进程
+          lock.lock(30,TimeUnit.SECONDS);     //上锁，自定义30秒
+          try {
+
+              finale = this.getCatalogsDB();      //封装的方法，从库中获取三级分类
+              if (finale == null) {           //若从数据库中获取来的也为空
+                  finale = new HashMap<>();       //直接将finale赋为空内容对象
+              }
+
+              RReadWriteLock readWriteLock = redissonClient.getReadWriteLock("CatalogJson_ReadWriteLock");  //读写锁
+              readWriteLock.writeLock().lock(30, TimeUnit.SECONDS);    //写锁上锁
+              ops.set("CatalogJson", JSON.toJSONString(finale), 300 + (new Random().nextInt(150)), TimeUnit.SECONDS); //数据存入  redis
+              readWriteLock.writeLock().unlock();         //写锁解锁
+          } finally {
+              lock.unlock();      //解锁进程
+          }
+          System.out.println("获取到数据库中数据，是否为空？"+!finale.isEmpty());
+          return finale;
+      }
+      /**
+       *
+       * 使用redis改写的新·首页三级分类方法
+       */
+      @Override
+      public Map<String, List<Catalog2VO>> getCatalogJson() {
+          /**
+           * 1.从redis中拿取数据
+           * 2.判断数据是否为空
+           * 3.1.若为空，则从数据库中调取，并存入redis
+           * 3.2.若不为空，则无需查库，直接返回
+           */
+          RReadWriteLock readWriteLock=redissonClient.getReadWriteLock("CatalogJson_ReadWriteLock");      //读写锁
+          ValueOperations<String,String> ops= redisTemplate.opsForValue();        //让连接器创建一个操作杠杆，用于直接操作redis
+
+          readWriteLock.readLock().lock(30,TimeUnit.SECONDS);     //读锁上锁
+          String catalogJson=ops.get("CatalogJson");  //获取json字符串，redis中名为：CatalogJson
+          readWriteLock.readLock().unlock();          //读锁解锁
+
+          if(StringUtils.isEmpty(catalogJson)){               //判断catalogJson是否为空。
+              System.out.println("redis中无数据，将进锁查库...");
+
+              //Map<String, List<Catalog2VO>> finale=this.getCatalogs_LocalLock();    //进锁查数据
+              //Map<String, List<Catalog2VO>> finale=this.getCatalogs_RedisLock();    //使用分布式锁
+              Map<String, List<Catalog2VO>> finale=this.getCatalogs_RedissonLock();   //使用redisson分布式锁
+
+              if(finale==null){   //若从数据库中获取来的也为空
+                  finale=new HashMap<>(); //直接将finale赋为空内容对象
+              }
+
+              readWriteLock.writeLock().lock(30,TimeUnit.SECONDS);        //写锁上锁
+              ops.set("CatalogJson",JSON.toJSONString(finale),300+(new Random().nextInt(150)), TimeUnit.SECONDS);     //设置过期时  间，标准过期时间300s，在此基础上加上0-149秒的随机时间
+              readWriteLock.writeLock().unlock();     //写锁解锁
+
+              return finale;
+          }
+          else{
+              System.out.println("redis中有数据，直接返回");
+              Map<String, List<Catalog2VO>> finale=JSON.parseObject(catalogJson, new TypeReference<Map<String, List<Catalog2VO>>>() {});               //若不为空，则直接将redis中获取的json字符串反序列化为对象，返回对象
+              return finale;
+          }
+      }
+
+
+普通三级分类：
+
+      /**
+       * 分布式锁
+       * 进程查不到redis中数据时，进该分布式锁查库
+       *
+       * 使用redisson分布式锁
+       * 仅有一个进程可以进入，也即是一旦进入进程说明redis中一定没有想要的数据
+       * 故不需要针对进来的多余进程进行二次判断redis
+       *
+       */
+      public List<CategoryEntity> listAsTree_RedissonLock() {
+          System.out.println("redisson锁内...");
+          List<CategoryEntity> finale;  //返回值实例
+          ValueOperations<String, String> ops = redisTemplate.opsForValue();  //让连接器创建一个操作杠杆ops，用于直接操作redis
+          RLock lock=redissonClient.getLock("CatalogListAsTree_Lock");    //获取可重入锁，锁整个进程
+          lock.lock(30,TimeUnit.SECONDS);     //上锁，自定义30秒
+          try {
+
+              finale = this.getListTreeDB();  //封装的方法，从库中获取三级分类
+              if (finale == null) {       //若从数据库中获取来的也为空
+                  finale = new ArrayList<>();     //直接将finale赋为空内容对象
+              }
+
+              RReadWriteLock readWriteLock = redissonClient.getReadWriteLock("CatalogListAsTree_ReadWriteLock");  //读写锁
+              readWriteLock.writeLock().lock(30, TimeUnit.SECONDS);    //写锁上锁
+              ops.set("CatalogListAsTree", JSON.toJSONString(finale), 300 + (new Random().nextInt(150)), TimeUnit.SECONDS);     //数  据存入redis
+              readWriteLock.writeLock().unlock();  //写锁解锁
+          } finally {
+              lock.unlock();  //解锁进程
+          }
+          System.out.println("获取到数据库中数据，是否为空？"+!finale.isEmpty());
+          return finale;
+      }
+      /**
+       *
+       * @return
+       *
+       * 经过redis缓存判断的三级菜单
+       *
+       */
+      @Override
+      public List<CategoryEntity> listAsTree(){
+          ValueOperations<String,String> ops= redisTemplate.opsForValue();    //让连接器创建一个操作杠杆，用于直接操作redis
+          RReadWriteLock readWriteLock = redissonClient.getReadWriteLock("CatalogListAsTree_ReadWriteLock");  //读写锁
+
+          readWriteLock.readLock().lock(30,TimeUnit.SECONDS);     //读锁
+          String catalogListAsTree=ops.get("CatalogListAsTree");  //从redis获取catalogListAsTree数据
+          readWriteLock.readLock().unlock();//读锁解锁
+
+          if(StringUtils.isEmpty(catalogListAsTree)){         //判断catalogJson是否为空。
+              System.out.println("redis中无数据，将进锁查库...");
+
+              //List<CategoryEntity> finale=this.listAsTree_LocalLock();  //进本地锁查数据
+              //List<CategoryEntity> finale=this.listAsTree_RedisLock();  //进分布式锁查数据
+              List<CategoryEntity> finale=this.listAsTree_RedissonLock();     //使用redisson分布式锁
+
+              if(finale==null){   //若从数据库中获取来的也为空
+                  finale=new ArrayList<>();   //直接将finale赋为空内容对象
+              }
+
+              readWriteLock.readLock().lock(30,TimeUnit.SECONDS); //写锁上锁
+              ops.set("CatalogListAsTree",JSON.toJSONString(finale),300+(new Random().nextInt(150)), TimeUnit.SECONDS);   //设置过期  时间，标准过期时间300s，在此基础上加上0-149秒的随机时间
+              readWriteLock.readLock().unlock();  //写锁过期
+
+              return finale;
+          }
+          else{
+              System.out.println("redis中有数据，直接返回");
+              List<CategoryEntity> finale=JSON.parseObject(catalogListAsTree,new TypeReference<List<CategoryEntity>>()  {});                //若不为空，则直接将redis中获取的json字符串反序列化为对象，返回对象
+              return finale;
+          }
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# SpringCache
+p167
+
+之前说了，数据库一更新，就要将缓存也更新，而且是手动更新，太麻烦了
+因此使用SpringCache，实现对写入缓存的简化
+
+
+## 基本整合
+p168
+
+1.引入依赖：
+
+      <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-cache -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-cache</artifactId>
+      </dependency>
+
+不用写版本号
+除此之外，cache是基于redis的，因此需要redis的依赖，已经引入了
+
+2.application.yml中添加：
+
+      spring:
+          cache:
+            type: redis
+
+表示使用redis作为缓存
+
+
+3.在启动类加上注解：
+
+      @EnableCaching
+
+注意导入的是org.springframework.cache这个包下的注解：
+
+      import org.springframework.cache.annotation.Cacheable;
+
+否则没用
+
+
+
+
+## 测试
+
+以mall首页一级分类为例，因为它和三级分类是独立的方法
+我们想将其存入redis，也即是将其方法返回值存入redis，那么直接在方法上加一个注解：
+
+      @Cacheable({"product-category"})
+      @Override
+      public List<CategoryEntity> listOne() {
+          System.out.println("缓存：获取到了一级分类...");
+          List<CategoryEntity> listAll=baseMapper.selectList(null);
+          List<CategoryEntity> finale=listAll.stream().filter(c->c.getCatLevel()==1).collect(Collectors.toList());
+          return finale;
+      }
+
+表示将其分类存入product-category分区，分区可以有多个
+并且，如果该方法确实存入了数据到redis，那么下次就不用调用方法内的业务了，直接从redis中获取完事
+
+运行后，查看redis，发现有kv数据：
+
+      product-category::SimpleKey []
+
+但是格式是java serialized格式
+
+
+
+
+
+
+
+## 细节
+p169，好几把糊
+p170
+
+1.自定义数据的名字
+
+在@EnableCache注解中加上key，可以接收String，也可以接收SpEL表达式
+接收String时，使用单引号：
+
+      key="'listOne'"
+
+接收SpEL表达式，例如命名为方法名：
+
+      key="#root.method.name"
+
+更多的表达式写法参照官方文档
+
+配合上上面写的分组，最后数据的名字就是：
+
+      product-category::listOne
+
+2.自定义ttl
+
+在application.yml中设置：
+
+      spring:
+        cache:
+          redis:
+            time-to-live: 3600000
+    
+单位为毫秒，3600000ms即1h
+
+3.自定义数据格式为json
+
+需要自定义Redis的缓存管理器RedisCacheConfiguration，因此需要读源码
+
+原理是，RedisCacheConfiguration配置会被RedisCacheManager管理，若我们没有自定义配置，则RedisCacheManager使用默认的配置；
+若自定义了配置，并将其设置为自动装配，那么RedisCacheManager就会监听到，并取代默认配置。
+同时，RedisCacheConfiguration被CacheAutoConfiguration注入，成为SpringCache对redis缓存的总配置。
+
+      @Configuration
+      @EnableCaching
+      public class SpringCacheConfiguration {
+          @Bean
+          RedisCacheConfiguration redisCacheConfiguration(){
+              RedisCacheConfiguration conf=RedisCacheConfiguration.defaultCacheConfig();
+              //先弄一个默认配置，在其基础上修改
+              conf = conf
+                      .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                      .serializeValuesWith(RedisSerializationContext
+                            .SerializationPair
+                            .fromSerializer(new GenericFastJsonRedisSerializer())
+                      )
+              ;
+              //把格式固定成为了fastJson包下的Json格式，因为Json是标准格式，用哪个包下面的Json肯定都是标准的。
+              return conf;
+          }
+      }
+
+注意注解@EnableCaching表示是缓存的配置
+
+测试一下
+缓存名为：
+
+      product-category::listOne
+
+缓存内容：
+
+      [
+        {
+            "@type": "com.katzenyasax.mall.product.entity.CategoryEntity",
+            "catId": 1,
+            "catLevel": 1,
+            "children": [],
+            "name": "图书
+            ······
+
+是json格式，和预期一致
+
+但是ttl不是60min了，和默认的ttl一样为-1
+这是因为配置类优先于配置文件，有配置类就不再读配置文件了
+所以除此之外还要将其他的配置加上去：
+
+      .entryTtl(Duration.ofMinutes(60))
+
+除此之外，还有：
+
+      .prefixCacheNameWith("CACHE_")         //缓存名前缀，在最终名字面前加上前缀
+      .disableKeyPrefix()               //禁用前缀，包括前缀和用@Cacheable注解指定的分组名，当然::也没有了                      
+      .disableCachingNullValues()       //禁用空值缓存，如果禁用有可能造成缓存穿透
+
+
+
+
+把三级分类的方法改造一下，不要再手动调用redis缓存，直接让SpringCache注解来缓存，
+树形三级分类：
+
+      public List<CategoryEntity> listAsTree_RedissonLock() {
+        System.out.println("redisson锁内...");
+        List<CategoryEntity> finale;  //返回值实例
+        ValueOperations<String, String> ops = redisTemplate.opsForValue();  //让连接器创建一个操作杠杆ops，用于直接操作redis
+        RLock lock=redissonClient.getLock("CatalogListAsTree_Lock");    //获取可重入锁，锁整个进程
+        lock.lock(30,TimeUnit.SECONDS);     //上锁，自定义30秒
+        try {
+            finale = this.getListTreeDB();  //封装的方法，从库中获取三级分类
+        } finally {
+            lock.unlock();  //解锁进程
+        }
+        System.out.println("获取到数据库中数据，是否为空？"+!finale.isEmpty());
+        return finale;
+     }
+
+     @Cacheable(value = "product-category",key="'CatalogListAsTree'")
+     @Override
+     public List<CategoryEntity> listAsTree(){
+
+         ValueOperations<String,String> ops= redisTemplate.opsForValue();    //让连接器创建一个操作杠杆，用于直接操作redis
+         RReadWriteLock readWriteLock = redissonClient.getReadWriteLock("CatalogListAsTree_ReadWriteLock");  //读写锁
+
+         readWriteLock.readLock().lock(30,TimeUnit.SECONDS);     //读锁
+         String catalogListAsTree=ops.get("CatalogListAsTree");  //从redis获取catalogListAsTree数据
+         readWriteLock.readLock().unlock();//读锁解锁
+
+         if(StringUtils.isEmpty(catalogListAsTree)){         //判断catalogJson是否为空。
+             System.out.println("redis中无数据，将进锁查库...");
+
+             List<CategoryEntity> finale=this.listAsTree_RedissonLock();     //使用redisson分布式锁
+
+             return finale;
+         }
+         else{
+             System.out.println("redis中有数据，直接返回");
+             List<CategoryEntity> finale=JSON.parseObject(catalogListAsTree,new TypeReference<List<CategoryEntity>>(){});                //若不为空，则直接将redis中获取的json字符串反序列化为对象，返回对象
+             return finale;
+         }
+     }
+
+首页三级分类：
+
+      public Map<String, List<Catalog2VO>> getCatalogs_RedissonLock() {
+        System.out.println("redisson锁内...");
+        Map<String, List<Catalog2VO>> finale;       //返回值实例化对象
+        ValueOperations<String, String> ops = redisTemplate.opsForValue();      //让连接器创建一个操作杠杆ops，用于直接操作redis
+        RLock lock=redissonClient.getLock("CatalogJson_Lock");    //获取可重入锁，锁整个进程
+        lock.lock(30,TimeUnit.SECONDS);     //上锁，自定义30秒
+        try {
+            finale = this.getCatalogsDB();      //封装的方法，从库中获取三级分类
+        } finally {
+            lock.unlock();      //解锁进程
+        }
+        System.out.println("获取到数据库中数据，是否为空？"+!finale.isEmpty());
+        return finale;
+      }
+
+      @Cacheable(value = "product-category",key="'CatalogJson'")
+      @Override
+      public Map<String, List<Catalog2VO>> getCatalogJson() {
+      
+          RReadWriteLock readWriteLock=redissonClient.getReadWriteLock("CatalogJson_ReadWriteLock");      //读写锁
+          ValueOperations<String,String> ops= redisTemplate.opsForValue();        //让连接器创建一个操作杠杆，用于直接操作redis
+
+          readWriteLock.readLock().lock(30,TimeUnit.SECONDS);     //读锁上锁
+          String catalogJson=ops.get("CatalogJson");  //获取json字符串，redis中名为：CatalogJson
+          readWriteLock.readLock().unlock();          //读锁解锁
+
+          if(StringUtils.isEmpty(catalogJson)){               //判断catalogJson是否为空。
+              System.out.println("redis中无数据，将进锁查库...");
+
+              Map<String, List<Catalog2VO>> finale=this.getCatalogs_RedissonLock();   //使用redisson分布式锁
+
+              return finale;
+          }
+          else{
+              System.out.println("redis中有数据，直接返回");
+              Map<String, List<Catalog2VO>> finale=JSON.parseObject(catalogJson, new TypeReference<Map<String, List<Catalog2VO>>>() {});               //若不为空，则直接将redis中获取的json字符串反序列化为对象，返回对象
+              return finale;
+          }
+      }
+
+删除了所有手动操作redis存缓存的操作
+
+
+
+在双写模式下，还可以使用@CachePut，表示将该结果存到缓存，如果缓存中已有则覆盖
+
+
+
+
+
+
+
+
+## 删除缓存
+p171
+
+使用@CacheEvict注解，实现失效模式
+比如更新数据库的时候，会删除缓存中的旧数据，下次缓存查库时再存入新的缓存
+比如让一级分类的缓存失效：
+
+      @CacheEvict(value = {"product-category"},key="'listOne'") //删除一级分类
+
+加在CategoryController上最简单
+让三级分类失效：
+
+      @CacheEvict(value = {"product-category"},key="'CatalogListAsTree'")
+      @CacheEvict(value = {"product-category"},key="'CatalogJson'")
+
+
+
+现在问题是，更新商品分类数据后，一级和三级的都要失效，但是@CacheEvict注解不能同时标两遍
+解决方法：
+
+      1.@Caching注解聚合缓存操作
+
+      2.@Cacheable(value = {"product-category"}, allEntries=true)，删除分区内所有缓存
+
+
+
+
+
+
+## 不足
+p172
+
+
+读多写少的直接闭眼用SpringCache，非热点数据或其他只需要保证最终一致性的数据，也直接用SpringCache
+
+但是一些特殊数据，SpringCache并不能完全解决问题，需要自己设计业务逻辑，例如读写顺序啥的
+
+或者引入canal，直接从数据库层面更改缓存，不需要再在业务层进行缓存写入，完美解决一切问题
+
+
+
+
+
+
+
+
+
+
 
 
 
