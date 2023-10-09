@@ -95,14 +95,18 @@
   					</b>
         <ul>
           <li>
-            <a href="/static//登录页面\index.html">你好，请登录</a>
+            <a th:if="${session.loginUser != null}">欢迎, [[${session.loginUser.nickname}]]</a>
+            <a th:if="${session.loginUser == null}" href="http://mall-auth/login.html">你好，请登录</a>
           </li>
           <li>
-            <a href="/static//注册页面\index.html" class="li_2">免费注册</a>
+            <a th:if="${session.loginUser == null}" href="http://mall-auth/reg.html" class="li_2">免费注册</a>
+          </li>
+          <li>
+            <a th:if="${session.loginUser != null}" href="http://mall-auth/loguot.html" class="li_2">立即退出</a>
           </li>
           <span>|</span>
           <li>
-            <a href="/static/#">我的订单</a>
+            <a href="http://mall-member/memberOrder.html">我的订单</a>
           </li>
 
 
@@ -115,7 +119,7 @@
         <input id="searchText" type="text" placeholder="" />
         <span style="background: url(../static/index/img/img_12.png) 0 -1px;"></span>
         <!--<button><i class="glyphicon"></i></button>-->
-        <a href="/static/#" ><img src="/static/index/img/img_09.png" onclick="search()" /></a>
+        <a href="javascript:search();" ><img src="/static/index/img/img_09.png"  /></a>
       </div>
       <div class="header_ico">
         <div class="header_gw">
@@ -608,9 +612,24 @@
 <script type="text/javascript">
   function search() {
       var keyword=$("#searchText").val()
-      window.location.href="/static/http://search.gulimall.com/search.html?keyword="+keyword;
+      window.location.href="http://mall-search/list.html?keyword="+keyword;
   }
 
+  $.get("http://mall-seckill/getCurrentSeckillSkus", function (res) {
+    if (res.data.length > 0) {
+      res.data.forEach(function (item) {
+        $("<li onclick='toDetail(" + item.skuId + ")'></li>").append($("<img style='width: 130px; height: 130px' src='" + item.skuInfo.skuDefaultImg + "' />"))
+                .append($("<p>"+item.skuInfo.skuTitle+"</p>"))
+                .append($("<span>" + item.seckillPrice + "</span>"))
+                .append($("<s>" + item.skuInfo.price + "</s>"))
+                .appendTo("#seckillSkuContent");
+      })
+    }
+  })
+
+  function toDetail(skuId) {
+    location.href = "http://mall-item/" + skuId + ".html";
+  }
 </script>
 <script type="text/javascript" src="/static/index/js/text.js"></script>
 <script type="text/javascript" src="/static/index/js/header.js"></script>

@@ -1,7 +1,6 @@
 package com.katzenyasax.mall.product.web;
 
 
-import cn.hutool.crypto.Mode;
 import com.katzenyasax.mall.product.entity.CategoryEntity;
 import com.katzenyasax.mall.product.service.CategoryService;
 import com.katzenyasax.mall.product.vo.catalogVO.Catalog2VO;
