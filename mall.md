@@ -5252,7 +5252,7 @@ SkuInfoController中：
 匹配的顺序为：
 
             1.令name、title、subtitle、id匹配key（用一个and方法封装）
-            2.匹配catelogId，注意一个惊天大坑，数据库中该字段的名字为catalogId，为0或为空时匹配全部
+            2.匹配catalogId，为0或为空时匹配全部
             3.匹配brandId，为0或为空时匹配全部
             4.令price匹配min和max，若min、max有一个为空或min和max数值相同时，匹配全部，否则price需要在min和max之间
 
@@ -6319,40 +6319,40 @@ p103、p104
 
 ## _cat命令
 
-        node/health/master/indices
+      node/health/master/indices
 
 
 ## PUT（保存）
 
 类似于在关系型数据库中：创建数据库、创建表、存入数据
-PUT命令是在es中：进入索引、进入类型、存入数据
+PUT命令是在es中：进入索引、进入文档、存入数据
 
 例如：
 
-            192.168.74.130:9200/customer/external/1
+      192.168.74.130:9200/customer/external/1
 
 请求方式为PUT或POST，参数为：
 
-            {
-                "String":"Hello Elastic Search!"
-            }
+      {
+          "String":"Hello Elastic Search!"
+      }
 
 保存成功后，响应：
 
-            {
-                "_index": "customer",
-                "_type": "external",
-                "_id": "1",
-                "_version": 1,
-                "result": "created",
-                "_shards": {
-                    "total": 2,
-                    "successful": 1,
-                    "failed": 0
-                },
-                "_seq_no": 0,
-                "_primary_term": 1
-            }
+      {
+          "_index": "customer",
+          "_type": "external",
+          "_id": "1",
+          "_version": 1,
+          "result": "created",
+          "_shards": {
+              "total": 2,
+              "successful": 1,
+              "failed": 0
+          },
+          "_seq_no": 0,
+          "_primary_term": 1
+      }
 
 
 
@@ -6365,18 +6365,18 @@ PUT命令是在es中：进入索引、进入类型、存入数据
 
 响应为：
 
-            {
-                "_index": "customer",
-                "_type": "external",
-                "_id": "1",
-                "_version": 1,
-                "_seq_no": 0,
-                "_primary_term": 1,
-                "found": true,
-                "_source": {
-                    "String": "Hello Elastic Search!"
-                }
-            }
+      {
+          "_index": "customer",
+          "_type": "external",
+          "_id": "1",
+          "_version": 1,
+          "_seq_no": 0,
+          "_primary_term": 1,
+          "found": true,
+          "_source": {
+              "String": "Hello Elastic Search!"
+          }
+      }
 
 
 
@@ -6446,10 +6446,20 @@ _seq_no和_primary_term属于整个索引共用，是用来做乐观锁的，用
 在kibana控制台操作：
 
             POST customer/external/_bulk
-            {"index":{"_id":"2"}} 
-            {"sentence":"Hello there"}
-            {"index":{"_id":"3"}}
-            {"sentence":"this is id 3"}
+            {
+              "index":{
+                "_id":"2"
+              }
+            } 
+            {
+              "sentence":"Hello there"
+            }
+            {
+              "index":{"_id":"3"}
+            }
+            {
+              "sentence":"this is id 3"
+            }
 
 响应结果：
 
@@ -6841,7 +6851,6 @@ p118
               , 
               "from": 0,
               "size": 15,
-
               "aggs": {
                 "Age_Term": {
                   "terms": {
@@ -6859,7 +6868,7 @@ p118
 
 查询结果上，除了有常规的查询数据外，还有：
 
-            "aggregations" : {
+          "aggregations" : {
             "Age_AVG" : {
               "value" : 30.171
             },
@@ -8079,7 +8088,7 @@ p129
       obj1: {
         firstname:one,
         lastname:777
-        }
+      }
       obj2:{
         firstname:two,
         lastname:888
@@ -8123,6 +8132,7 @@ p130
 
 
 1.在common模块的to中加上SkuESModel：
+
       @Data
       public class SkuEsModel {
           private Long skuId;
@@ -8145,10 +8155,12 @@ p130
               private String attrName;
               private String attrValue;
           }
-      }private String attrValue;
-                  }
-  用于封装要存至es的数据
-2.在productService的upSpu方法中添加存入es的方法：
+      }
+
+用于封装要存至es的数据
+
+2.在SpuInfoService的upSpu方法中添加存入es的方法：
+
        /**
         *
         * @param spuId
@@ -8171,11 +8183,11 @@ p130
             //1.查出所有sku
             List<SkuInfoEntity> skus=skuInfoDao.selectList(new QueryWrapper<SkuInfoEntity>().eq("spu_id",spuId));
             /*2.处理attrs
-            * 注意在这个spu下，每个sku对应的attrs都是一样的
-            * 所以只需要查一遍，获取attrs后直接赋给所有sku就行
-            * 并且还要注意，查的应该是search_type=1，即可以用于查询的attr
-            * 在product_attr_value表中查，里面有attr和spu_id的对应关系，还有AttrEsModel要用的所有东西
-            */
+             * 注意在这个spu下，每个sku对应的attrs都是一样的
+             * 所以只需要查一遍，获取attrs后直接赋给所有sku就行
+             * 并且还要注意，查的应该是search_type=1，即可以用于查询的attr
+             * 在product_attr_value表中查，里面有attr和spu_id的对应关系，还有AttrEsModel要用的所有东西
+             */
             List<ProductAttrValueEntity> attrEntities=this.getAttrThatCanBeSearchedBySpuId(spuId);
             List<SkuEsModel.Attrs> attrs=new ArrayList<>();
             //复制
@@ -8239,9 +8251,12 @@ p130
             }
             System.out.println(JSON.toJSONString(skuEsModels));
             //4.远程添加至es
+            R r=searchFeign.SkuUp(skuEsModels);
+            System.out.println(r.toString());
         }
       
 主要干了四件事：
+
       1.查出spuId对应的所有sku
       2.查出spuId对应的所有可检索的attr，获取并封装成attrs
       3.遍历sku，将sku的信息封装到model内
@@ -8273,7 +8288,9 @@ p130
               log.info("SpuUP(/search/es/up) 发生错误");
               return R.error(BizCodeEnume.PRODUCT_ES_SAVE_EXCEPTION.getCode(),BizCodeEnume.PRODUCT_ES_SAVE_EXCEPTION.getMsg());
           }
+
           //TODO 更完善的异常反馈机制
+
       }
 
 自定义方法SkuUp：
@@ -8354,54 +8371,56 @@ p130
 应该会出现：
 
       {
-  "took" : 0,
-  "timed_out" : false,
-  "_shards" : {
-    "total" : 1,
-    "successful" : 1,
-    "skipped" : 0,
-    "failed" : 0
-  },
-  "hits" : {
-    "total" : {
-      "value" : 26,
-      "relation" : "eq"
-    },
-    "max_score" : 1.0,
-    "hits" : [
-      {
-        "_index" : "product",
-        "_type" : "_doc",
-        "_id" : "1",
-        "_score" : 1.0,
-        "_source" : {
-          "attrs" : [
-            {
-              "attrId" : 15,
-              "attrName" : "CPU品牌",
-              "attrValue" : "以官网信息为准"
-            },
-            {
-              "attrId" : 16,
-              "attrName" : "CPU型号",
-              "attrValue" : "HUAWEI Kirin 980"
-            }
-          ],
-          "brandId" : 9,
-          "brandImg" : "https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/huawei.png",
-          "brandName" : "华为",
-          "catalogId" : 225,
-          "catalogName" : "手机",
-          "hasStock" : false,
-          "hotScore" : 0,
-          "saleCount" : 0,
-          "skuId" : 1,
-          "skuImg" : "https://gulimall-hello.oss-cn-beijing.aliyuncs.com/2019-11-26/60e65a44-f943-4ed5-87c8-8cf90f403018_d511faab82abb34b.jpg",
-          "skuPrice" : 6299.0,
-          "skuTitle" : "华为 HUAWEI Mate 30 Pro 星河银 8GB+256GB麒麟990旗舰芯片OLED环幕屏双4000万徕卡电影四摄4G全网通手机",
-          "spuId" : 11
-        }
+      "took" : 0,
+      "timed_out" : false,
+      "_shards" : {
+        "total" : 1,
+        "successful" : 1,
+        "skipped" : 0,
+        "failed" : 0
       },
+      "hits" : 
+      {
+        "total" : {
+          "value" : 26,
+          "relation" : "eq"
+        },
+        "max_score" : 1.0,
+        "hits" : [
+          {
+            "_index" : "product",
+            "_type" : "_doc",
+            "_id" : "1",
+            "_score" : 1.0,
+            "_source" : 
+            {
+              "attrs" : [
+                {
+                  "attrId" : 15,
+                  "attrName" : "CPU品牌",
+                  "attrValue" : "以官网信息为准"
+                },
+                {
+                  "attrId" : 16,
+                  "attrName" : "CPU型号",
+                  "attrValue" : "HUAWEI Kirin 980"
+                }
+              ],
+              "brandId" : 9,
+              "brandImg" : "https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/huawei.png",
+              "brandName" : "华为",
+              "catalogId" : 225,
+              "catalogName" : "手机",
+              "hasStock" : false,
+              "hotScore" : 0,
+              "saleCount" : 0,
+              "skuId" : 1,
+              "skuImg" : "https://gulimall-hello.oss-cn-beijing.aliyuncs.com/2019-11-26/    60e65a44-f943-4ed5-87c8-8cf90f403018_d511faab82abb34b.jpg",
+              "skuPrice" : 6299.0,
+              "skuTitle" : "华为 HUAWEI Mate 30 Pro 星河银 8GB+256GB麒麟990旗舰芯片OLED环幕屏双4000万徕卡电影四摄4G全网通手机",
+              "spuId" : 11
+            }
+          },
       ······
 
 添加成功了
@@ -10414,6 +10433,2087 @@ p172
 但是一些特殊数据，SpringCache并不能完全解决问题，需要自己设计业务逻辑，例如读写顺序啥的
 
 或者引入canal，直接从数据库层面更改缓存，不需要再在业务层进行缓存写入，完美解决一切问题
+
+
+
+
+
+
+# 商城首页：全局检索
+
+
+## 搭建环境
+p173
+
+检索服务用search模块
+1.search模块引入thymeleaf和devtools依赖
+  包括关闭thymeleaf缓存，开启devtools热更新等
+
+2.将搜索页的index.html复制到search服务templates目录
+  使用ctrl+r，
+  将index.html的所有 href=" 替换为 href="/static/search/ 
+  所有的 src=" 替换为 src="/static/search/
+
+3.将静态资源全部复制到 /mydata/nginx/html/static/search
+
+4.搜索路径：
+
+      mall-search/
+
+  在/mydata/nginx/conf/conf.d中创建search.conf文件，和mall.conf一致，只不过监听的路径变了：
+
+      listen       80;
+      server_name  mall-search
+
+5.配置SwicthHosts方案：
+
+      192.168.74.130 mall-search
+
+6.配置网关：
+
+      - id: search-route
+        uri: lb://mall-search
+        predicates:
+          - Host=**.mall-search
+
+
+此时搜索http://mall-search就可以跳转到渲染好的搜索页面了，
+前提是index.html在的情况下，如果没有index.html那么访问的就是nginx的主页
+
+
+
+
+
+
+值得一提的是，资料给的文件，左侧分类栏点进去永远是search.gmall.com，不是自定义的mall-search
+所以直接在mall.conf中统一配置网关：
+
+      server_name  katzenyasax-mall mall-search search.gmall.com;
+
+表示如果监听到这三个请求，一律交给网关处理
+之后该配置会更多
+
+
+
+## 页面跳转
+p174
+
+跳转首页，index.html的20行、402行更改url为http://katzenyasax-mall
+
+
+通过左侧三级分类搜索时，路径为list.html，将search的index.html改为list.html
+随后定义controller：
+
+      @Controller
+      public class SearchController {
+
+          @GetMapping("list.html")
+          public String listHtml(){
+              return "list";
+          }
+      }
+
+方法不重要，重要的是list.html这个请求会直接导向资源库
+另外需要注意的是@Controller不能替换为@RestController，否则会强制按照方法而不会经过资源库
+
+
+
+
+通过顶部栏关键字查询时
+product模块下index.html第118行删除超链接，并将search()方法装入<a>，即：
+
+      <a href="javascript:search();"><img src="/static/index/img/img_09.png" /></a>
+
+这是用search的方法得到的结果替换了写死的超链接
+第611改路径为：
+
+      window.location.href="http://mall-search/list.html?keyword="+keyword;
+
+search方法，跳转到一个连接
+
+
+
+
+
+## 搜索页查询参数
+p175
+
+请求路径为：
+
+      http://search.gmall.com/list.html?
+
+或
+
+      http://mall-search/list.html?
+
+?后面跟的是检索条件，将其封装为一个vo，SearchParam：
+
+      @Data
+      public class SearchParam {
+      
+          private String keyword;
+          private Long brandId;
+          private Long catalogId;
+          private String sort;
+          private Integer hasStock;
+          private String skuPrice;
+          private List<String> attrs;
+          private Integer pageNum = 1;
+          private String _queryString;
+      }
+
+
+将结果也封装成一个vo，即SearchResult：
+
+      @Data
+      public class SearchResult {
+          private List<SkuEsModel> product;
+          private Integer pageNum;
+          private Long total;
+          private Integer totalPages;
+          private List<Integer> pageNavs;
+          private List<BrandVo> brands;
+          private List<AttrVo> attrs;
+          private List<CatalogVo> catalogs;
+          private List<NavVo> navs;
+          @Data
+          public static class NavVo {
+              private String navName;
+              private String navValue;
+              private String link;
+          }
+          @Data
+          public static class BrandVo {
+              private Long brandId;
+              private String brandName;
+              private String brandImg;
+          }
+          @Data
+          public static class AttrVo {
+              private Long attrId;
+              private String attrName;
+              private List<String> attrValue;
+          }
+          @Data
+          public static class CatalogVo {
+              private Long catalogId;
+              private String catalogName;
+          }
+      }
+
+
+
+
+## 测试一下dsl语句
+p177
+
+例如精确查询一个spu：
+
+      GET product/_search
+      {
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "match": {
+                  "skuTitle": "HUAWEI"
+                }
+              },
+              {
+                "nested": {
+                  "path": "attrs",
+                  "query": {
+                    "bool": {
+                      "must": [
+                        {
+                          "match": {
+                            "attrs.attrValue": "HUAWEI Kirin 980"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "term": {
+                  "brandId": 9
+                }
+              }
+            ],
+            "filter": [
+              {
+                "term": {
+                  "catalogId": 225
+                }
+              },
+              {
+                "term":{
+                  "skuId": 1
+                }
+              },{
+                "range": {
+                  "skuPrice": {
+                    "gte": 6000,
+                    "lte": 7000
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "from": 0, 
+        "size": 1000,
+        "highlight": {
+          "fields": { "skuTitle":{} },
+          "pre_tags": "<b style='color:red'>",
+          "post_tags": "</b>"
+        }
+      }
+
+其中must和filter都是bool的下一级，
+must中匹配商品名skuId、属性的值attrs.attrValue、品牌brandId，和品牌热度相关联，因此加热度分
+filter中则匹配商品分类catalogId、一件商品的不同版本的参数skuId、价格skuPrice这些常规参数，和品牌热度无很大关联，因此不加分
+除此之外还有must not，只有匹配不是条件的才能通过，而且不会加分，适合于排除某些字段
+should，不用匹配也不用匹配非，只需要字段被查询过就加分，适合不参与查询但是与品牌热度有关的字段
+
+highlight表示高亮
+
+
+
+
+
+
+
+
+## 复杂聚合分析
+p178
+
+先将product的数据迁移到mall-product中，把所有不参与聚合的映射改为参与聚合
+先创建一个新的索引：
+
+      PUT mall-product
+      {
+        "mappings": {
+          "properties": {
+            "skuId": {
+              "type": "long"
+            },
+            "spuId": {
+              "type": "keyword"
+            },
+            "skuTitle": {
+              "type": "text",
+              "analyzer": "ik_smart"
+            },
+            "skuPrice": {
+              "type": "keyword"
+            },
+            "skuImg": {
+              "type": "keyword"
+            },
+            "saleCount": {
+              "type": "long"
+            },
+            "hasStock": {
+              "type": "boolean"
+            },
+            "hotScore": {
+              "type": "long"
+            },
+            "brandId": {
+              "type": "long"
+            },
+            "catalogId": {
+              "type": "long"
+            },
+            "brandName": {
+              "type": "keyword"
+            },
+            "brandImg": {
+              "type": "keyword"
+            },
+            "catalogName": {
+              "type": "keyword"
+            },
+            "attrs": {
+              "type": "nested",
+              "properties": {
+                "attrId": {
+                  "type": "long"
+                },
+                "attrName": {
+                  "type": "keyword"
+                },
+                "attrValue": {
+                  "type": "keyword"
+                }
+              }
+            }
+          }
+        }
+      }
+
+迁移数据：
+
+      POST _reindex
+      {
+        "source": {
+          "index": "product"
+        },
+        "dest": {
+          "index": "mall-product"
+        }
+      }
+
+迁移后所有字段都可参与查询和聚合
+
+其实如果不嫌麻烦的话可以把product删了，再把mall-product迁移到product
+就不弄了吧，不过要把common里的ESConstant的PRODUCT_INDEX改成"mall-product"：
+
+      public class ESConstant {}
+        public static final String PRODUCT_INDEX="mall-product";
+      }
+
+
+先简单查一下，分别聚合catalogId和brandId，然后分别再字聚合出catalogName和brandName：
+
+      GET mall-product/_search
+      {
+        "query": {
+          "match_all": {}
+        },
+        "aggs": {
+          "catalogsAgg":{
+            "terms": {
+              "field": "catalogId",
+              "size": 20
+            },
+            "aggs": {
+              "catalogNamesAgg": {
+                "terms": {
+                  "field": "catalogName",
+                  "size": 20
+                }
+              }
+            }
+          },
+          "brandsAgg": {
+            "terms": {
+              "field": "brandId",
+              "size": 20
+            },
+            "aggs": {
+              "brandNamesAgg": {
+                "terms": {
+                  "field": "brandName",
+                  "size": 20
+                }
+              }
+            }
+          }
+        }
+      }
+
+响应的聚合结果：
+
+      "aggregations" : {
+        "catalogsAgg" : {
+          "doc_count_error_upper_bound" : 0,
+          "sum_other_doc_count" : 0,
+          "buckets" : [
+            {
+              "key" : 225,
+              "doc_count" : 35,
+              "catalogNamesAgg" : {
+                "doc_count_error_upper_bound" : 0,
+                "sum_other_doc_count" : 0,
+                "buckets" : [
+                  {
+                    "key" : "手机",
+                    "doc_count" : 35
+                  }
+                ]
+              }
+            },
+            {
+              "key" : 1434,
+              ······
+        },
+        "brandsAgg" : {
+          "doc_count_error_upper_bound" : 0,
+          "sum_other_doc_count" : 0,
+          "buckets" : [
+            {
+              "key" : 12,
+              "doc_count" : 24,
+              "brandNamesAgg" : {
+                "doc_count_error_upper_bound" : 0,
+                "sum_other_doc_count" : 0,
+                "buckets" : [
+                  {
+                    "key" : "Apple",
+                    "doc_count" : 24
+                  }
+                ]
+              }
+            },
+            {
+              "key" : 9,
+              ······
+
+
+再加一个嵌入式nested聚合，注意path需要完整路径：
+
+      "attrsAgg": {
+        "nested": {
+          "path": "attrs"
+        },
+        "aggs": {
+          "attrIdAgg": {
+            "terms": {
+              "field": "attrs.attrId",
+              "size": 100
+            },
+            "aggs": {
+              "attrNameAgg": {
+                "terms": {
+                  "field": "attrs.attrName",
+                  "size": 100
+                }
+              },
+              "attrValueAgg": {
+                "terms": {
+                  "field": "attrs.attrValue",
+                  "size": 100
+                }
+              }
+            }
+          }
+        }
+      }
+
+结果除了上述的brandsAgg和catalogsAgg，还有：
+
+      "attrsAgg" : {
+        "doc_count" : 68,
+        "attrIdAgg" : {
+          "doc_count_error_upper_bound" : 0,
+          "sum_other_doc_count" : 0,
+          "buckets" : [
+            {
+              "key" : 15,
+              "doc_count" : 35,
+              "attrNameAgg" : {
+                "doc_count_error_upper_bound" : 0,
+                "sum_other_doc_count" : 0,
+                "buckets" : [
+                  {
+                    "key" : "CPU品牌",
+                    "doc_count" : 35
+                  }
+                ]
+              },
+              "attrValueAgg" : {
+                "doc_count_error_upper_bound" : 0,
+                "sum_other_doc_count" : 0,
+                "buckets" : [
+                  {
+                    "key" : "以官网信息为准",
+                    "doc_count" : 34
+                  },
+                  {
+                    "key" : "海思（Hisilicon）",
+                    "doc_count" : 1
+                  }
+                ]
+              }
+            },
+            {
+              "key" : 16,
+              ······
+            }
+          ]
+        }
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+## 构建bool查询
+p179
+
+
+      //开始聚合
+      //先来一个bool查询，创建的对象bool就是整个bool查询语句
+      BoolQueryBuilder bool = QueryBuilders.boolQuery();
+      //匹配关键字，如果关键字不为空的话
+      if(StringUtils.isNotEmpty(params.getKeyword())){
+          //相当于将一个match拼接到bool语句的后面了
+          bool.must(QueryBuilders.matchQuery("skuTitle",params.getKeyword()));
+      }
+      //匹配分类
+      if(params.getCatalog3Id()!=null) {
+          bool.filter(QueryBuilders.termQuery("catalogId", params.getCatalog3Id()));
+      }
+      //匹配品牌，品牌可多选
+      if(params.getBrandId()!=null) {
+          bool.filter(QueryBuilders.termQuery("brandId", params.getBrandId()));
+      }
+      //匹配有无库存
+      if(params.getHasStock()!=null) {
+          bool.filter(QueryBuilders.termQuery("hasStock", params.getHasStock()));
+      }
+      //匹配价格，格式为a_b，即再a和b之间，a和b可为空
+      if(StringUtils.isNotEmpty(params.getSkuPrice())){
+          String[] prices=params.getSkuPrice().split("_");
+          //这个是两个价格，为空则表示不需要匹配
+          RangeQueryBuilder range=QueryBuilders.rangeQuery("skuPrice");
+          //价格不为空，则进行匹配
+          if(StringUtils.isNotEmpty(prices[0])){
+              range.lte(Integer.parseInt(prices[0]));
+          }
+          if(StringUtils.isNotEmpty(prices[1])){
+              range.gte(Integer.parseInt(prices[1]));
+          }
+          //匹配价格
+          bool.filter(range);
+      }
+      //匹配属性
+      if(params.getAttrs()!=null&&params.getAttrs().size()>0){
+          //attr的格式为attrId_attrName:attrSplit，表示
+          for(String attr:params.getAttrs()) {
+              
+              Long attrId=Long.parseLong(attr.split("_")[0]);
+              String[] attrValue=attr.split("_")[1].split(":");
+
+              bool.filter(QueryBuilders.nestedQuery(
+                        "attrs",
+                        QueryBuilders.boolQuery().
+                                must(QueryBuilders.
+                                        termQuery("attr.attrId",attrId)).
+                                must(QueryBuilders.
+                                        termQuery("attr.attrValue",attrValue)),
+                        ScoreMode.None)
+                );
+          }
+      }
+      //完成了bool查询
+      searchSourceBuilder.query(bool);
+
+其实也是严格按照json来的，等级分明
+
+
+
+
+
+
+
+
+
+
+
+## 构建页面设置
+p180
+
+      //2.1、排序
+      //排序条件：sort=price/salecount/hotscore_desc/asc
+      if(StringUtils.isNotEmpty(params.getSort())){
+          //分割数据
+          String word= params.getSort().split("_")[0];
+          String sort= params.getSort().split("_")[1];
+          if(sort.equals("desc")){
+              searchSourceBuilder.sort(word, SortOrder.DESC);
+          }
+          else if(sort.equals("asc")){
+              searchSourceBuilder.sort(word, SortOrder.ASC);
+          }
+      }
+      //2.2、分页
+      //在ESConstant中定义一个PRODUCT_PAGESIZE
+      //起始个数为：(页数-1)*每页的长度
+      searchSourceBuilder.from(ESConstant.PRODUCT_PAGESIZE*(params.getPageNum()-1) );
+      searchSourceBuilder.size(ESConstant.PRODUCT_PAGESIZE);
+      //2.3、高亮
+      //只高亮关键字
+      if(StringUtils.isNotEmpty(params.getKeyword())){
+          searchSourceBuilder.highlighter(
+                    new HighlightBuilder().
+                            field("skuTitle").
+                            preTags("<b style='color:red'>").
+                            postTags("</b>")
+            );
+      }
+
+都是在最外层的searchSourceBuilder直接进行
+
+
+
+
+此时可以测试一下，输出searchSourceBuilder：
+
+      System.out.println(searchSourceBuilder.toString());
+  
+假设param为空，searchSourceBuilder应为：
+
+      {"from":0,"size":5,"query":{"bool":{"adjust_pure_negative":true,"boost":1.0}}}
+
+在kibana测试一下：
+
+      GET mall-product/_search
+      {
+        "from": 0,
+        "size": 5,
+        "query": {
+          "bool": {
+            "adjust_pure_negative": true,
+            "boost": 1
+          }
+        }
+      }
+
+结果就是输出了5条数据
+这也代表是成功的
+
+假如在apifox中，给他加一条catalogId=225，searchSourceBuilder为：
+
+      {
+        "from": 0,
+        "size": 5,
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "catalogId": {
+                    "value": 225,
+                    "boost": 1
+                  }
+                }
+              }
+            ],
+            "adjust_pure_negative": true,
+            "boost": 1
+          }
+        }
+      }
+
+在kibana的测试，结果也是对的，查到了所有catalogId为225的数据
+
+
+
+
+## 构建聚合分析
+p181
+
+      //聚合品牌
+      TermsAggregationBuilder brandAgg= AggregationBuilders.
+              terms("brandAgg").
+              field("brandId").size(100).
+              subAggregation(AggregationBuilders.
+                      terms("brandNameAgg").
+                      field("brandName.keyword").
+                      size(1)
+              ).
+              subAggregation(
+                      AggregationBuilders.
+                      terms("brandImgAgg").
+                      field("brandImg.keyword").
+                      size(1)
+              );
+      searchSourceBuilder.aggregation(brandAgg);
+      //聚合分类：
+      TermsAggregationBuilder catalogAgg=AggregationBuilders.
+              terms("catalogAgg").
+              field("catalogId").
+              size(100).
+              subAggregation(AggregationBuilders.
+                      terms("catalogNameAgg").
+                      field("catalogName.keyword").
+                      size(1)
+              );
+      searchSourceBuilder.aggregation(catalogAgg);
+      //聚合属性
+      NestedAggregationBuilder attrAgg=AggregationBuilders.
+              nested("attrAgg","attrs").
+              subAggregation(AggregationBuilders.
+                      terms("attrIdAgg").
+                      field("attrs.attrId").
+                      size(100)).
+                      subAggregation(AggregationBuilders.
+                              terms("attrNameAgg").
+                              field("attrs.attrName").
+                              size(1)
+                      ).
+                      subAggregation(AggregationBuilders.
+                              terms("attrValueAgg").
+                              field("attr.attrValue").
+                              size(1)
+                      );
+      searchSourceBuilder.aggregation(attrAgg);
+
+
+再次启动测试，这次直接访问不加param，看看会出现什么：
+
+      {
+        "from": 0,
+        "size": 5,
+        "query": {
+          "bool": {
+            "adjust_pure_negative": true,
+            "boost": 1
+          }
+        },
+        "aggregations": {
+          "brandAgg": {
+            "terms": {
+              "field": "brandId",
+              "size": 100,
+              "min_doc_count": 1,
+              "shard_min_doc_count": 0,
+              "show_term_doc_count_error": false,
+              "order": [
+                {
+                  "_count": "desc"
+                },
+                {
+                  "_key": "asc"
+                }
+              ]
+            },
+            "aggregations": {
+              "brandNameAgg": {
+                "terms": {
+                  "field": "brandName",
+                  "size": 1,
+                  "min_doc_count": 1,
+                  "shard_min_doc_count": 0,
+                  "show_term_doc_count_error": false,
+                  "order": [
+                    {
+                      "_count": "desc"
+                    },
+                    {
+                      "_key": "asc"
+                    }
+                  ]
+                }
+              },
+              "brandImgAgg": {
+                "terms": {
+                  "field": "brandImg",
+                  "size": 1,
+                  "min_doc_count": 1,
+                  "shard_min_doc_count": 0,
+                  "show_term_doc_count_error": false,
+                  "order": [
+                    {
+                      "_count": "desc"
+                    },
+                    {
+                      "_key": "asc"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "catalogAgg": {
+            "terms": {
+              "field": "catalogId",
+              "size": 100,
+              "min_doc_count": 1,
+              "shard_min_doc_count": 0,
+              "show_term_doc_count_error": false,
+              "order": [
+                {
+                  "_count": "desc"
+                },
+                {
+                  "_key": "asc"
+                }
+              ]
+            },
+            "aggregations": {
+              "catalogNameAgg": {
+                "terms": {
+                  "field": "catalogName",
+                  "size": 1,
+                  "min_doc_count": 1,
+                  "shard_min_doc_count": 0,
+                  "show_term_doc_count_error": false,
+                  "order": [
+                    {
+                      "_count": "desc"
+                    },
+                    {
+                      "_key": "asc"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "attrAgg": {
+            "nested": {
+              "path": "attrs"
+            },
+            "aggregations": {
+              "attrIdAgg": {
+                "terms": {
+                  "field": "attrs.attrId",
+                  "size": 100,
+                  "min_doc_count": 1,
+                  "shard_min_doc_count": 0,
+                  "show_term_doc_count_error": false,
+                  "order": [
+                    {
+                      "_count": "desc"
+                    },
+                    {
+                      "_key": "asc"
+                    }
+                  ]
+                },
+                "aggregations": {
+                  "attrNameAgg": {
+                    "terms": {
+                      "field": "attrs.attrName",
+                      "size": 100,
+                      "min_doc_count": 1,
+                      "shard_min_doc_count": 0,
+                      "show_term_doc_count_error": false,
+                      "order": [
+                        {
+                          "_count": "desc"
+                        },
+                        {
+                          "_key": "asc"
+                        }
+                      ]
+                    }
+                  },
+                  "attrValueAgg": {
+                    "terms": {
+                      "field": "attrs.attrValue",
+                      "size": 100,
+                      "min_doc_count": 1,
+                      "shard_min_doc_count": 0,
+                      "show_term_doc_count_error": false,
+                      "order": [
+                        {
+                          "_count": "desc"
+                        },
+                        {
+                          "_key": "asc"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+爆了，可以查出来，而且是对的
+
+
+那么完成sdl的构建后，直接返回：
+
+      return new SearchRequest(new String[] {ESConstant.PRODUCT_INDEX},searchSourceBuilder);
+
+就完事了
+
+
+
+
+
+
+
+完成了sdl的构建后，应该可以直接获取到一个searchResponse，测试一下，将其输出：
+
+      System.out.println("响应："+searchResponse.toString());
+
+运行结果：
+
+      响应：{"took":20,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":36,"relation":"eq"},"max_score":1.0,"hits":[{"_index":"mall-product","_type":"_doc","_id":"1","_score":1.0,"_source":{"attrs":[{"attrId":15,"attrName":"CPU品牌","attrValue":"以官网信息为准"},{"attrId":16,"attrName":"CPU型号","attrValue":"HUAWEI Kirin 980"}],"brandId":9,"brandImg":"https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/huawei.png","brandName":"华为","catalogId":225,"catalogName":"手机","hasStock":false,"hotScore":0,"saleCount":0,"skuId":1,"skuImg":"https://gulimall-hello.oss-cn-beijing.aliyuncs.com/2019-11-26/60e65a44-f943-4ed5-87c8-8cf90f403018_d511faab82abb34b.jpg","skuPrice":6299.0,"skuTitle":"华为 HUAWEI Mate 30 Pro 星河银 8GB+256GB麒麟990旗舰芯片OLED环幕屏双4000万徕卡电影四摄4G全网通手机","spuId":11}},{"_index":"mall-product","_type":"_doc","_id":"2","_score":1.0,"_source":{"attrs":[{"attrId":15,"attrName":"CPU品牌","attrValue":"以官网信息为准"},{"attrId":16,"attrName":"CPU型号","attrValue":"HUAWEI Kirin 980"}],"brandId":9,"brandImg":"https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/huawei.png","brandName":"华为","catalogId":225,"catalogName":"手机","hasStock":true,"hotScore":0,"saleCount":0,"skuId":2,"skuImg":"https://gulimall-hello.oss-cn-beijing.aliyuncs.com/2019-11-26/ef2691e5-de1a-4ca3-827d-a60f39fbda93_0d40c24b264aa511.jpg","skuPrice":5799.0,"skuTitle":"华为 HUAWEI Mate 30 Pro 星河银 8GB+128GB麒麟990旗舰芯片OLED环幕屏双4000万徕卡电影四摄4G全网通手机","spuId":11}},{"_index":"mall-product","_type":"_doc","_id":"3","_score":1.0,"_source":{"attrs":[{"attrId":15,"attrName":"CPU品牌","attrValue":"以官网信息为准"},{"attrId":16,"attrName":"CPU型号","attrValue":"HUAWEI Kirin 980"}],"brandId":9,"brandImg":"https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/huawei.png","brandName":"华为","catalogId":225,"catalogName":"手机","hasStock":false,"hotScore":0,"saleCount":0,"skuId":3,"skuImg":"https://gulimall-hello.oss-cn-beijing.aliyuncs.com/2019-11-26/ef2691e5-de1a-4ca3-827d-a60f39fbda93_0d40c24b264aa511.jpg","skuPrice":6299.0,"skuTitle":"华为 HUAWEI Mate 30 Pro 亮黑色 8GB+256GB麒麟990旗舰芯片OLED环幕屏双4000万徕卡电影四摄4G全网通手机","spuId":11}},{"_index":"mall-product","_type":"_doc","_id":"4","_score":1.0,"_source":{"attrs":[{"attrId":15,"attrName":"CPU品牌","attrValue":"以官网信息为准"},{"attrId":16,"attrName":"CPU型号","attrValue":"HUAWEI Kirin 980"}],"brandId":9,"brandImg":"https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/huawei.png","brandName":"华为","catalogId":225,"catalogName":"手机","hasStock":false,"hotScore":0,"saleCount":0,"skuId":4,"skuImg":"https://gulimall-hello.oss-cn-beijing.aliyuncs.com/2019-11-26/ef2691e5-de1a-4ca3-827d-a60f39fbda93_0d40c24b264aa511.jpg","skuPrice":5799.0,"skuTitle":"华为 HUAWEI Mate 30 Pro 亮黑色 8GB+128GB麒麟990旗舰芯片OLED环幕屏双4000万徕卡电影四摄4G全网通手机","spuId":11}},{"_index":"mall-product","_type":"_doc","_id":"5","_score":1.0,"_source":{"attrs":[{"attrId":15,"attrName":"CPU品牌","attrValue":"以官网信息为准"},{"attrId":16,"attrName":"CPU型号","attrValue":"HUAWEI Kirin 980"}],"brandId":9,"brandImg":"https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/huawei.png","brandName":"华为","catalogId":225,"catalogName":"手机","hasStock":true,"hotScore":0,"saleCount":0,"skuId":5,"skuImg":"https://gulimall-hello.oss-cn-beijing.aliyuncs.com/2019-11-26/ef2691e5-de1a-4ca3-827d-a60f39fbda93_0d40c24b264aa511.jpg","skuPrice":6299.0,"skuTitle":"华为 HUAWEI Mate 30 Pro 翡冷翠 8GB+256GB麒麟990旗舰芯片OLED环幕屏双4000万徕卡电影四摄4G全网通手机","spuId":11}}]},"aggregations":{"nested#attrAgg":{"doc_count":68,"lterms#attrIdAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":15,"doc_count":35,"sterms#attrNameAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"CPU品牌","doc_count":35}]},"sterms#attrValueAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"以官网信息为准","doc_count":34},{"key":"海思（Hisilicon）","doc_count":1}]}},{"key":16,"doc_count":33,"sterms#attrNameAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"CPU型号","doc_count":33}]},"sterms#attrValueAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"A13仿生","doc_count":18},{"key":"HUAWEI Kirin 980","doc_count":15}]}}]}},"lterms#brandAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":12,"doc_count":24,"sterms#brandImgAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/apple.png","doc_count":24}]},"sterms#brandNameAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"Apple","doc_count":24}]}},{"key":9,"doc_count":8,"sterms#brandImgAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/huawei.png","doc_count":8}]},"sterms#brandNameAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"华为","doc_count":8}]}},{"key":13,"doc_count":3,"sterms#brandImgAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/bbb3-iqyrykv5144586.jpg","doc_count":3}]},"sterms#brandNameAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"一加","doc_count":3}]}},{"key":14,"doc_count":1,"sterms#brandImgAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[]},"sterms#brandNameAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"万代","doc_count":1}]}}]},"lterms#catalogAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":225,"doc_count":35,"sterms#catalogNameAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"手机","doc_count":35}]}},{"key":1434,"doc_count":1,"sterms#catalogNameAgg":{"doc_count_error_upper_bound":0,"sum_other_doc_count":0,"buckets":[{"key":"Rider Driver","doc_count":1}]}}]}}}
+
+反正序列化后是对的。
+之后需要将这些结果解析封装到一个SearchResult对象
+
+
+
+
+
+
+
+
+## 分析结果
+p182
+
+主要是两部分：hits、aggregations
+其中hits中，hits才是所有的SkuEsModel对象，其余都是附加信息
+先获取hits：
+
+      //1.分析hits
+      SearchHits hits = searchResponse.getHits();
+      //1.1、总记录数
+      result.setTotal(hits.getTotalHits().value);
+      //1.2、总页码，计算
+      result.setTotalPages(
+              (int) ((hits.getTotalHits().value%ESConstant.PRODUCT_PAGESIZE)==0
+              ?hits.getTotalHits().value/ESConstant.PRODUCT_PAGESIZE
+              :hits.getTotalHits().value/ESConstant.PRODUCT_PAGESIZE+1)
+      );
+      //1.3、当前页码
+      result.setPageNum(param.getPageNum());
+      //1.4、所有商品sku
+      //要查的是_source，将每个hit转成Json格式字符串，再用FastJSON转成skuEsModel对象，再将其存入result的product
+      if(searchResponse.getHits().getHits()!=null&&searchResponse.getHits().getHits().length>0){
+          for(SearchHit hit:searchResponse.getHits().getHits()){
+              result.getProduct().add(JSON.parseObject(
+                      hit.getSourceAsString(),
+                      SkuEsModel.class
+                      )
+              );
+          }
+      }
+
+分析了hits，接下来分析aggregations：
+
+      //返回值的几个集合
+      List<SearchResult.BrandVo> brands=new ArrayList<>();
+      /**
+       * 当前查询到的结果，所有涉及到的所有属性
+       */
+      List<SearchResult.AttrVo> attrs=new ArrayList<>();
+      /**
+       * 当前查询到的结果，所有涉及到的所有分类
+       */
+      List<SearchResult.CatalogVo> catalogs=new ArrayList<>();
+      //3.1、获取brand聚合
+      ParsedLongTerms brandAgg = searchResponse.getAggregations().get("brandAgg");
+      for (Terms.Bucket bucket : brandAgg.getBuckets()) {
+          //当前bucket的vo对象
+          SearchResult.BrandVo brandVo=new SearchResult.BrandVo();
+          //brandId
+          brandVo.setBrandId(Long.parseLong(bucket.getKeyAsString()));
+          //获取name子聚合
+          ParsedStringTerms brandNameAgg = bucket.getAggregations().get("brandNameAgg");
+          //获取brandName
+          if((brandNameAgg.getBuckets())!=null&&brandNameAgg.getBuckets().size()>0) {
+              String brandName = brandNameAgg
+                      .getBuckets()
+                      .get(0)
+                      .getKeyAsString();
+              brandVo.setBrandName(brandName);
+          }else {
+              brandVo.setBrandName(null);
+          }
+          //获取Img子聚合
+          ParsedStringTerms brandImgAgg = bucket.getAggregations().get("brandImgAgg");
+          System.out.println(brandImgAgg);
+          //获取brandImg
+          if((brandImgAgg.getBuckets())!=null&&brandImgAgg.getBuckets().size()>0) {
+              String brandImg = brandImgAgg
+                      .getBuckets()
+                      .get(0)
+                      .getKeyAsString();
+              brandVo.setBrandImg(brandImg);
+          }else{
+              brandVo.setBrandImg(null);
+          }
+          brands.add(brandVo);
+      }
+      //3.2、获取catalog聚合
+      ParsedLongTerms catalogAgg = searchResponse.getAggregations().get("catalogAgg");
+      for (Terms.Bucket bucket : catalogAgg.getBuckets()) {
+          //获取vo对象
+          SearchResult.CatalogVo catalogVo=new SearchResult.CatalogVo();
+          //catalogId
+          catalogVo.setCatalogId(Long.parseLong(bucket.getKeyAsString()));
+          //获取Name子聚合
+          ParsedStringTerms catalogNameAgg=bucket.getAggregations().get("catalogNameAgg");
+          if((catalogNameAgg.getBuckets())!=null&&catalogNameAgg.getBuckets().size()>0) {
+              //获取catalogName
+              String catalogName = catalogNameAgg
+                      .getBuckets()
+                      .get(0)
+                      .getKeyAsString();
+              catalogVo.setCatalogName(catalogName);
+          }else {
+              catalogVo.setCatalogName(null);
+          }
+          catalogs.add(catalogVo);
+      }
+      //3.3、获取attr聚合
+      ParsedNested attrAgg = searchResponse.getAggregations().get("attrAgg");
+      ParsedLongTerms attrIdAgg = attrAgg.getAggregations().get("attrIdAgg");
+      for (Terms.Bucket bucket : attrIdAgg.getBuckets()) {
+          //当前bucket的vo对象
+          SearchResult.AttrVo attrVo=new SearchResult.AttrVo();
+          //获取id
+          attrVo.setAttrId(Long.parseLong(bucket.getKeyAsString()));
+          //获取attrName子聚合
+          ParsedStringTerms attrNameAgg=bucket.getAggregations().get("attrNameAgg");
+          if((attrNameAgg.getBuckets())!=null&&attrNameAgg.getBuckets().size()>0) {
+              //获取attrName
+              String attrName = attrNameAgg
+                      .getBuckets()
+                      .get(0)
+                      .getKeyAsString();
+              attrVo.setAttrName(attrName);
+          }else{
+              attrVo.setAttrName(null);
+          }
+          //获取attrValue子聚合，结果是一个list，需要遍历
+          ParsedStringTerms attrValueAgg=bucket.getAggregations().get("attrValueAgg");
+          if(!(attrValueAgg.getBuckets()==null)&&attrValueAgg.getBuckets().size()>0){
+              List<String> attrValue=new ArrayList<>();
+              for (Terms.Bucket thisBucket : attrValueAgg.getBuckets()) {
+                     attrValue.add(thisBucket.getKeyAsString());
+              }
+              attrVo.setAttrValue(attrValue);
+          }else{
+              attrVo.setAttrValue(null);
+          }
+          attrs.add(attrVo);
+      }
+      result.setBrands(brands);
+      result.setCatalogs(catalogs);
+      result.setAttrs(attrs);
+
+测试一下结果，令catalogId=25，理论上es中没有catalogId为25的数据，那么查询时应该无数据，结果：
+
+      {
+          "attrs":[
+          
+          ],
+          "brands":[
+          
+          ],
+          "catalogs":[
+          
+          ],
+          "pageNum":1,
+          "product":[
+          
+          ],
+          "total":0,
+          "totalPages":0
+      }
+
+还真是
+
+
+
+
+
+
+
+
+## 渲染结果到页面
+p184
+
+抄前端，注意改几个参数就行
+
+
+
+
+## 关于匹配字段为数组、集合时查不出的问题
+
+例如
+
+      "term": {
+        "attrs.attrValue": {
+          "value": [
+            "A13仿生"
+          ],
+          "boost": 1
+        }
+      
+这种，匹配的是一个[]时无查出数据
+
+总之先把全部这些改成单个字段吧，瑕不掩瑜，不影响业务
+
+
+
+
+
+
+
+
+
+
+
+
+      
+
+
+
+
+
+
+
+
+# 异步
+
+
+## 线程池
+p193
+
+所有线程交给线程池执行，不要再new了，内存会爆
+核心参数：
+
+      ThreadPoolExecutor tpe=new ThreadPoolExecutor(
+        3,                                          //核心线程数
+        6,                                          //最大线程数
+        60,                                         //空闲线程最大存活时间
+        TimeUnit.SECONDS,                           //时间单位（秒）
+        new ArrayBlockingQueue<>(3),                //建立阻塞队列，允许同时运行线程的数量
+        Executors.defaultThreadFactory(),           //建立线程工厂
+        new ThreadPoolExecutor.AbortPolicy()        //拒绝服务策略，队列满时处理剩余线程的策略
+      );
+
+
+
+## CompletableFuture异步编排
+p195
+
+异步编排，将有关系的异步线程进行串联
+在java原生中有一个类CompletableFuture用于异步编排
+
+### 编排的定义：
+
+      CompletableFuture<Object> future01=CompletableFuture.supplyAsync(()->{
+          <方法体>
+      },executorService);
+      System.out.println(future01.get().toString());
+
+future01.xxx()就是future01下一步干什么，.get()就是获取返回值
+
+
+### 返回值回调与面向异常处理
+p197
+
+可以将异步编排的返回值回调给异步编排
+有一个方法whenComplete：
+
+      .whenComplete((rst,ecp)-{
+         rst是结果，
+         ecp是异常
+      })
+
+例如：
+
+      CompletableFuture<Long> future01=CompletableFuture.supplyAsync(()->{
+            Long id;
+            System.out.println("当前进程"+(id=Thread.currentThread().getId()));
+            return (id=10l/0l);
+        },executorService)
+                .whenComplete((result,exception)->{
+                    System.out.println("结果："+result+" ;异常："+exception);
+                });
+
+输出：
+
+      当前进程16
+      结果：null ;异常：java.util.concurrent.CompletionException: java.lang.ArithmeticException: / by zero
+
+
+
+而可以针对异常作出行动，其中有一个方法exceptionally:
+
+      CompletableFuture<Long> future01=CompletableFuture.supplyAsync(()->{
+           Long id;
+           System.out.println("当前进程"+(id=Thread.currentThread().getId()));
+           return (id=10l/0l);
+       },executorService)
+               .whenComplete((result,exception)->{
+                   System.out.println("结果："+result+" ;异常："+exception);
+               })
+               .exceptionally(throwable -> {
+                   System.out.println("发生异常");
+                   return -1l;
+               });
+
+此时输出：
+
+      当前进程16
+      结果：null ;异常：java.util.concurrent.CompletionException: java.lang.ArithmeticException: / by zero
+      发生异常
+      -1
+
+
+
+
+### handle最终处理
+p198
+
+方法handle可以在第一步执行完后就进行结果处理：
+
+      CompletableFuture<Object> future01=CompletableFuture.supplyAsync(()->{
+          Long id;
+          System.out.println("当前进程"+(id=Thread.currentThread().getId()));
+          return (id=10l/0l);
+      },executorService)
+             /* .whenComplete((result,exception)->{
+                  System.out.println("结果："+result+" ;异常："+exception);
+              })
+              .exceptionally(throwable -> {
+                  System.out.println("发生异常");
+                  return -1l;
+              })*/
+              .handle((res,exc)->{
+                  if(res!=null){
+                      return "结果是："+res;
+                  }
+                  if(exc!=null){
+                      return "发生异常："+exc;
+                  }
+                  return "未发生异常，但是结果为空";
+              });
+
+结果：
+
+      当前进程16
+      发生异常：java.util.concurrent.CompletionException: java.lang.ArithmeticException: / by zero
+
+
+
+
+### 异步线程串行化方法
+p199
+
+即异步线程按照逻辑顺序依次执行
+
+
+
+注意，以下方法有不带Async的版本
+带Async表示在线程池（原生的或自定义的都行）新开一个线程执行下一个异步线程；不带Async则表示就在该线程执行下一个异步线程
+
+
+
+
+1.使用thenRunAsync方法
+
+      CompletableFuture<Void> future = CompletableFuture.supplyAsync(()->{
+          Long id;
+          System.out.println("当前进程"+(id=Thread.currentThread().getId()));
+          return (id=10l/2l);
+      },executorService)
+              .thenRunAsync(()->{
+                  System.out.println("thenAsync，启动！");
+              },executorService)
+      ;
+
+结果：
+
+      当前进程16
+      thenAsync，启动！
+
+但是这个方法无法感知到上一个异步线程的返回值，且其本身无返回值
+
+
+
+2.使用
+
+      CompletableFuture<Void> future = CompletableFuture.supplyAsync(()->{
+          Long id;
+          System.out.println("当前进程"+(id=Thread.currentThread().getId()));
+          return (id=10l/2l);
+      },executorService)
+         .thenAcceptAsync((res)->{
+                 System.out.println("thenAcceptAsync，启动！"+"，上一个线程的返回值："+res);
+             },executorService)
+      ;
+
+结果：
+
+      当前进程16
+      thenAcceptAsync，启动！，上一个线程的返回值：5
+
+但是这个方法其本身无返回值
+
+
+
+3.使用thenApplyAsync方法
+
+      CompletableFuture<Object> future = CompletableFuture.supplyAsync(()->{
+          Long id;
+          System.out.println("当前进程"+(id=Thread.currentThread().getId()));
+          return (id=10l/2l);
+      },executorService)  
+          .thenApplyAsync(res->{
+              System.out.println("thenApplyAsync，启动！"+"，上一个线程的返回值："+res);
+              return (Object)999l;
+          },executorService)
+          .whenComplete((res,exc)->{
+              System.out.println("thenApplyAsync的返回值："+res);
+          })
+      }
+      System.out.println("get: "+future.get().toString());
+
+
+结果：
+
+      当前进程16
+      thenApplyAsync，启动！，上一个线程的返回值：5
+      thenApplyAsync的返回值：999
+      get：999
+
+
+可以感知到结果，且方法本身有返回值
+
+
+
+
+可以明显看到，前面两种方法无返回值时，也即整个函数式编程块无返回值，所以等号前面的东西必须用泛型<Void>表示为空，而且也不能用get方法；
+而后面的有返回值，因此前面可以加东西，类型不做限定，可以使用get方法
+
+
+
+
+
+### 异步线程组合：都要完成
+p200
+
+即要求二者同时执行
+
+注意以下所有方法均是需要被其中一个线程调用，不是静态方法
+
+1.thenCombineAsync方法：
+
+      CompletableFuture<Object> future01=CompletableFuture.supplyAsync(()->{
+          Long id;
+          System.out.println("第一个线程："+(id=Thread.currentThread().getId()));
+          return (id);
+      },executorService)
+                .thenCombineAsync(
+                    CompletableFuture.supplyAsync(()->{
+                        Long id;
+                        System.out.println("第二个线程："+(id=Thread.currentThread().getId()));
+                        return (id);
+                    })
+                    , ((res1,res2)->{
+                        System.out.println("第一个异步线程的结果："+res1);
+                        System.out.println("第二个异步线程的结果："+res2);
+                        return res1+res2;
+                    }
+                )
+            );    
+      System.out.println("get："+future01.get().toString());
+
+结果：
+
+      第一个线程：16
+      第二个线程：17
+      第一个异步线程的结果：16
+      第二个异步线程的结果：17
+      get：33
+
+该方法允许二者执行完后处理二者的返回值，且其本身也有返回值
+
+
+
+
+2.thenAcceptBothAsync方法：
+
+      CompletableFuture<Void> future01=CompletableFuture.supplyAsync(()->{
+          Long id;
+          System.out.println("第一个线程："+(id=Thread.currentThread().getId()));
+          return (id);
+      },executorService)
+                .thenCombine(
+                    CompletableFuture.supplyAsync(()->{
+                        Long id;
+                        System.out.println("第二个线程："+(id=Thread.currentThread().getId()));
+                        return (id);
+                    })
+                    , ((res1,res2)->{
+                        System.out.println("第一个异步线程的结果："+res1);
+                        System.out.println("第二个异步线程的结果："+res2);
+                    }
+                )
+            );    
+
+结果：
+
+      第一个线程：16
+      第二个线程：17
+      第一个异步线程的结果：16
+      第二个异步线程的结果：17
+
+该方法可以处理二者返回值，但本身无返回值
+因此整个函数式编程块的结果类型应当是<Void>，且无法调用get方法
+
+
+
+
+3.thenAfterBoth方法：
+
+      CompletableFuture<Void> future01=CompletableFuture.supplyAsync(()->{
+          Long id;
+          System.out.println("第一个线程："+(id=Thread.currentThread().getId()));
+          return (id);
+      },executorService)
+            .runAfterBothAsync(
+                        CompletableFuture.supplyAsync(()->{
+                            Long id;
+                            System.out.println("第二个线程："+(id=Thread.currentThread().getId()));
+                            return (Object) id;
+                        })
+                        ,()->{
+                            Long id;
+                            System.out.println("第三个线程："+(id=Thread.currentThread().getId()));
+                        }
+                        ,executorService
+                );
+
+结果：
+
+      第一个线程：16
+      第二个线程：17
+      第三个线程：18
+
+该方法返回值为空，即<Void>
+并且两个线程完成后下一个线程，无结果感知、无返回值
+
+
+
+
+
+
+
+
+### 异步线程组合：只需要一个完成
+p201
+
+1.applyToEither方法：
+
+      CompletableFuture<Object> future01=CompletableFuture.supplyAsync(()->{
+          Long id;
+          System.out.println("第一个线程："+(id=Thread.currentThread().getId()));
+          return (Object) id;
+      },executorService)
+            .applyToEither(
+                        CompletableFuture.supplyAsync(()->{
+                            Long id=0l;
+                            while((5l-++id)>=0l) {
+                                System.out.println(10l-id);
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                            System.out.println("第二个线程："+(id=Thread.currentThread().getId()));
+                            return (Object) id;
+                        })
+                        ,(res->{
+                            System.out.println("返回值为："+res);
+                            return (Object) res;
+                        })
+                )
+      ;
+      System.out.println("get："+future01.get().toString());
+
+结果；
+
+      第一个线程：16
+      5
+      返回值为：16
+      get：16
+      4
+      3
+      2
+      1
+      0
+      第二个线程：17
+
+
+第二个线程为5到0的倒计时
+可以看到，第一个线程完成后就开启下一个线程，同时下一个线程可以感知结果、本身有返回值；
+另外未完成的那一个线程依然会执行
+
+
+
+
+2.acceptEither方法：
+
+      CompletableFuture<Void> future01=CompletableFuture.supplyAsync(()->{
+          Long id;
+          System.out.println("第一个线程："+(id=Thread.currentThread().getId()));
+          return (Object) id;
+      },executorService)
+            .applyToEither(
+                        CompletableFuture.supplyAsync(()->{
+                            Long id=0l;
+                            while((5l-++id)>=0l) {
+                                System.out.println(10l-id);
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                            System.out.println("第二个线程："+(id=Thread.currentThread().getId()));
+                            return (Object) id;
+                        })
+                        ,(res->{
+                            System.out.println("返回值为："+res);
+                        })
+                )
+      ;
+      System.out.println("get："+future01.get().toString());
+
+结果：
+
+      5
+      第一个线程：16
+      返回值为：16
+      Exception in thread "main" java.lang.NullPointerException: Cannot invoke "Object.toString()" because the return value of "java.     util.concurrent.CompletableFuture.get()" is null
+      	at com.katzenyasax.mall.search.thread.CompletableFutureTest.main(CompletableFutureTest.java:177)
+      4
+      3
+      2
+      1
+      0
+      第二个线程：17
+
+更直观地看到，get方法在第三个线程结束后就执行了，只不过此时函数式编程块的返回值为Void，所以get方法报错
+
+
+
+
+
+
+
+3.runAfterEither方法：
+
+      CompletableFuture<Void> future01=CompletableFuture.supplyAsync(()->{
+          Long id;
+          System.out.println("第一个线程："+(id=Thread.currentThread().getId()));
+          return (Object) id;
+      },executorService)
+            .runAfterEither(
+                        CompletableFuture.supplyAsync(()->{
+                            Long id=0l;
+                            while((5l-++id)>=0l) {
+                                System.out.println(10l-id);
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                            System.out.println("第二个线程："+(id=Thread.currentThread().getId()));
+                            return (Object) id;
+                        })
+                        ,(()->{
+                            System.out.println("第三个线程");
+                        })
+                )
+      ;
+      System.out.println("get："+future01.get().toString());
+
+结果：
+
+      5
+      第一个线程：16
+      第三个线程
+      Exception in thread "main" java.lang.NullPointerException: Cannot invoke "Object.toString()" because the return value of "java.     util.concurrent.CompletableFuture.get()" is null
+      	at com.katzenyasax.mall.search.thread.CompletableFutureTest.main(CompletableFutureTest.java:203)
+      4
+      3
+      2
+      1
+      0
+      第二个线程：17
+
+
+该方法无结果感知、无返回值
+
+
+
+
+
+
+
+
+### 多任务组合
+p202
+
+下列皆为静态方法。
+
+
+allOf方法，接收多个Completable<Void>线程，全部执行完后开启下一个线程。
+注意要求接收的线程全部无返回值，方法本身无结果感知、无返回值
+
+
+anyOf方法，接收多个Completable<Object>线程，有一个完成就开启下一个线程。
+有结果感知，有返回值，其返回值是类似于一个报告的Object类对象，例如：
+
+      CompletableFuture<Object> res = CompletableFuture.anyOf(future01);
+      System.out.println(res);
+
+其结果为：
+
+      第一个线程：16
+      java.util.concurrent.CompletableFuture@5d3411d[Completed normally]
+
+要获取线程的返回值，使用get方法：
+
+      CompletableFuture<Object> res = CompletableFuture.anyOf(future01);
+      System.out.println(res.get());
+
+结果：
+
+      第一个线程：16
+      16
+
+
+
+
+
+
+
+
+
+# 商城业务：商品详情
+
+
+## 页面搭建
+p202
+
+switchhosts写入：
+
+      192.168.74.130 mall-item 
+
+
+nginx中，mall.conf监听列表加入：
+
+      mall-item
+
+重启nginx
+
+
+配置网关：
+
+        - id: item-route
+          uri: lb://mall-product
+          predicates:
+            - Host=**.mall-item
+
+
+引入item.html（谷粒商城完全版源代码那个，那个是直接调试好前端的），修改必要的一些字段
+
+
+将必要的js、css等加入到nginx，路径为 /mydata/nginx/html/static/item
+先将其放到一个item文件夹下，执行：
+
+      mv item /mydata/nginx/html/static/
+
+
+随后在product/web中写一个ItemController：
+
+      @Controller
+      public class ItemController {
+          @GetMapping("{skuId}.html")
+          public String showItem(@PathVariable String skuId){
+              return "item.html";
+          }
+      }
+
+访问既可以看到基础的页面
+之后要根据sku返回封装数据
+
+
+
+
+
+
+## 数据封装
+p204
+
+要返回契合页面要求的数据
+创建vo：
+
+      @Data
+      public class SkuItemVo {
+          //1、sku基本信息的获取  pms_sku_info
+          private SkuInfoEntity info;
+
+          private boolean hasStock = true;
+
+          //2、sku的图片信息    pms_sku_images
+          private List<SkuImagesEntity> images;
+
+          //3、获取spu的销售属性组合
+          private List<SkuItemSaleAttrVo> saleAttr;
+
+          //4、获取spu的介绍
+          private SpuInfoDescEntity desc;
+
+          //5、获取spu的规格参数信息
+          private List<SpuItemAttrGroupVo> groupAttrs;
+
+          //6、秒杀商品的优惠信息
+          private SeckillSkuVo seckillSkuVo;
+      }
+
+其中SkuItemSaleAttrVo、SpuItemAttrGroupVo、SeckillSkuVo为自定义vo：
+
+      @Data
+      public static class SkuItemSaleAttrVo {
+          private Long attrId;
+          private String attrName;
+          private List<AttrValueWithSkuIdVo> attrValues;
+      }
+
+      @Data
+      public static class SpuItemAttrGroupVo {
+          private String groupName;
+          private List<Attr> attrs;
+      }
+
+    @Data
+    public static class SeckillSkuVo {
+        private Long promotionId;
+        private Long promotionSessionId;
+        private Long skuId;
+        private BigDecimal seckillPrice;
+        private Integer seckillCount;
+        private Integer seckillLimit;
+        private Integer seckillSort;
+        private Long startTime;
+        private Long endTime;
+        private String randomCode;
+    }
+
+而对于SkuItemSaleAttrVo，抢占的AttrValueWithSkuVo也是自定义的：
+
+      @Data
+      public static class SpuItemAttrGroupVo {
+          private String groupName;
+          private List<Attr> attrs;
+      }
+
+其中Attr：
+
+      @Data
+      public class Attr {
+      
+          private Long attrId;
+          private String attrName;
+          private String attrValue;
+      }
+
+
+
+## 基本实现
+
+
+ItemController:
+
+      @GetMapping("/{skuId}.html")
+      public String showItem(@PathVariable("skuId") String skuId, Model model){
+          SkuItemVo item=spuInfoService.getSkuItem(skuId);
+          model.addAttribute("item",item);
+          return "item";
+      }
+
+其中自定义方法getSkuItem：
+
+     /**
+      *
+      * @param skuId
+      * @return finale
+      *
+      *
+      * 根据skuId，获取符合详情页的所有内容
+      * 返回值为一个SkuItemVo对象
+      *
+      *
+      */
+      @Override
+      public SkuItemVo getSkuItem(String skuId) {
+          //结果封装
+          SkuItemVo finale=new SkuItemVo();
+          //sku基本信息
+          SkuInfoEntity skuInfo=skuInfoDao.selectById(skuId);
+
+          //1.sku基本信息，直接通过mapper和skuId获取
+          finale.setInfo(skuInfo);
+
+          //是否有货
+          //默认有货
+          //finale.setHasStock(true);
+
+          //2.图片信息
+          finale.setImages(skuImagesDao
+                  .selectList(new QueryWrapper<SkuImagesEntity>()
+                          .eq("sku_id", skuId)
+                  )
+          );
+
+          //3.spu销售信息组合
+          List<SkuItemVo.SkuItemSaleAttrVo> saleAttr=this.getSkuItemSaleAttrVo(skuInfo.getSpuId());
+          finale.setSaleAttr(saleAttr);
+          
+          //4.spu介绍
+          finale.setDesc(spuInfoDescDao
+                  .selectById(skuInfo.getSpuId())
+          );
+          
+          //5.spu规格参数
+          List<SkuItemVo.SpuItemAttrGroupVo> groupAttrs=this.getSpuItemAttrGroupVo(skuInfo.getSpuId());
+          finale.setGroupAttrs(groupAttrs);
+
+          //6.商品的优惠信息
+          // TODO 远程调用coupon模块，获取优惠信息
+          
+          System.out.println(JSON.toJSONString(finale));
+          return finale;
+      }
+
+其中方法getSkuItemSaleAttrVo：
+
+      /**
+      *
+      *
+      * @param spuId
+      * @return
+      *
+      * 根据spuId，返回所有与之相关的Sku、销售属性的vo
+      *     1.0版本：属性之间自由组合，但是不能映射到确定的一个sku
+      *
+      */
+      private List<SkuItemVo.SkuItemSaleAttrVo> getSkuItemSaleAttrVo(Long spuId) {
+
+          /**
+          * 根据spuId来查，spuId对应多个skuId
+          * 有且只有一个spu
+          *
+          * 大致思路是，
+          *      1.通过skuId获取spuId（skuInfo）
+          *          1.1.再从spuId获取对应的所有skuId_RelatingSpu（pms_sku_info）
+          *          1.2.通过spuId获取所有spu对应的attr_RelatingSpu（pms_product_attr_value）
+          *              1.2.1.通过遍历attr_RelatingSpu，获取所有关联spu的saleAttr_RelatingSpu（pms_sku_sale_attr_value）
+          *
+          */
+
+          //所有的销售属性和sku的关联表
+          List<SkuSaleAttrValueEntity> relation_skuSale_attrValue=skuSaleAttrValueDao.selectList(null);
+
+          //1.1.spu关联的所有的skuId_RelatingSpu
+          List<Long> skuIds_RelatingSpu=skuInfoDao.selectList(
+                          new QueryWrapper<SkuInfoEntity>().eq(
+                                  "spu_id",spuId)
+                  ).stream()
+                  .map(e-> e.getSkuId())
+                  .collect(Collectors.toList());
+
+
+          //所有属性AllAttrs
+          //因为该spu对应的attrId并非只有一个，为了避免循环查库，这里直接查询所有attr
+          List<AttrEntity> AllAttrs=attrDao.selectList(null);
+
+          //与spu对应的所有属性attr_RelatingSpu
+          //在pms_product_attr_value中查询，spuId和attrId为一对多的关系，因此这里直接查询了关联spuId的所有attr
+          List<Long> attr_RelatingSpu=productAttrValueDao.selectList(
+                          new QueryWrapper<ProductAttrValueEntity>()
+                                  .eq("spu_id",spuId)
+                  )
+                  .stream().map(e->{
+                              return e.getAttrId();
+                          }
+                  )
+                  .collect(Collectors.toList());
+
+
+          //1.2.1与spu对应的所有销售属性saleAttr_RelatingSpu
+          //从所有属性AllAttr中查询，主要条件为attrId必须与spu关联（即包含于attr_RelatingSpu）、且必须是销售属性（即attrType不为0）
+          List<AttrEntity> saleAttr_RelatingSpu=new ArrayList<>();
+          AllAttrs.forEach(entity->{
+              if(attr_RelatingSpu.contains(entity.getAttrId()) && entity.getAttrType()!=1){
+                  saleAttr_RelatingSpu.add(entity);
+              }
+          });
+
+          //遍历与spu关联的销售属性saleAttr_RelatingSpu
+          List<SkuItemVo.SkuItemSaleAttrVo> saleAttr = saleAttr_RelatingSpu.stream().map(sale -> {
+              //该遍历下，每个当前元素都是大集合的单个元素
+
+              //当前元素封装对象vo
+              SkuItemVo.SkuItemSaleAttrVo vo = new SkuItemVo.SkuItemSaleAttrVo();
+
+              //vo的两个单字成员变量
+              vo.setAttrId(sale.getAttrId());
+              vo.setAttrName(sale.getAttrName());
+
+              //vo的一个集合成员变量初始化
+              vo.setAttrValues(new ArrayList<>());
+
+
+              //存储attrValue的集合，用于判断去重
+              List<String> templeValue=new ArrayList<>();
+              //遍历所有sku和销售属性的关系
+              relation_skuSale_attrValue.forEach(relation -> {
+                  //确保attrValue不重复
+                  if(!templeValue.contains(relation.getAttrValue())) {
+                      //skuId包含于指定的集合内、且attrId为当前遍历销售属性时，才进行参数设置
+                      if (skuIds_RelatingSpu.contains(relation.getSkuId()) && relation.getAttrId() == sale.getAttrId()) {
+                          //小集合单个元素
+                          SkuItemVo.AttrValueWithSkuIdVo skuValue = new SkuItemVo.AttrValueWithSkuIdVo();
+                          //小元素设置成员变量
+                          skuValue.setSkuIds(relation.getSkuId().toString());
+                          skuValue.setAttrValue(relation.getAttrValue());
+                          //小元素添加到当前vo的集合变量
+                          vo.getAttrValues().add(skuValue);
+
+                          //除此之外将该attrValue加入临时templeValue表，确保下一次进入时不会有重复的attrValue
+                          templeValue.add(relation.getAttrValue());
+                      }
+                  }
+              });
+
+              return vo;
+          }).collect(Collectors.toList());
+
+          return saleAttr;
+      }
+
+getSpuItemAttrGroupVo：
+
+       /**
+        *
+        * @param spuId
+        * @return
+        *
+        * 根据spuId，返回所有与之相关的attr和attrGroup的vo
+        *
+        */
+        private List<SkuItemVo.SpuItemAttrGroupVo> getSpuItemAttrGroupVo(Long spuId) {
+           /**
+            * 1.pms_product_attr_value表，通过spuId获取每个attrId
+            * 2.pms_attr_attrgroup_relation，通过attrId获取attrGroupId
+            * 3.pms_attrgroup，通过attrGroupId获取attrGroupName
+            */
+            //用这个map，代替SpuItemAttrGroupVo的List，因为这个满足KV对条件
+            Map<String,List<Attr>> groupAndAttr=new HashedMap();
+            productAttrValueDao.selectList(
+                    new QueryWrapper<ProductAttrValueEntity>()
+                            .eq("spu_id",spuId)
+            ).forEach(
+                    pavEntity->{
+                        /**
+                        * 我只要attrId
+                        */
+                        //获取attrId
+                        Long attrId=pavEntity.getAttrId();
+                        //获取该attr对应的attrGroupId
+                        Long attrGroupId=attrAttrgroupRelationDao.selectOne(
+                                        new QueryWrapper<AttrAttrgroupRelationEntity>()
+                                                .eq("attr_id",attrId))
+                                .getAttrGroupId();
+                        //获取该attr对应的groupName
+                        String attrGroupName=attrGroupDao.selectById(attrGroupId).getAttrGroupName();
+                        if (groupAndAttr.containsKey(attrGroupName)) {
+                            //如果map中存在了以groupName为键的数据
+                            //就直接加入该键值对下值的list中
+                        }
+                        else{
+                            //若map中还不存在以groupName为键的数据
+                            //则新建一个键值对存入
+                            groupAndAttr.put(attrGroupName,new ArrayList<>());
+                        }
+
+                        Attr attr=new Attr();
+                        attr.setAttrId(attrId);
+                        attr.setAttrName(attrDao.selectById(attrId).getAttrName());
+                        attr.setAttrValue(productAttrValueDao.selectOne(
+                                                //同时匹配attrID和spuId
+                                                new QueryWrapper<ProductAttrValueEntity>()
+                                                        .eq("spu_id",spuId)
+                                                        .and(w->w
+                                                                .eq("attr_id",attrId))
+                                        )
+                                        .getAttrValue()
+                        );
+                        groupAndAttr.get(attrGroupName).add(attr);
+                    }
+            );
+            List<SkuItemVo.SpuItemAttrGroupVo> groupAttrs=new ArrayList<>();
+            groupAndAttr.entrySet().forEach(set->{
+                String groupName=set.getKey();
+                List<Attr> attrs=set.getValue();
+                SkuItemVo.SpuItemAttrGroupVo vo=new SkuItemVo.SpuItemAttrGroupVo();
+                vo.setGroupName(groupName);
+                vo.setAttrs(attrs);
+                groupAttrs.add(vo);
+            });
+            return groupAttrs;
+        }
+
+
+
+
+
+
+
+
+
+## 销售类型组合问题
+p209
+
+
+发现销售属性目前实际上是无逻辑关联的，
+因为对于一个sku来说其销售属性的所有字段是固定的，而一般一个sku有多个销售属性，导致多个独立的销售属性往往无法映射一个准确的sku
+
+因此需要组合销售属性，方案是，在每一个销售属性后再加上一个skuId的集合，表示有哪些sku有这一个销售属性
+
+在getSkuItemSaleAttrVo上开刀：
+
+      relation_skuSale_attrValue.forEach(relation -> {
+          //确保attrValue不重复
+          if(!templeValue.contains(relation.getAttrValue())) {
+              //skuId包含于指定的集合内、且attrId为当前遍历销售属性时，新添加参数设置
+              if (skuIds_RelatingSpu.contains(relation.getSkuId()) && relation.getAttrId() == sale.getAttrId()) {
+                  //小集合单个元素
+                  SkuItemVo.AttrValueWithSkuIdVo skuValue = new SkuItemVo.AttrValueWithSkuIdVo();
+                  //小元素设置成员变量
+                  skuValue.setSkuIds(relation.getSkuId().toString());
+                  skuValue.setAttrValue(relation.getAttrValue());
+                  //小元素添加到当前vo的集合变量
+                  vo.getAttrValues().add(skuValue);
+                  //除此之外将该attrValue加入临时templeValue表，确保下一次进入时不会有重复的attrValue
+                  templeValue.add(relation.getAttrValue());
+              }
+          }
+          else{
+              //否则，代表该attrId已经设置了集合，直接在其skuValue后拼接,skuId就
+              //查找该skuId是在哪一个attrId下
+              vo.getAttrValues().forEach(value->{
+                  if(value.getAttrValue().equals(relation.getAttrValue())){
+                      value.setSkuIds(value.getSkuIds()+","+relation.getSkuId());
+                  }
+              });
+          }
+      });
+
+在判断attrValue是否已经存在的if下，加上一个else，表示将该attrValue所属的所有skuId都拼接到一个字符串上，最后交由前端统一处理
+
 
 
 

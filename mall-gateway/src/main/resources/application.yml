@@ -76,15 +76,20 @@ spring:
           predicates:
             - Host=**.katzenyasax-mall
 
+        - id: item-route
+          uri: lb://mall-product
+          predicates:
+            - Host=**.mall-item
+
         - id: search-route
           uri: lb://mall-search
           predicates:
-            - Host=mall-search
+            - Host=**.mall-search
 
         - id: gmall-search-route
           uri: lb://mall-search
           predicates:
-            - Host=search.gmall.com
+            - Host=**.search.gmall.com
 
 
 

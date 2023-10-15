@@ -3,6 +3,7 @@ package com.katzenyasax.mall.product.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.mall.product.entity.SpuInfoEntity;
+import com.katzenyasax.mall.product.vo.item.SkuItemVo;
 import com.katzenyasax.mall.product.vo.spu.SpuSaveVO;
 
 import java.util.Map;
@@ -25,5 +26,7 @@ public interface SpuInfoService extends IService<SpuInfoEntity> {
     void upSpu(Long spuId);
 
     void downSpu(Long spuId);
+
+    SkuItemVo getSkuItem(String skuId);
 }
 

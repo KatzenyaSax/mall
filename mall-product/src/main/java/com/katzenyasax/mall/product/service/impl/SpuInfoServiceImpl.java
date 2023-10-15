@@ -11,9 +11,12 @@ import com.katzenyasax.mall.product.entity.*;
 import com.katzenyasax.mall.product.feign.CouponFeign;
 import com.katzenyasax.mall.product.feign.SearchFeign;
 import com.katzenyasax.mall.product.feign.WareFeign;
+import com.katzenyasax.mall.product.vo.item.SkuItemSaleAttrVo;
+import com.katzenyasax.mall.product.vo.item.SkuItemVo;
 import com.katzenyasax.mall.product.vo.spu.*;
 import com.aliyuncs.utils.StringUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.map.HashedMap;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,8 +24,11 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -69,6 +75,13 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
 
     @Autowired
     CategoryDao categoryDao;
+
+    @Autowired
+    AttrGroupDao attrGroupDao;
+
+    @Autowired
+    AttrAttrgroupRelationDao attrAttrgroupRelationDao;
+
 
 
     /**
@@ -369,7 +382,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
         List<SkuEsModel> skuEsModels=new ArrayList<>();
         for (SkuInfoEntity info : skus) {
             SkuEsModel model=new SkuEsModel();
-            /*
+            /**
              * 拷贝数据
              * 不同的字段为：
              * skuPrice     price
@@ -414,7 +427,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
             //注意每一个sku的attrs都是在一个
             model.setAttrs(attrs);
 
-            //3.5将该循环内的model加入skuEsMedels中sk
+            //3.5将该循环内的model加入skuEsModels中sk
             skuEsModels.add(model);
         }
         System.out.println(JSON.toJSONString(skuEsModels));
@@ -423,7 +436,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
         R r=searchFeign.SkuUp(skuEsModels);
         System.out.println(r.toString());
 
-        //TODO:一些高级问题如何解决？例如接口幂等性、抑或是open feign的重试机制？
+        //TODO 一些高级问题如何解决？例如接口幂等性、抑或是open feign的重试机制？
 
     }
 
@@ -443,6 +456,62 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
         entity.setPublishStatus(2);
         baseMapper.updateById(entity);
     }
+
+
+    /**
+     *
+     * @param skuId
+     * @return finale
+     *
+     *
+     * 根据skuId，获取符合详情页的所有内容
+     * 返回值为一个SkuItemVo对象
+     *
+     *
+     */
+    @Override
+    public SkuItemVo getSkuItem(String skuId) {
+        //结果封装
+        SkuItemVo finale=new SkuItemVo();
+        //sku基本信息
+        SkuInfoEntity skuInfo=skuInfoDao.selectById(skuId);
+
+        //1.sku基本信息，直接通过mapper和skuId获取
+        finale.setInfo(skuInfo);
+
+        //是否有货
+        //默认有货
+        //finale.setHasStock(true);
+
+        //2.图片信息
+        finale.setImages(skuImagesDao
+                .selectList(new QueryWrapper<SkuImagesEntity>()
+                        .eq("sku_id", skuId)
+                )
+        );
+
+
+        //3.spu销售信息组合
+        List<SkuItemVo.SkuItemSaleAttrVo> saleAttr=this.getSkuItemSaleAttrVo(skuInfo.getSpuId());
+        finale.setSaleAttr(saleAttr);
+
+        //4.spu介绍
+        finale.setDesc(spuInfoDescDao
+                .selectById(skuInfo.getSpuId())
+        );
+
+        //5.spu规格参数
+        List<SkuItemVo.SpuItemAttrGroupVo> groupAttrs=this.getSpuItemAttrGroupVo(skuInfo.getSpuId());
+        finale.setGroupAttrs(groupAttrs);
+
+        //6.商品的优惠信息
+        // TODO 远程调用coupon模块，获取优惠信息
+
+        System.out.println(JSON.toJSONString(finale));
+        return finale;
+    }
+
+
 
 
     /**
@@ -475,10 +544,210 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
             }
         }
 
-
-
-
-
         return finale;
+
     }
+
+
+
+
+    /**
+     *
+     *
+     * @param spuId
+     * @return
+     *
+     * 根据spuId，返回所有与之相关的Sku、销售属性的vo
+     *      1.0版本：销售属性之间自由组合，但是不能映射到确定的一个sku
+     *      2.0版本：销售属性后面封装与之相关的skuIds，返回前端统一处理
+     *
+     *
+     */
+    private List<SkuItemVo.SkuItemSaleAttrVo> getSkuItemSaleAttrVo(Long spuId) {
+
+        /**
+         * 根据spuId来查，spuId对应多个skuId
+         * 有且只有一个spu
+         *
+         * 大致思路是，
+         *      1.通过skuId获取spuId（skuInfo）
+         *          1.1.再从spuId获取对应的所有skuId_RelatingSpu（pms_sku_info）
+         *          1.2.通过spuId获取所有spu对应的attr_RelatingSpu（pms_product_attr_value）
+         *              1.2.1.通过遍历attr_RelatingSpu，获取所有关联spu的saleAttr_RelatingSpu（pms_sku_sale_attr_value）
+         *
+         */
+
+        //所有的销售属性和sku的关联表
+        List<SkuSaleAttrValueEntity> relation_skuSale_attrValue=skuSaleAttrValueDao.selectList(null);
+
+        //1.1.spu关联的所有的skuId_RelatingSpu
+        List<Long> skuIds_RelatingSpu=skuInfoDao.selectList(
+                        new QueryWrapper<SkuInfoEntity>().eq(
+                                "spu_id",spuId)
+                ).stream()
+                .map(e-> e.getSkuId())
+                .collect(Collectors.toList());
+
+
+        //所有属性AllAttrs
+        //因为该spu对应的attrId并非只有一个，为了避免循环查库，这里直接查询所有attr
+        List<AttrEntity> AllAttrs=attrDao.selectList(null);
+
+        //与spu对应的所有属性attr_RelatingSpu
+        //在pms_product_attr_value中查询，spuId和attrId为一对多的关系，因此这里直接查询了关联spuId的所有attr
+        List<Long> attr_RelatingSpu=productAttrValueDao.selectList(
+                        new QueryWrapper<ProductAttrValueEntity>()
+                                .eq("spu_id",spuId)
+                )
+                .stream().map(e->{
+                            return e.getAttrId();
+                        }
+                )
+                .collect(Collectors.toList());
+
+
+        //1.2.1与spu对应的所有销售属性saleAttr_RelatingSpu
+        //从所有属性AllAttr中查询，主要条件为attrId必须与spu关联（即包含于attr_RelatingSpu）、且必须是销售属性（即attrType不为0）
+        List<AttrEntity> saleAttr_RelatingSpu=new ArrayList<>();
+        AllAttrs.forEach(entity->{
+            if(attr_RelatingSpu.contains(entity.getAttrId()) && entity.getAttrType()!=1){
+                saleAttr_RelatingSpu.add(entity);
+            }
+        });
+
+        //遍历与spu关联的销售属性saleAttr_RelatingSpu
+        List<SkuItemVo.SkuItemSaleAttrVo> saleAttr = saleAttr_RelatingSpu.stream().map(sale -> {
+            //该遍历下，每个当前元素都是大集合的单个元素
+
+            //当前元素封装对象vo
+            SkuItemVo.SkuItemSaleAttrVo vo = new SkuItemVo.SkuItemSaleAttrVo();
+
+            //vo的两个单字成员变量
+            vo.setAttrId(sale.getAttrId());
+            vo.setAttrName(sale.getAttrName());
+
+            //vo的一个集合成员变量初始化
+            vo.setAttrValues(new ArrayList<>());
+
+
+            //存储attrValue的集合，用于判断去重
+            List<String> templeValue=new ArrayList<>();
+            //遍历所有sku和销售属性的关系
+            relation_skuSale_attrValue.forEach(relation -> {
+                //确保attrValue不重复
+                if(!templeValue.contains(relation.getAttrValue())) {
+                    //skuId包含于指定的集合内、且attrId为当前遍历销售属性时，新添加参数设置
+                    if (skuIds_RelatingSpu.contains(relation.getSkuId()) && relation.getAttrId() == sale.getAttrId()) {
+                        //小集合单个元素
+                        SkuItemVo.AttrValueWithSkuIdVo skuValue = new SkuItemVo.AttrValueWithSkuIdVo();
+                        //小元素设置成员变量
+                        skuValue.setSkuIds(relation.getSkuId().toString());
+                        skuValue.setAttrValue(relation.getAttrValue());
+                        //小元素添加到当前vo的集合变量
+                        vo.getAttrValues().add(skuValue);
+
+                        //除此之外将该attrValue加入临时templeValue表，确保下一次进入时不会有重复的attrValue
+                        templeValue.add(relation.getAttrValue());
+                    }
+                }
+                else{
+                    //否则，代表该attrId已经设置了集合，直接在其skuValue后拼接,skuId就行了
+
+                    //查找该skuId是在哪一个attrId下
+                    vo.getAttrValues().forEach(value->{
+                        if(value.getAttrValue().equals(relation.getAttrValue())){
+                            value.setSkuIds(value.getSkuIds()+","+relation.getSkuId());
+                        }
+                    });
+                }
+            });
+
+            return vo;
+        }).collect(Collectors.toList());
+
+        return saleAttr;
+    }
+
+
+    /**
+     *
+     * @param spuId
+     * @return
+     *
+     * 根据spuId，返回所有与之相关的attr和attrGroup的vo
+     *
+     */
+    private List<SkuItemVo.SpuItemAttrGroupVo> getSpuItemAttrGroupVo(Long spuId) {
+/**
+ * 商品介绍里面的
+ */
+        /**
+         * 1.pms_product_attr_value表，通过spuId获取每个attrId
+         * 2.pms_attr_attrgroup_relation，通过attrId获取attrGroupId
+         * 3.pms_attrgroup，通过attrGroupId获取attrGroupName
+         */
+        //用这个map，代替SpuItemAttrGroupVo的List，因为这个满足KV对条件
+        Map<String,List<Attr>> groupAndAttr=new HashedMap();
+        productAttrValueDao.selectList(
+                new QueryWrapper<ProductAttrValueEntity>()
+                        .eq("spu_id",spuId)
+        ).forEach(
+                pavEntity->{
+                    /**
+                     * 我只要attrId
+                     */
+                    //获取attrId
+                    Long attrId=pavEntity.getAttrId();
+                    //获取该attr对应的attrGroupId
+                    Long attrGroupId=attrAttrgroupRelationDao.selectOne(
+                                    new QueryWrapper<AttrAttrgroupRelationEntity>()
+                                            .eq("attr_id",attrId))
+                            .getAttrGroupId();
+                    //获取该attr对应的groupName
+                    String attrGroupName=attrGroupDao.selectById(attrGroupId).getAttrGroupName();
+                    if (groupAndAttr.containsKey(attrGroupName)) {
+                        //如果map中存在了以groupName为键的数据
+                        //就直接加入该键值对下值的list中
+                    }
+                    else{
+                        //若map中还不存在以groupName为键的数据
+                        //则新建一个键值对存入
+                        groupAndAttr.put(attrGroupName,new ArrayList<>());
+                    }
+
+                    Attr attr=new Attr();
+                    attr.setAttrId(attrId);
+                    attr.setAttrName(attrDao.selectById(attrId).getAttrName());
+                    attr.setAttrValue(productAttrValueDao.selectOne(
+                                            //同时匹配attrID和spuId
+                                            new QueryWrapper<ProductAttrValueEntity>()
+                                                    .eq("spu_id",spuId)
+                                                    .and(w->w
+                                                            .eq("attr_id",attrId))
+                                    )
+                                    .getAttrValue()
+                    );
+                    groupAndAttr.get(attrGroupName).add(attr);
+                }
+        );
+
+        List<SkuItemVo.SpuItemAttrGroupVo> groupAttrs=new ArrayList<>();
+        groupAndAttr.entrySet().forEach(set->{
+            String groupName=set.getKey();
+            List<Attr> attrs=set.getValue();
+            SkuItemVo.SpuItemAttrGroupVo vo=new SkuItemVo.SpuItemAttrGroupVo();
+            vo.setGroupName(groupName);
+            vo.setAttrs(attrs);
+            groupAttrs.add(vo);
+        });
+
+
+        return groupAttrs;
+
+    }
+
+
+
+
+
 }

@@ -100,7 +100,7 @@ class MallSearchTests {
 
 
     /**
-     * 测试一下，查询数据操作
+     * 测试一下，查询数据
      */
     @Test
     public void SearchData() throws IOException {

@@ -2,7 +2,7 @@
  * @Author: InnerSekiro a18290531268@163.com
  * @Date: 2023-09-25 21:43:28
  * @LastEditors: InnerSekiro a18290531268@163.com
- * @LastEditTime: 2023-10-07 15:39:53
+ * @LastEditTime: 2023-10-09 15:58:15
  * @FilePath: \undefinedc:\Users\ASUS\Desktop\IDEA\mall\bugFixingLog.md
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -75,5 +75,22 @@
 
 更新了以下内容：
     1.三级分类的写入缓存操作由SpringCache注解实现，同时实现了数据库更新时缓存的失效模式
+    2.搭建好了检索业务的环境
+    3.完成了首页和检索页面间跳转
 
 
+
+
+## 2023/10/12
+
+更新了以下内容：
+
+    1.基本完成了检索页面的筛选
+
+
+
+## 2023/10/15
+
+更新了以下内容：
+    1.搭建好了商品详情页面
+    2.基本完成了商品详情页面的结果封装（优惠信息待完成）
