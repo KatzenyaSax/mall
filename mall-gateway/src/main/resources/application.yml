@@ -48,13 +48,11 @@ spring:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
         - id: ware-route
-          uri: lb://localhost:9900
+          uri: lb://mall-ware
           predicates:
             - Path= /api/ware/**
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
-
-
 
         - id: oss-policy
           uri: http://localhost:10200
@@ -70,27 +68,26 @@ spring:
           filters:
             - RewritePath=/api/(?<segment>/?.*),/renren-fast/$\{segment}
 
-
-        - id: host-route
-          uri: lb://mall-product
-          predicates:
-            - Host=**.katzenyasax-mall
-
         - id: item-route
           uri: lb://mall-product
           predicates:
-            - Host=**.mall-item
+            - Host=**.item.katzenyasax-mall.com
 
         - id: search-route
           uri: lb://mall-search
           predicates:
-            - Host=**.mall-search
+            - Host=**.search.katzenyasax-mall.com
 
-        - id: gmall-search-route
-          uri: lb://mall-search
+        - id: auth-route
+          uri: lb://mall-auth
           predicates:
-            - Host=**.search.gmall.com
+            - Host=**.auth.katzenyasax-mall.com
 
+
+        - id: host-route
+          uri: lb://mall-product
+          predicates:
+            - Host=**.katzenyasax-mall.com
 
 
 

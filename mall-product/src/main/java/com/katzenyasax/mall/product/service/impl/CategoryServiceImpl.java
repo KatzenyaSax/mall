@@ -622,6 +622,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
         while (true) {
             //1.setNX
             String uuid=UUID.randomUUID().toString();
+
             Boolean ifSet = ops.setIfAbsent("lock", uuid,10,TimeUnit.SECONDS);
             //给锁设置过期时间，防止死锁
 

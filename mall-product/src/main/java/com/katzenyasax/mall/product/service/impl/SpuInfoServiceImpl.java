@@ -6,6 +6,7 @@ import com.katzenyasax.common.to.SkuEsModel;
 import com.katzenyasax.common.to.SkuFullReductionTO;
 import com.katzenyasax.common.to.SpuBoundsTO;
 import com.katzenyasax.common.utils.R;
+import com.katzenyasax.mall.product.config.ThisThreadPool;
 import com.katzenyasax.mall.product.dao.*;
 import com.katzenyasax.mall.product.entity.*;
 import com.katzenyasax.mall.product.feign.CouponFeign;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -81,6 +83,10 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
 
     @Autowired
     AttrAttrgroupRelationDao attrAttrgroupRelationDao;
+
+    @Autowired
+    ThisThreadPool threadPool;
+
 
 
 
@@ -473,39 +479,53 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
     public SkuItemVo getSkuItem(String skuId) {
         //结果封装
         SkuItemVo finale=new SkuItemVo();
-        //sku基本信息
-        SkuInfoEntity skuInfo=skuInfoDao.selectById(skuId);
 
-        //1.sku基本信息，直接通过mapper和skuId获取
-        finale.setInfo(skuInfo);
+        CompletableFuture<SkuInfoEntity> thread1=CompletableFuture.supplyAsync(()->{
+            //1.sku基本信息，直接通过mapper和skuId获取
+            SkuInfoEntity skuInfo=skuInfoDao.selectById(skuId);
+            finale.setInfo(skuInfo);
+            return skuInfo;
+        });
 
-        //是否有货
-        //默认有货
-        //finale.setHasStock(true);
+        CompletableFuture<Void> thread2=CompletableFuture.runAsync(()->{
+            //2.图片信息
+            finale.setImages(skuImagesDao
+                    .selectList(new QueryWrapper<SkuImagesEntity>()
+                            .eq("sku_id", skuId)
+                    )
+            );
+        },threadPool.TPE());
 
-        //2.图片信息
-        finale.setImages(skuImagesDao
-                .selectList(new QueryWrapper<SkuImagesEntity>()
-                        .eq("sku_id", skuId)
-                )
-        );
+        CompletableFuture<Void> thread3 = thread1.thenAcceptAsync(res -> {
+            //3.spu销售信息组合
+            List<SkuItemVo.SkuItemSaleAttrVo> saleAttr = this.getSkuItemSaleAttrVo(res.getSpuId());
+            finale.setSaleAttr(saleAttr);
+        }, threadPool.TPE());
 
+        CompletableFuture<Void> thread4 = thread1.thenAcceptAsync(res -> {
+            //4.spu介绍
+            finale.setDesc(spuInfoDescDao
+                    .selectById(res.getSpuId())
+            );
+        }, threadPool.TPE());
 
-        //3.spu销售信息组合
-        List<SkuItemVo.SkuItemSaleAttrVo> saleAttr=this.getSkuItemSaleAttrVo(skuInfo.getSpuId());
-        finale.setSaleAttr(saleAttr);
-
-        //4.spu介绍
-        finale.setDesc(spuInfoDescDao
-                .selectById(skuInfo.getSpuId())
-        );
-
-        //5.spu规格参数
-        List<SkuItemVo.SpuItemAttrGroupVo> groupAttrs=this.getSpuItemAttrGroupVo(skuInfo.getSpuId());
-        finale.setGroupAttrs(groupAttrs);
+        CompletableFuture<Void> thread5 = thread1.thenAcceptAsync(res -> {
+            //5.spu规格参数
+            List<SkuItemVo.SpuItemAttrGroupVo> groupAttrs = this.getSpuItemAttrGroupVo(res.getSpuId());
+            finale.setGroupAttrs(groupAttrs);
+        }, threadPool.TPE());
 
         //6.商品的优惠信息
         // TODO 远程调用coupon模块，获取优惠信息
+
+        //判断1-6的线程是否完成：
+        CompletableFuture.allOf(
+                thread1
+                ,thread2
+                ,thread3
+                ,thread4
+                ,thread5
+        );
 
         System.out.println(JSON.toJSONString(finale));
         return finale;

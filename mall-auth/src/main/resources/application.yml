@@ -1,0 +1,42 @@
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.74.130:8848
+        username: nacos
+        password: nacos
+        namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+
+
+  application:
+    name: mall-auth
+  thymeleaf:
+    cache: false
+
+  data:
+    redis:
+      host: 192.168.74.130
+      port: 6379
+
+
+server:
+  port: 10400
+
+
+
+
+mall:
+  send-code:
+    appcode: 57912ef0235f4cd184fe7b241b5ae347
+    path: /data/send_sms
+    host: https://dfsns.market.alicloudapi.com
+    alive-time: 10
+    unit: minutes
+    pre: Auth::phone=
+    time-trap: 60
+
+
+
+
+
+

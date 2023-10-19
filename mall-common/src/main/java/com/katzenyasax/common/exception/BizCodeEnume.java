@@ -18,7 +18,14 @@ package com.katzenyasax.common.exception;
 public enum BizCodeEnume {
     UNKNOW_EXCEPTION(10000,"系统未知异常"),
     VAILD_EXCEPTION(10001,"参数格式校验失败"),
-    PRODUCT_ES_SAVE_EXCEPTION(10301,"保存失败");
+    PRODUCT_ES_SAVE_EXCEPTION(10301,"保存失败"),
+
+    DATASOURCE_CONNECTION_FAILURE(20001,"数据库连接异常"),
+
+
+
+    REGISTER_USERNAME_ALREADY_EXIST(30001,"用户名已存在"),
+    REGISTER_PHONE_ALREADY_EXIST(30002,"手机号已存在");
 
 
 

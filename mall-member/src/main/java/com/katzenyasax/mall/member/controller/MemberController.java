@@ -3,13 +3,11 @@ package com.katzenyasax.mall.member.controller;
 import java.util.Arrays;
 import java.util.Map;
 
+import com.katzenyasax.common.to.UserLoginTo;
+import com.katzenyasax.common.to.UserRegisterTo;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.katzenyasax.mall.member.entity.MemberEntity;
 import com.katzenyasax.mall.member.service.MemberService;
@@ -30,6 +28,43 @@ import com.katzenyasax.common.utils.R;
 public class MemberController {
     @Autowired
     private MemberService memberService;
+
+
+
+
+    /**
+     *
+     * @param to
+     * @return
+     *
+     * 注册会员
+     * 被auth模块远程调用的方法
+     */
+    @RequestMapping("/register")
+    R register(@RequestBody UserRegisterTo to){
+        R r=memberService.register(to);
+        System.out.println("MemberController Register:"+r);
+        return r;
+    }
+
+
+    /**
+     * 用户登录
+     * 被auth远程调用
+     */
+    @RequestMapping("/login")
+    R login(@RequestBody UserLoginTo to){
+        R r=memberService.login(to);
+        System.out.println("MemberController Login:"+r);
+        return r;
+    }
+
+
+
+
+
+
+    //==================================================
 
     /**
      * 列表

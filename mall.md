@@ -11595,7 +11595,7 @@ p195
 
 ### 编排的定义：
 
-      CompletableFuture<Object> future01=CompletableFuture.supplyAsync(()->{
+      CompletableFuture<Object> future01=CompletableFuture.runAsync(()->{
           <方法体>
       },executorService);
       System.out.println(future01.get().toString());
@@ -11726,7 +11726,7 @@ p199
 
 
 
-2.使用
+2.使用thenAcceptAsync方法：
 
       CompletableFuture<Void> future = CompletableFuture.supplyAsync(()->{
           Long id;
@@ -12524,8 +12524,1262 @@ p209
 
 
 
+## 自定义配置
+p210
+
+自定义线程池：
+
+      @Configuration
+      public class ThisThreadPool {
+          @Bean
+          public ThreadPoolExecutor TPE(){
+              ThreadPoolExecutor tpe;
+              tpe = new ThreadPoolExecutor(
+                      20,                                          //核心线程数
+                      200,                                          //最大线程数
+                      10,                                         //空闲线程最大存活时间
+                      TimeUnit.SECONDS,                           //时间单位（秒）
+                      new ArrayBlockingQueue<>(10000),                //建立阻塞队列，允许同时运行线程的数量
+                      Executors.defaultThreadFactory(),           //默认的线程工厂
+                      new ThreadPoolExecutor.AbortPolicy()        //拒绝服务策略(Abort)，队列满时处理剩余线程的策略
+              );
+              return tpe;
+          }
+      }
+
+为了实现线程池参数可调节，再定义一个ConfigurationProperties：
+
+      @ConfigurationProperties(prefix = "mall.thread")
+      @Component
+      @Data
+      public class ThisThreadPoolConfigurationProperties {
+          private Integer coreSize;   //核心线程数
+          private Integer maxSize;    //最大线程数
+          private Integer keepAliveTime;      //存活时间
+      }
+
+其中@ConfigurationProperties注解表示直接装配配置，
+@Component是为了将其自动装配，使其在application中可被识别
+prefix字段就是在yml中配置的前缀，直接在application中配置就可以配置这个Configuration配置类
+
+要生效，添加依赖：
+
+      <!-- ConfigurationProperties的依赖 -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-configuration-processor</artifactId>
+      </dependency>
+
+并且在启动类加上注解，扫描ConfigurationProperties：
+
+      @ConfigurationPropertiesScan
+
+随后在application中进行配置：
+
+      mall:
+        thread:
+          core-size:  
+          max-size:
+          keep-alive-time:
+
+然后自定义线程池就可以改成：
+
+      @Autowired
+      ThisThreadPoolConfigurationProperties threadConfiguration;
+      @Bean
+      public ThreadPoolExecutor TPE(){
+          ThreadPoolExecutor tpe;
+          tpe = new ThreadPoolExecutor(
+                  threadConfiguration.getCoreSize(),                                          //核心线程数
+                  threadConfiguration.getMaxSize(),                                          //最大线程数
+                  threadConfiguration.getKeepAliveTime(),                                         //空闲线程最大存活时间
+                  TimeUnit.SECONDS,                           //时间单位（秒）
+                  new ArrayBlockingQueue<>(10000),                //建立阻塞队列，允许同时运行线程的数量
+                  Executors.defaultThreadFactory(),           //默认的线程工厂
+                  new ThreadPoolExecutor.AbortPolicy()        //拒绝服务策略(Abort)，队列满时处理剩余线程的策略
+          );
+          return tpe;
+      }
 
 
+
+
+
+
+
+整个流程的核心是spring的自动装配原理，先手动在application.yml中写配置，再在配置类中指定该配置，并将其映射到成员变量上
+如此一来，其结果就是：在application.yml中更改配置时，实际上会直接影响配置类的成员变量，成员变量会跟随的配置更改
+
+
+
+
+
+
+
+
+## 面向异步编排优化业务
+p209
+
+第一个获取skuInfo的线程，后续所有线程例如3、4、5都要使用它的结果，因此要等线程1结束后，3、4、5并行处理
+而2和1没什么关系，可以新建一个异步任务独立执行
+实现：
+
+      @Override
+      public SkuItemVo getSkuItem(String skuId) {
+          //结果封装
+          SkuItemVo finale=new SkuItemVo();
+
+          CompletableFuture<SkuInfoEntity> thread1=CompletableFuture.supplyAsync(()->{
+              //1.sku基本信息，直接通过mapper和skuId获取
+              SkuInfoEntity skuInfo=skuInfoDao.selectById(skuId);
+              finale.setInfo(skuInfo);
+              return skuInfo;
+          });
+
+          CompletableFuture<Void> thread2=CompletableFuture.runAsync(()->{
+              //2.图片信息
+              finale.setImages(skuImagesDao
+                      .selectList(new QueryWrapper<SkuImagesEntity>()
+                              .eq("sku_id", skuId)
+                      )
+              );
+          },threadPool.TPE());
+
+          CompletableFuture<Void> thread3 = thread1.thenAcceptAsync(res -> {
+              //3.spu销售信息组合
+              List<SkuItemVo.SkuItemSaleAttrVo> saleAttr = this.getSkuItemSaleAttrVo(res.getSpuId());
+              finale.setSaleAttr(saleAttr);
+          }, threadPool.TPE());
+
+          CompletableFuture<Void> thread4 = thread1.thenAcceptAsync(res -> {
+              //4.spu介绍
+              finale.setDesc(spuInfoDescDao
+                      .selectById(res.getSpuId())
+              );
+          }, threadPool.TPE());
+
+          CompletableFuture<Void> thread5 = thread1.thenAcceptAsync(res -> {
+              //5.spu规格参数
+              List<SkuItemVo.SpuItemAttrGroupVo> groupAttrs = this.getSpuItemAttrGroupVo(res.getSpuId());
+              finale.setGroupAttrs(groupAttrs);
+          }, threadPool.TPE());
+
+          //6.商品的优惠信息
+          // TODO 远程调用coupon模块，获取优惠信息
+
+          //判断1-6的线程是否完成：
+          CompletableFuture.allOf(
+                  thread1
+                  ,thread2
+                  ,thread3
+                  ,thread4
+                  ,thread5
+          );
+          
+          System.out.println(JSON.toJSONString(finale));
+          return finale;
+      }
+
+核心逻辑就是线程1执行，执行完成后给出返回值也即是一个skuInfoEntity，
+此时3、4、5三个线程使用supplyAsync方法接收线程1的返回值并并发执行，直到所有线程执行完成，才会执行最后的return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 商城业务：认证服务
+
+
+## 环境搭建
+p211
+
+1.创建mall-auth模块，引入thymeleaf、open feign、spring web、lombok、spring boot devtools；
+
+2.引入common公共模块；
+
+3.启动类上排除mybatis plus依赖：
+
+      @SpringBootApplication(exclude= {DataSourceAutoConfiguration.class})
+
+4.加入nacos，application中：
+
+      spring:
+        cloud:
+          nacos:
+            discovery:
+              server-addr: 192.168.74.130:8848
+              username: nacos
+              password: nacos
+              namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+        application:
+          name: mall-auth
+        thymeleaf:
+          cache: false
+      server:
+        port: 10400
+
+bootstrap中：
+
+      spring:
+        cloud:
+          nacos:
+            config:
+              server-addr: 192.168.74.130:8848
+              username: nacos
+              password: nacos
+              namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+
+5.启动类加上：
+
+      @EnableDiscoveryClient
+
+6.添加前端页面（源码里直接拿）
+
+7.switchhost加上：
+
+      192.168.74.130 mall-auth
+
+8.静态资源引入 /mydata/nginx/html/static/
+登录放到 /login
+注册放到 /reg
+  
+9.mall.conf中加入监听：
+
+      mall-auth
+
+重启nginx
+
+10.配置网关：
+
+      - id: auth-route
+        uri: lb://mall-auth
+        predicates:
+          - Host=**.mall-auth
+
+
+
+
+
+
+
+## 接口
+p212
+
+
+auth模块编写接口跳转auth界面，AuthController：
+
+      @Controller
+      public class LoginController {
+      
+          @GetMapping("/login.html")
+          public String logIn(){
+              return "login";
+          }
+
+          @GetMapping("/reg.html")
+          public String Register(){
+              return "reg";
+          }
+      }
+
+这下可以查询了，但是试想一种场景，发送一个请求直接跳转到页面，不需要再使用空方法作为接口了
+使用SpringMVC的ViewController直接映射，在配置类中重新实现：
+
+      @Configuration
+      public class WebViewController implements WebMvcConfigurer {
+          @Override
+          public void addViewControllers(ViewControllerRegistry registry){
+              registry.addViewController("/login.html").setViewName("login");
+              registry.addViewController("/reg.html").setViewName("reg");
+          }
+      }
+
+表示将这俩路径注册为对应的页面了
+上面两个空方法可以删除了
+
+
+
+
+
+## 短信验证码
+p213
+
+接口：
+
+      /**
+       * @param phone
+       *
+       * 发送短信验证码
+       * 使用的是阿里云的服务
+       *
+       *
+       *
+       */
+       @GetMapping("/sms/sendCode")
+       public void sendCode(@RequestParam String phone){
+           String host = "https://dfsns.market.alicloudapi.com";
+           String path = "/data/send_sms";
+           String method = "POST";
+           String appcode = "57912ef0235f4cd184fe7b241b5ae347";
+           Map<String, String> headers = new HashMap<String, String>();
+           //最后在header中的格式(中间是英文空格)为Authorization:APPCODE 83359fd73fe94948385f570e3c139105
+           headers.put("Authorization", "APPCODE " + appcode);
+           //根据API的要求，定义相对应的Content-Type
+           headers.put("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+           Map<String, String> querys = new HashMap<String, String>();
+           Map<String, String> bodys = new HashMap<String, String>();
+           bodys.put("content", "code:9898");
+           bodys.put("template_id", "CST_ptdie100");
+           bodys.put("phone_number", phone);
+           
+           try {
+               /**
+               * HttpUtils请从
+               * https://github.com/aliyun/api-gateway-demo-sign-java/blob/master/src/main/java/com/aliyun/api/gateway/demo/utilHttpUtils.java
+               */
+               HttpResponse response = HttpUtils.doPost(host, path, method, headers, querys, bodys);
+               System.out.println(response.toString());
+               //获取response的body
+               //System.out.println(EntityUtils.toString(response.getEntity()));
+           } catch (Exception e) {
+               e.printStackTrace();
+           }
+       }
+
+测试结果可行
+
+将其可配置化，写一个类再次封装，要配置的信息就是url等信息：
+
+      @ConfigurationProperties(prefix = "send-code")
+      @Component
+      @Data
+      public class SendCodeConfigurationProperties {
+          private String host;
+          private String path;
+          private String appcode;
+          public void send(String phone){
+            String host = this.getHost();
+            String path = this.getPath();
+            String method = "POST";
+            String appcode = this.getAppcode();
+            Map<String, String> headers = new HashMap<String, String>();
+            //最后在header中的格式(中间是英文空格)为Authorization:APPCODE 83359fd73fe94948385f570e3c139105
+            headers.put("Authorization", "APPCODE " + appcode);
+            //根据API的要求，定义相对应的Content-Type
+            headers.put("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+            Map<String, String> querys = new HashMap<String, String>();
+            Map<String, String> bodys = new HashMap<String, String>();
+            bodys.put("content", "code:9898");
+            bodys.put("template_id", "CST_ptdie100");
+            bodys.put("phone_number", phone);
+            try {
+                /**
+                 * HttpUtils请从
+                 * https://github.com/aliyun/api-gateway-demo-sign-java/blob/master/src/main/java/com/aliyun/api/gateway/demo/util/   HttpUtils.java
+                 */
+                HttpResponse response = HttpUtils.doPost(host, path, method, headers, querys, bodys);
+                System.out.println(response.toString());
+                //获取response的body
+                //System.out.println(EntityUtils.toString(response.getEntity()));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+      }
+
+注意添加依赖、启动类加上扫描配置
+随后在application中配置：
+
+      mall:
+        send-code:
+          appcode: 57912ef0235f4cd184fe7b241b5ae347
+          path: /data/send_sms
+          host: https://dfsns.market.alicloudapi.com
+
+因此在接口可以改为：
+
+      @GetMapping("/sms/sendCode")
+        public void sendCode(@RequestParam String phone){
+            sendCodeConfigurationProperties.send(phone);
+        }
+
+测试之下也一样可以使用
+
+
+
+=======================================（待考证）======================================================
+
+
+再迭代一下，因为之后的业务中，总是其他的服务来调用该服务，且要获取返回值来决定下一步业务；
+故此controller改为：
+
+      @GetMapping("/sms")
+      public R sendCode(@RequestParam("phone") String phone,@RequestParam("code")  String code){
+          sendCodeConfigurationProperties.send(phone,code);
+          return R.ok();
+      }
+
+其中的phone由前端传入，而code则由调用该接口的服务提供
+
+
+===================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 验证码校验
+p214
+
+
+一是验证码需要随机生成，而是验证码的校验问题
+
+
+1.code随机
+
+      this.code=new Random().nextLong(1000,9999);
+
+
+
+2.code防刷
+刷新就可以跳过60秒倒计时，可能造成短时间内恶意访问服务器造成宕机等后果，因此将一个手机号码对应的数据加入缓存，存活时间为60秒
+例如，一个号码刚开始发送验证码时，会存入：key:182****8845Phone value:5489 ttl:60s
+服务器会执行发送验证码的请求，而60s倒计时会继续到技术
+当60s倒计时未完时，redis中依然查得到182****8845Phone，那么此时前端申请发送验证码会被拒绝执行
+只有当60s结束时，该号码才能再次申请验证码
+而阿里云的短信验证码服务，本身要求同一个手机号10分钟内申请此时不得超过3次
+
+引入redis依赖，application中配置redis
+
+实现，拿配置类里的方法开刀：
+
+      public R send(String phone){
+
+        //创建操作柄
+        ValueOperations<String,String> ops= redisTemplate.opsForValue();
+        if(StringUtils.isNotEmpty(ops.get("Phone"+phone))){
+            return R.ok("请60秒后重试！");
+        }
+
+        ······（发送验证码的业务）······
+
+        ops.set("Phone"+phone,code.toString(),60, TimeUnit.SECONDS);
+
+        //判断状态码
+        if(httpResult==400){
+            return R.error("请求参数错误");
+        }
+        else if(httpResult==403){
+            return R.error("请求次数过多，请十分钟后再试！");
+        }
+        else if(httpResult==500){
+            return R.error("服务器错误");
+        }
+        else{
+            return R.ok("已发送验证码").put("code",this.code);
+        }
+    }
+
+
+
+那么这样一来验证码有效时长就只有60秒？我要是想让他10分钟内有效呢？
+那就把存活时间改成10分钟
+解决方案就是在code后面用-拼接一个System.currentTimeMills
+且要将存活时间（时长、单位）,都加入配置文件可配置化
+所以最终：
+
+      /**
+       *
+       * @param phone
+       * @return
+       *
+       * 给出手机号码phone，要求向其发送随机验证码
+       *
+       * 并且要包含防刷、等功能
+       *
+       */
+      public R send(String phone){
+          //创建操作柄
+          ValueOperations<String,String> ops= redisTemplate.opsForValue();
+          //拿取数据（code和上一次发送时间），如果有的话，没有就初始化成原点
+          String codeAndTime;
+          if(StringUtils.isNotEmpty(ops.get(this.pre + phone)))
+          //如果redis中存在数据
+          {
+              codeAndTime=ops.getAndDelete(this.pre+phone);
+              //上一次发送的时间
+              Long lastTime = Long.parseLong(codeAndTime.split("-")[1]);
+
+              if (System.currentTimeMillis()-lastTime<this.timeTrap*1000) {   //当和上次发送验证码间隔小于60秒时，说明未到时间（注意  timeTrap是毫秒，乘1000才是秒）
+                  return R.error("请60秒后重试！");
+              }
+          }
+
+          //随机验证码
+          Long code = new Random().nextLong(1000, 9999);
+          //状态码，初始为200
+          int httpResult=200;
+          //========== 发送验证码api   ===========================================
+          String host = this.host;
+          String path = this.path;
+          String method = "POST";
+          String appcode = this.appcode;
+          Map<String, String> headers = new HashMap<String, String>();
+          //最后在header中的格式(中间是英文空格)为Authorization:APPCODE 83359fd73fe94948385f570e3c139105
+          headers.put("Authorization", "APPCODE " + appcode);
+          //根据API的要求，定义相对应的Content-Type
+          headers.put("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+          Map<String, String> querys = new HashMap<String, String>();
+          Map<String, String> bodys = new HashMap<String, String>();
+          bodys.put("content", "code:" + code);
+          bodys.put("template_id", "CST_ptdie100");
+          bodys.put("phone_number", phone);
+          try {
+              /**
+               * HttpUtils请从
+               * https://github.com/aliyun/api-gateway-demo-sign-java/blob/master/src/main/java/com/aliyun/api/gateway/demo/util/ HttpUtils.java
+               */
+              HttpResponse response = HttpUtils.doPost(host, path, method, headers, querys, bodys);
+              //httpResult改成api返回的状态码
+              httpResult = response.getStatusLine().getStatusCode();
+              System.out.println(response.toString());
+              //获取response的body
+              //System.out.println(EntityUtils.toString(response.getEntity()));
+          } catch (Exception e) {
+              e.printStackTrace();
+          }
+          //===========================================================================================
+          //将结果存入redis
+          ops.set(
+                  this.pre + phone
+                  , code.toString() + "-" + System.currentTimeMillis()
+                  , this.aliveTime
+                  , this.unit
+          );
+          //判断状态码
+          if(httpResult==400){
+              return R.error("请求参数错误");
+          }
+          else if(httpResult==403){
+              return R.error("请求次数过多，请十分钟后再试！");
+          }
+          else if(httpResult==500){
+              return R.error("服务器错误");
+          }
+          else {
+              return R.ok("已发送验证码").put("code",code);
+          }
+      }
+
+在调用api之前，就排除掉非法情况
+
+
+
+
+
+
+
+
+
+
+## 注册页面
+p215
+
+
+注册的url地址：
+
+      http://mall-auth/register
+
+请求参数：
+
+      userName: katzenyasax
+      password: 13594869076aA!
+      phone: 18290531268
+      code: 
+
+code为验证码，需要在后端进行验证，即查询是否和redis中对应电话号码的值一致
+
+
+编写接口RegisterController接收注册，还要一个UserVo接收参数：
+
+      @Data
+      public class UserRegisterVo {
+          @NotEmpty(message = "未提交用户名！")
+          @Length(min = 6,max = 18,message = "用户名必须是6-18位的字符")
+          private String userName;
+          @NotEmpty(message = "未提交密码！")
+          @Length(min = 6,max = 18,message = "密码必须是6-18位的字符")
+          private String password;
+          @NotEmpty(message = "未提交手机号码！")
+          @Pattern(regexp = "1[0-9]{10}",message = "手机号码必须是11位数字！")
+          private String phone;
+          @NotEmpty(message = "未提交验证码！")
+          @Pattern(regexp = "[0-9]{4}",message = "验证码必须是4位数字！")
+          private String code;
+      }
+
+在里面还需要手动校验数据，防止前端漏洞，保证数据安全
+
+接口：
+
+      /**
+      *
+      * @param
+      * @return
+      *
+      * 注册用户
+      * 在此之前要先判断验证码是否相同
+      * 还要判断用户名和手机号未被占用（远程调用member服务）
+      *
+      */
+      //todo 分布式session问题
+      //  
+      @RequestMapping("/register")
+      public String register(@Valid UserRegisterVo vo, BindingResult result, /*Model model*/ RedirectAttributes redirectAttributes){
+
+          //1.若数据有异常，跳转回注册页面
+          if(result.hasErrors()){
+              //并且要返回错误字段
+              Map<String, String> errors = result.getFieldErrors().stream().collect(Collectors.toMap(
+                      error -> "msg"
+                      ,error -> error.getDefaultMessage()
+              ));
+              //  model.addAttribute(errors);
+              //不用model了，这里使用redirectAttributes，防止重复提交表单
+
+              System.out.println("数据异常");
+
+              redirectAttributes.addFlashAttribute("errors",errors);
+              //转到reg.html页面，带上所有的error这个map的数据
+              return "redirect:http://mall-auth/reg.html";
+          }
+
+          //2.判断code是否正确
+          boolean isRightCode = registerService.isRightCode(vo);
+          if(isRightCode){
+              //验证码正确
+              //            registerService.Register(vo);
+              System.out.println("验证码正确");
+              //并且还要删除code
+              registerService.deleteCode(vo.getPhone());
+              return "redirect:http://mall-auth/login.html";
+          }
+          else {
+              //验证码错误
+              Map<String,String> errors=new HashMap<>();
+              errors.put("msg",res.get("msg").toString());
+              redirectAttributes.addFlashAttribute("errors",errors);
+              System.out.println("验证码错误");
+              return "redirect:http://mall-auth/reg.html";
+          }
+      }
+
+自定义方法就不放了，随便写写就完了
+
+1.先校验数据，判断code是否正确
+全部正确后，重定向（redirect）到login页面，否则重定向reg页面重新注册
+
+2.之所以用redirectAttribute替代model，是为了防止重复提交表单
+
+3.令牌机制，比如code完成使命后就要删除
+
+
+
+
+
+未完成的：
+
+1.注册方法暂时未完成，需要远程调用其他服务
+
+2.关于session分布式问题，以后再讲
+
+
+
+
+
+
+
+## 注册会员
+p216
+
+需要远程调用member模块，流程：
+
+1.定义远程调用公共UserRegisterTo：
+
+      @Data
+      public class UserRegisterTo {
+          @NotEmpty(message = "未提交用户名！")
+          @Length(min = 6,max = 18,message = "用户名必须是6-18位的字符")
+          private String userName;
+          @NotEmpty(message = "未提交密码！")
+          @Length(min = 6,max = 18,message = "密码必须是6-18位的字符")
+          private String password;
+          @NotEmpty(message = "未提交手机号码！")
+          @Pattern(regexp = "1[0-9]{10}",message = "手机号码必须是11位数字！")
+          private String phone;
+      }
+
+相比UserRegisterVo，至少了一个code，对于合法的表单这个code也不再需要了
+
+2.编写feign接口：
+
+      @FeignClient("mall-member")
+      public interface MemberFeign {
+      
+          /**
+           *
+           * @param vo
+           * @return
+           *
+           * 注册会员
+           */
+          @PostMapping("/member/member/register")
+          R register(@RequestBody UserRegisterTo to);
+      }
+
+注意路径完整
+
+3.auth模块调用member模块：
+
+      /**
+       *
+       * @param vo
+       *
+       * 根据vo注册用户
+       * 需要调用远程模块mall-member
+       *
+       */
+      @Override
+      public R Register(UserRegisterVo vo) {
+          UserRegisterTo to=new UserRegisterTo();
+          //复制to
+          BeanUtils.copyProperties(vo,to);
+          R r = memberFeign.register(to);
+          return r;
+      }
+
+3.auth启动类上加：
+
+      @EnableFeignClients(value = "com.katzenyasax.mall.auth.feign")
+
+表示开启远程调用
+
+4.memeber模块内，加上接口：
+
+      /**
+       *
+       * @param to
+       * @return
+       *
+       * 注册会员
+       */
+      @PostMapping("/register")
+      R register(@RequestBody UserRegisterTo to){
+          R r=memberService.register(to);
+          return r;
+      }
+
+5.register方法：
+
+      /**
+      *
+      * @param to
+      * @return
+      *
+      * 注册用户
+      *
+      */
+      @Override
+      public R register(UserRegisterTo to) {
+
+          //在此之前判断数据库中是否已有重复的手机号、用户名
+          //手机号和用户名作为唯一标识（后续可更新）
+          if (baseMapper.selectList(new QueryWrapper<MemberEntity>().eq("username", to.getUserName())).size() > 0) {
+              System.out.println("MemberService：已存在用户名为" + to.getUserName() + "的用户！");
+              return R.error(USERNAME_ALREADY_EXIST.getMsg());
+          }
+          if (baseMapper.selectList(new QueryWrapper<MemberEntity>().eq("mobile", to.getPhone())).size() > 0) {
+              System.out.println("emberService：已存在手机号为" + to.getUserName() + "的用户！");
+              return R.error(PHONE_ALREADY_EXIST.getMsg());
+          }
+
+          //封装对象，新用户
+          MemberEntity finale=new MemberEntity();
+          //三个to参数
+          finale.setUsername(to.getUserName());
+          finale.setPassword(to.getPassword());
+          finale.setMobile(to.getPhone());
+
+          //初始化参数
+          finale.setLevelId(1L);
+          finale.setNickname(to.getUserName());
+          finale.setIntegration(0);
+          finale.setGender(0);
+          finale.setStatus(1);
+          finale.setCreateTime(new DateTime());
+
+          //存入数据库
+          baseMapper.insert(finale);
+          
+          //反馈
+          return R.ok(REGISTER_SUCCESS.getMsg());
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 密码加密
+p217
+
+
+密码不可明文存于数据库，存入时分别要进行加密操作
+且应当进行的是不可逆加密，也即不能推算出原本密码，这样一来进行任何类似登录、安全确认等需要密码的操作直接将输入的密码再次加密对比数据库就可以了
+
+解决方案：使用MD5加密算法+盐值
+
+BCryptPasswordEncoder可以用于加密和匹配，加密，使用encode方法：
+
+      new BCryptPasswordEncoder().encode("xxx");
+
+匹配，即是使用明文密码，和已经撒过盐的密文密码进行匹配，encode可以自动匹配：
+
+      new BCryptPasswordEncoder().matches(password,passwordEncoded)
+
+返回值为boolean
+
+
+
+
+改变密码：
+
+      //加盐加密，BCryptPasswordEncoder自带加盐和读取盐值功能
+      finale.setPassword(
+              new BCryptPasswordEncoder().encode(to.getPassword())
+      );
+
+
+
+
+
+
+## 登录
+p218
+
+
+用户输入用户名和密码进行登录
+请求地址：
+
+      http://mall-auth/login
+
+参数：
+
+      loginacct: katzenyasax
+      password: 123456
+
+弄一个to：
+
+      @Data
+      public class UserLoginTo {
+          @NotEmpty(message = "未提交用户名或手机号！")
+          @Length(min = 6,max = 18,message = "必须是6-18位的字符或11位数字")
+          private String loginacct;
+          @NotEmpty(message = "未提交密码！")
+          @Length(min = 6,max = 18,message = "密码必须是6-18位的字符")
+          private String password;
+      }
+
+auth模块下接口：
+
+      /**
+       *
+       * 用户登录
+       */
+      @RequestMapping("/login")
+      public String login(@Valid UserLoginTo to, BindingResult result, RedirectAttributes redirectAttributes){
+          if(result.hasErrors()){
+              //并且要返回错误字段
+              Map<String, String> errors = result.getFieldErrors().stream().collect(Collectors.toMap(
+                      error -> "msg"
+                      ,error -> error.getDefaultMessage()
+              ));
+
+              redirectAttributes.addFlashAttribute("errors",errors);
+              return "redirect:http://mall-auth/login.html";
+          }
+          System.out.println(to.toString());
+          R r=loginService.login(to);
+          System.out.println("LoginController Login: "+r);
+          if(r.get("code").equals(0)){
+              //登陆成功
+              return "redirect:http://katzenyasax-mall";
+          }
+          else {
+              Map<String,String> errors=new HashMap<>();
+              errors.put("msg",r.get("msg").toString());
+              redirectAttributes.addFlashAttribute("errors",errors);
+              return "redirect:http://mall-auth/login.html";
+          }
+      }
+
+可以在前端返回errors的msg
+
+方法login：
+
+      /**
+       *
+       * @return
+       *
+       * 登录
+       * 需要远程调用member模块
+       *
+       */
+      @Override
+      public R login(UserLoginTo to) {
+          R r=memberFeign.login(to);
+          System.out.println("LoginService Login: "+r);
+          return r;
+      }
+
+远程调用：
+
+      @RequestMapping("/member/member/login")
+      R login(UserLoginTo to);
+
+member的接口：
+
+      /**
+       * 用户登录
+       * 被auth远程调用
+       */
+      @RequestMapping("/login")
+      R login(@RequestBody UserLoginTo to){
+          R r=memberService.login(to);
+          System.out.println("MemberController Login:"+r);
+          return r;
+      }
+
+方法login：
+
+      /**
+      * 用户登录
+      */
+      @Override
+      public R login(UserLoginTo to) {
+          //输入的账号有可能是用户名，也有可能是手机号，所以要同时查
+          List<MemberEntity> members=baseMapper.selectList(
+                  new QueryWrapper<MemberEntity>()
+                          .eq("username",to.getLoginacct())
+                          .or().eq("mobile",to.getLoginacct())
+          );
+
+          //1.账号不存在
+          if(members.size()==0){
+              System.out.println("账户不存在");
+              return R.error("账户不存在");
+          }
+
+          //2.密码错误
+          //如果查得到，只可能查到一个，直接查索引为0的元素
+          MemberEntity thisAccount=members.get(0);
+          //加密器
+          BCryptPasswordEncoder encoder=new BCryptPasswordEncoder();
+          //对密码进行加密
+          String passwordEncoded=encoder.encode(thisAccount.getPassword());
+          //匹配
+          if(!encoder.matches(to.getPassword(),passwordEncoded)){
+              return R.error("密码错误");
+          }
+          
+          //完成正确反馈
+          return R.ok("登陆成功");
+      }
+
+
+测试一下，url：
+
+      http://mall-auth/login
+
+参数：
+
+      loginacct: katzenyasax
+      password: 123456    
+
+结果是登陆成功
+
+但是发现登录成功后，页面也没有任何变化，登录的账户信息并没有映射到页面
+
+
+
+
+
+
+
+## 扫码登陆
+p221
+
+尝试用OAuth2.0用qq扫描登录
+
+APP ID：102068535
+APP Key：eDcqsskPr563rS0K
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 分布式session问题
+p225
+
+所谓session，就是前端（也即是浏览器）用以存储部分后端传来的数据的一块空间，
+可以看作是一整个会话，只要页面不关闭，会话就不会结束，session就能一直保存数据
+但是当页面关闭后，会话结束，session无法再存储数据，下一次访问页面时就没有保存的用户登录信息等
+所以使用cookie，浏览器会从session抽取数据保存为cookie，即使会话关闭，cookie也能一直保存，下一次访问相同的网址时就能带上对应的cookie了
+
+cookie的存储结构是：
+
+      jsessionid:
+      value:
+
+和map类似
+
+
+在登录界面加上cookie，首先让登录成功时返回用户信息：
+member模块下，MemberServiceImpl的login方法：
+
+      //完成正确反馈
+      return R.ok("登陆成功").put("LoginUser",thisAccount);
+    
+让r返回了有关LoginUser，存放的是该用户的信息
+随后在auth模块下的LoginController，登陆成功后返回session：
+
+       //返回session
+       session.setAttribute("loginUser",r.get("LoginUser"));
+
+
+
+
+
+
+
+现在的问题是，登陆成功后，用户信息无法同步到页面，
+因为我们是在mall-auth域名下登录的，所有cookie都存在了mall-auth域名下，
+而我们其他的域名例如katzenyasax-mall主页面都无法共享这个cookie，也就不能记忆用户登录的信息
+同域名、不同服务也不能共享
+这就是session在分布式下不同服务之间无法共享的问题
+
+
+
+
+
+## 解决
+p226
+
+### session复制
+
+配置tomcat或其他，使所有cookie都存到所有服务
+
+缺点是不安全，而且占用空间大
+
+淘汰
+
+
+### hash一致性
+
+配置nginx，为ip加上一个hash算法，使其每次访问都被负载均衡到同一台服务器，从而每次都带有cookie
+
+缺点是服务器数量增加或减少时，ip的hash运算结果可能会变化（因为hash和服务器数量有关），导致部分用户的ip会负载均衡到其他服务，导致无cokkie
+
+但是session本身就是有时效的，所以其实问题不大
+
+由于本身服务器少，选用了
+
+
+
+
+### 统一存储
+
+最好想到的一集
+
+把所有服务得到的cookie统一存到redis或其他nosql的中间件，
+
+缺点是访问redis可能带来性能问题，网络通信比读取内存慢太多了
+
+但是使用SpringSession可以解决问题
+
+
+
+
+
+
+
+
+## 有关switchHosts失效的问题
+
+关梯子，否则加上父域名或者子域名会失效，导致只会使单独的域名生效
+
+随后为了实现session，一律将域名改为：**.katzenyasax-mall.com
+
+
+
+## 有关netty报错的问题
+
+即reactor.netty.http.client.PrematureCloseException: Connection prematurely closed DURING response
+
+将gateway配置文件中，域名大的一个放到最后，就解决了
+
+
+
+
+
+
+
+## SpringSession
+p227
+
+auth包中加入依赖：
+
+      <!-- https://mvnrepository.com/artifact/org.springframework.session/spring-session-data-redis -->
+      <dependency>
+          <groupId>org.springframework.session</groupId>
+          <artifactId>spring-session-data-redis</artifactId>
+          <version>3.1.3</version>
+      </dependency>
+
+因为使用redis存session，而且很多服务都要调
+
+启动类加上：
+
+      @EnableRedisHttpSession
+
+这样一来，当auth模块登陆成功后，redis中应当会存入一个session
+
+尝试登录，成功后redis存入了一个Hash，名为：
+
+      spring:session:sessions:aea3a7b7-9f92-4a81-987f-9b5f9b039c41
+
+而由于之前手动地存入了一个loginUser，再来看这Hash，里面确实有一个名为sessionAttr:loginUser的key
+除此之外，还有三个字段：
+
+      lastAccessedTime
+      creationTime
+      maxInactiveInterval
+
+
+不管怎样，session都存到了redis中了
+
+
+
+
+
+
+## 实现
+p228
+
+接下来的问题是，session的作用域只在auth.katzenyasax-mall.com，不会在父域（katzenyasax-mall.com）生效
+而我们可以在浏览器中手动修改作用域到父域，刷新之后可以发现，其余的服务也可以读取的session的数据，即我们存到session的loginUser
+
+所以要做的是，将session的作用域从单auth放大的整个父域
+
+1.首先在product模块中引入依赖，启动类上加注解
+
+2.然后在auth模块写一个配置类配置组件，因为以后也许会有更多的服务会读取到该session
+
+      @Configuration
+      public class SessionConfiguration {
+           /**
+            * 
+            * @return
+            * 
+            * 自定义session
+            * 
+            */
+          @Bean
+          public CookieSerializer cookieSerializer(){
+              DefaultCookieSerializer cookieSerializer=new DefaultCookieSerializer();
+              cookieSerializer.setDomainName("katzenyasax-mall.com");     //设置作用域为父域
+              //cookieSerializer.setCookieName("katzenyasax-mall::session");    //session的名字
+              return cookieSerializer;
+          }
+      }
+
+3.还可以自定义session的redis序列化机制，可以将redis中存的东西改成json格式：
+
+      /**
+       *
+       * @return
+       *
+       * 将redis的序列化机制改成json（用到Jackson的序列化器）
+       *
+       */
+      @Bean
+      public RedisSerializer<Object> springSessionDefaultRedisSerializer(){
+          return new GenericJackson2JsonRedisSerializer();
+      }
+
+相当于直接将redis的序列化机制覆盖成json的序列化机制
+而且注意方法名必须是springSessionDefaultRedisSerializer，否则不会生效
+
+4.之后将这个配置类复制一份放到auth包，
+注意尽量不要放到common包，因为有些服务不用redis，可能会人为挖坑
+
+
+
+
+
+之后重启测试
+
+登录之后，不仅可以使整个父域下的所有页面都有登录信息，redis中存储的数据也变成了json格式：
+
+      sessionAttr:loginUser：
+      { "@class": "java.util.LinkedHashMap", "id": 1, "levelId": 99, "username": "Katzenyasax", "password": "$2a$10$YQT/      msPf0FLIrwHJmB5wn.Omsh4Uk9cNWdJye1iN7c8HtANm4pAha", "nickname": "KatzenyaSax", "mobile": "18290531268", "email": null, "header":      null, "gender": null, "birth": null, "city": null, "job": null, "sign": null, "sourceType": null, "integration": null, "growth":      null, "status": null, "createTime": "2023-10-17T11:15:39.000+00:00" }
+
+      lastAccessedTime：
+      1697708810236
+
+      creationTime：
+      1697708808976
+
+      maxInactiveInterval：
+      1800
+
+
+这样就完成了
 
 
 

@@ -1,25 +1,22 @@
-package com.katzenyasax.mall.product;
+package com.katzenyasax.mall.auth;
 
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
-import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
 
-
 @EnableRedisHttpSession
-@EnableCaching  //开启缓存
-@MapperScan(value = "com.katzenyasax.mall.product.dao")
 @EnableDiscoveryClient
-@EnableFeignClients(basePackages = "com.katzenyasax.mall.product.feign")
-@SpringBootApplication
-public class MallProduct {
+@ConfigurationPropertiesScan
+@EnableFeignClients(value = "com.katzenyasax.mall.auth.feign")
+@SpringBootApplication(exclude= {DataSourceAutoConfiguration.class})
+public class MallAuth {
 
-    public static void main(String[] args) {
-        SpringApplication.run(MallProduct.class, args);
-    }
+	public static void main(String[] args) {
+		SpringApplication.run(MallAuth.class, args);
+	}
 
 }
