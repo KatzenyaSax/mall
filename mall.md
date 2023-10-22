@@ -1845,7 +1845,7 @@ BrandService，BrandServiceImpl：关于品牌的所有方法
 
 
 
-## 云存储服务 
+## 云存储服务（待实现）
 
 
 
@@ -13542,7 +13542,7 @@ member的接口：
 
 
 
-## 扫码登陆
+## 扫码登陆（待实现）
 p221
 
 尝试用OAuth2.0用qq扫描登录
@@ -13554,7 +13554,24 @@ APP Key：eDcqsskPr563rS0K
 
 
 
+## 登出
 
+      auth.katzenyasax-mall.com/logout.html
+
+接口：
+
+      /**
+       *
+       * @param session
+       * @return
+       *
+       * 用户登出，将session置为空
+       */
+      @RequestMapping("/logout.html")
+      public String logOut(HttpSession session){
+          session.setAttribute(AuthConstant.USER_LOGIN,null);
+          return "redirect:http://katzenyasax-mall.com";
+      }
 
 
 
@@ -13649,7 +13666,7 @@ p226
 
 
 
-## 有关switchHosts失效的问题
+# 有关switchHosts失效的问题
 
 关梯子，否则加上父域名或者子域名会失效，导致只会使单独的域名生效
 
@@ -13657,7 +13674,26 @@ p226
 
 
 
-## 有关netty报错的问题
+
+
+# nginx配置明确
+
+conf.d中mall.conf，监听的端口为80，监听的url为：
+
+      katzenyasax-mall.com
+      search.katzenyasax-mall.com
+      auth.katzenyasax-mall.com
+      item.katzenyasax-mall.com
+
+html/static/index/js/catalogLoader.js中，导向search的url：
+
+      search.katzenyasax-mall.com
+
+
+
+
+
+# 有关netty报错的问题
 
 即reactor.netty.http.client.PrematureCloseException: Connection prematurely closed DURING response
 
@@ -13669,7 +13705,9 @@ p226
 
 
 
-## SpringSession
+# SpringSession
+
+## 配置
 p227
 
 auth包中加入依赖：
@@ -13682,6 +13720,8 @@ auth包中加入依赖：
       </dependency>
 
 因为使用redis存session，而且很多服务都要调
+例如product（主页）、search（检索）、auth（注册登录等），
+而且还需要引入redis的依赖
 
 启动类加上：
 
@@ -13699,7 +13739,6 @@ auth包中加入依赖：
       lastAccessedTime
       creationTime
       maxInactiveInterval
-
 
 不管怎样，session都存到了redis中了
 
@@ -13780,6 +13819,865 @@ p228
 
 
 这样就完成了
+
+
+## SpringSession的原理
+p229
+
+1.注解
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 点击登录自动跳转
+p230
+
+
+每次重新启动浏览器，都要重新进行登录，非常麻烦，能不能从缓存中拿用户的session呢？
+答案是可以，redis中设置session数据时长长一点，在这段时间内从redis拿取数据后再次重置时长，实际上就可以自动登录了
+
+
+并且从首页登录的逻辑是，点击登录按钮时先访问的：
+
+      auth.katzenyasax-mall.com/login.html
+
+我们没有定义对应的controller，所以这里访问的应该就是页面
+用户输入账户后，连带用户数据访问的是
+
+      auth.katzenyasax-mall.com/login
+
+所以如果我们在login.html界面就直接从redis中拿取数据，
+然后直接将其setAttribute给.katzenyasax-mall.com，
+随后重定向到首页就完成了自动登录的效果
+
+实现
+定义一个接口：
+
+      /**
+       * 利用redis中保存的数据自动登录
+       */
+      @GetMapping("/login.html")
+      public String autoLogin(HttpSession session){
+          Object cookie = session.getAttribute(AuthConstant.USER_LOGIN);
+          if(cookie!=null){
+              //如果浏览器存入cookie，则直接从cookie拿取
+              System.out.println("cookie exists");
+              return "redirect:http://katzenyasax-mall.com";
+          }
+          else {
+                  return "login";
+          }
+      }
+
+注意要把SpringMVC的WebViewConfiguration的页面注释：
+
+      /**
+       * 淘汰了，目前login.html被作为接口了
+       */
+      //registry.addViewController("/login.html").setViewName("login");
+
+
+
+
+还有记得在所有使用到springsession的服务添加配置，以后所有使用到spring session的操作都如下：
+
+      1.redis的依赖并配置redis，和spring session
+      2.启动类加上允许httpSession，
+      3.application中配置redis的地址和端口
+      3.导入session的配置类
+
+
+
+测试之下，只要用户信息还在redis中，点击登录就能够自动登录
+
+
+
+
+
+
+# 单点登录
+
+## 演示
+p231
+
+不同域名下用户登录信息的共享
+
+尝试使用xxl-oss框架
+
+将端口改成：服务器端8880、8881、8882，
+客户端配置的redis地址改成192.168.74.130
+
+switchhosts准备三个域名，存放这几个服务：
+
+      127.0.0.1 sso-server.com            认证中心
+      127.0.0.1 sso-client1.com           客户端1
+      127.0.0.1 sso-client2.com           客户端2
+
+全部往部署服务的本机上转，而且域名要不一样，人为排除spring session的作用
+
+随后整个xxl-oss打包：
+
+      mvn clean package -Dmaven.skip.test=true
+
+每个服务中都得到一个jar包，运行：
+
+      java -jar [jar包名]
+
+登录认证中心：
+
+      http://oss-server.com:8880/xxl-sso-server/login
+
+客户端：
+
+      http://sso-client1.com:8881/xxl-sso-web-sample-springboot/
+
+      http://sso-client2.com:8882/xxl-sso-token-sample-springboot/
+
+
+
+
+
+## 实现（待实现）
+
+
+接下来要实现的是：
+1.中央服务，即认证中心登陆后，其余客户端也自动登陆
+2.客户端登录时，跳转认证中心登录，随后跳转回客户端，此时客户端和其他的客户端也自动登录
+3.所有服务共享一个session
+
+
+
+
+
+
+
+
+
+# 商城业务：购物车
+
+
+## 环境搭建
+p236
+
+1.创建mall-cart模块，导入spring web、lombok、devtools、thymeleaf、open feign
+引入mall-common
+
+2.引入页面（谷粒商城的源码里面偷）
+静态资源放到 /mydata/nginx/html/static/cart
+
+      mv cart/ /mydata/nginx/html/static/
+
+3.nginx的mall.conf加上cart.katzenyasax-mall.com
+
+4.网关配置上cart.katzenyasax-mall.com
+
+5.加入配置中心（偷的auth模块的application和bootstrap）
+
+6.启动类加上@EnableDiscoveryClient，排除DataSourceAutoConfiguration.class
+因为后面回远程调用，所以加个@EnableFeignClients
+
+写一个viewController测试一下：
+
+      @Configuration
+      public class WebViewController implements WebMvcConfigurer {
+          @Override
+          public void addViewControllers(ViewControllerRegistry registry) {
+              registry.addViewController("/success.html").setViewName("success");
+              registry.addViewController("/cartList.html").setViewName("cartList");
+          }
+      }
+
+测试路径：
+
+      http://cart.katzenyasax-mall.com/success.html
+
+结果是可以查询到
+
+
+
+
+
+## 数据封装
+p237
+
+购物车分为两个：
+一个是未登录状态下的购物车，所有添加的商品应临时存入本地，如果session关闭，数据不会清空
+一个是登录状态下的购物车，此时应当将数据存入服务器中，在登录的时候若此session里面有临时商品，会进行合并，重新添加到登录购物车
+
+除此之外还应该有以下功能：
+
+      1.购物车商品的增删改查
+      2.购物车中多选商品合并结账
+      3.商品优惠、价格的变化等
+
+所以数据封装：
+
+      @Data
+      public class CartItemVo {
+          private String skuId;
+          private Boolean check;              //是否选中
+          private String title;
+          private List<String> skuAttrValues;
+          private BigDecimal price;
+          private String image;
+          private Long count;
+          private BigDecimal totalPrice;
+          private BigDecimal reduce;          //减免
+      }
+
+该类用来表示购物车内单个种类的商品
+另外使用一个购物车类：
+
+      @Data
+      public class Cart {
+          List<CartItemVo> items;
+          private Long countNum;          //商品总数
+          private Long countType;         //商品种类的数量
+          private BigDecimal totalAmount;         //总价格
+          private BigDecimal reduce;
+          /**
+          * 另外禁止在vo内写其他方法，vo应当只是一个纯粹的变量容器
+          */
+      }
+
+
+
+
+
+## 判断登录状态
+p239
+
+逻辑是，登录状态下查看到的是用户的购物车，可以用session读取用户是否登录
+用户未登录的情况下，查看到的应该是临时购物车，此时应当创建一个临时用户，存到cookie中去
+
+所以cart服务也要引入springsession
+
+1.引入依赖
+2.启动类加上@EnableRedisHttpSession
+3.偷一个SessionConfiguration配置类
+
+配置好后，请求路径：
+
+      cart.katzenyasax-mall.com/cart.html
+
+相应的前端页面也要改成这个路径。
+
+1.随后在common中创建一个to，用于封装用户信息：
+
+      @ToString
+      @Data
+      public class UserInfoTo {
+          private Long id;
+          private String userKey;
+      }
+
+若已登录，则userId非空，且为当前用户的id
+若未登录，则userKey为临时用户
+
+2.而在请求发到controller之前，对其进行一个登录的校验，使用拦截器进行校验
+  在cart模块定义interceptor.CartInterceptor
+
+      @Component
+      public class CartInterceptor implements HandlerInterceptor {
+          @Override
+          public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+              //用户信息封装，之后要判断浏览器中是否有用户信息并封装
+              UserInfoTo userInfoTo=new UserInfoTo();
+
+              //先判断session，即是否已经登陆
+              Object thisSession= request.getSession().getAttribute(AuthConstant.USER_LOGIN);
+              if(thisSession!= null){
+                  //若session中有名为loginUser的cookie，表示用户已登录
+                  MemberTo to= JSON.parseObject(JSON.toJSONString(thisSession),MemberTo.class);
+                  userInfoTo.setUserId(to.getId());
+                  System.out.println("session中："+userInfoTo);
+              }else {
+                  //未登录，则判断cookie中是否有名为user-key的cookie，表示是否已存在临时用户，没有则应当创建
+                  if(request.getCookies()!=null && request.getCookies().length>0) {
+                      for (Cookie cookie : request.getCookies()) {
+                          if (cookie.getName().equals(CartConstant.TEMPLE_USER)) {
+                              //有名为user-key的cookie
+                              userInfoTo.setUserKey(cookie.getValue());
+                              System.out.println("cookie中"+userInfoTo);
+                              break;
+                          }
+                      }
+                  }
+                  else {
+                      //cookie里面都没有user-key，就创建一个
+                  }
+              }
+              return true;
+          }
+      }
+
+但是这个userInfoTo同时也是我们想要的，把他也一并注入到controller里，此时用到ThreadLocal技术，允许同一个线程内数据的共享
+核心思想就是，将拦截器标识为一个线程，拦截器通过到controller时，controller指定该线程获取userInfoTo这一数据
+
+3.在拦截器内标识线程：
+
+      /**
+       * 将该拦截器表示为cartThreadLocal
+       */
+      public static ThreadLocal<UserInfoTo> cartThreadLocal=new ThreadLocal<>();
+
+4.同时还要在重写的preHandler方法内加上userInfoTo：
+
+      cartThreadLocal.set(userInfoTo);
+
+5.接口内，获取数据：
+
+      UserInfoTo userInfoTo= CartInterceptor.cartThreadLocal.get();
+
+6.接下来让拦截器工作，光给个@Component是不够的，还要添加到mvc：
+
+      @Configuration
+      public class CartWebConfiguration implements WebMvcConfigurer {
+          @Override
+          public void addInterceptors(InterceptorRegistry registry) {
+              registry
+                .addInterceptor(new CartInterceptor())      //添加cart的拦截器
+                .addPathPatterns("/**")                     //拦截url为/**，即所有url
+                ;
+          }
+      }
+
+
+
+7.整个接口：
+
+      /**
+       * @return
+       *
+       * 根据session判断是否登录，
+       * 未登录则显示临时cart
+       * 登录则显示用户cart
+       * 若登陆时临时cart非空还要将临时cart合并到用户cart
+       */
+      @GetMapping("/cart.html")
+      public String getCart(){
+          UserInfoTo userInfoTo= CartInterceptor.cartThreadLocal.get();
+          System.out.println("controller中："+userInfoTo);
+          //返回的cartList页面
+          //return "success";
+          return "cartList";
+      }
+
+随后重启，测试：
+
+      http://cart.katzenyasax-mall.com/cart.html
+
+结果是，可以打印出userInfoTo，不为空
+
+
+
+
+
+
+
+改造一下，若session和cookie中都无数据时，新建一个临时用户
+则将session和cookie改成并列关系：
+
+      if(thisSession!= null){
+          //若session中有名为loginUser的cookie，表示用户已登录
+          MemberTo to= JSON.parseObject(JSON.toJSONString(thisSession),MemberTo.class);
+          userInfoTo.setUserId(to.getId());
+          System.out.println("session中："+userInfoTo);
+      }
+      //未登录，则判断cookie中是否有名为user-key的cookie，表示是否已存在临时用户，没有则应当创建
+      if(request.getCookies()!=null && request.getCookies().length>0) {
+          for (Cookie cookie : request.getCookies()) {
+              if (cookie.getName().equals(CartConstant.TEMPLE_USER)) {
+                  //有名为user-key的cookie
+                  userInfoTo.setUserKey(cookie.getValue());
+                  System.out.println("cookie中"+userInfoTo);
+                  break;
+              }
+          }
+      }
+
+并且在无cookie时，新增一个临时用户：
+
+      if(userInfoTo.getUserKey()==null){
+          userInfoTo.setUserKey(UUID.randomUUID().toString());
+      }
+
+
+
+随后要让controller执行完后，将该cookie存入浏览器，时间为一个月
+定义一个postHandle过滤器，在controller之后执行：
+
+      @Override
+      public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView)   throws Exception {
+          UserInfoTo userInfoTo = cartThreadLocal.get();
+          Cookie cookie = new Cookie(CartConstant.TEMPLE_USER, userInfoTo.getUserKey());
+          cookie.setDomain("katzenyasax-mall.com");   //作用域
+          cookie.setMaxAge(60*60*24*30);              //过期时间一个月
+          response.addCookie(cookie);
+      }
+
+此时再次测试，里面就有user-key的cookie了
+
+
+
+
+
+
+再测试一下是否为临时用户，to里加一个成员变量：
+
+      @ToString
+      @Data
+      public class UserInfoTo {
+          private Long userId;
+          private String userKey;
+          private Boolean tempUser = false;
+      }
+
+默认为false，在过滤器进行判定到为临时用户时，更改为成员变量：
+
+      userInfoTo.setTempUser(true);
+
+随后修改postHandle方法，只有templeUser为false时，也即是此时本地还未有临时用户时，添加一个cookie：
+
+      @Override
+      public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+          UserInfoTo userInfoTo = cartThreadLocal.get();
+          if(userInfoTo.getTempUser()!=true){
+              //即此时无临时用户
+              Cookie cookie = new Cookie(CartConstant.TEMPLE_USER, userInfoTo.getUserKey());
+              cookie.setDomain("katzenyasax-mall.com");   //作用域
+              cookie.setMaxAge(60 * 60 * 24 * 30);              //过期时间一个月
+              response.addCookie(cookie);
+          }
+          //清空threadLocal，防止内存泄露
+          cartThreadLocal.remove();
+      }
+
+此时就不会造成每次访问临时cart都会给临时用户续期了
+
+
+
+
+
+
+
+
+## 添加商品到购物车
+p241
+
+查看购物车暂时还不可用，先来整添加商品
+url：
+
+      http://cart.katzenyasax-mall.com/addCartItem?skuId=71&num=1
+
+1.首先明确，用户登录与未登录的标识符，登录的用户在Katzenyasax-mall::cart::后面就接上其id，例如：
+
+      Katzenyasax-mall::cart::1
+
+未登录的用户就在后面接上userKey，例如：
+
+      Katzenyasax-mall::cart::
+
+这俩就作为redis-key吧
+
+2.方法中需要用到product的表，所以远程调用product模块，定义一个feign：
+
+      @FeignClient("mall-product")
+      public interface ProductFeign {
+          @RequestMapping("product/skuinfo/info/{skuId}")
+          public R info(@PathVariable("skuId") Long skuId);
+      }
+
+cart的启动类加上：
+
+      @EnableFeignClients(basepackges = "com.katzenyasax.mall.cart.feign")
+
+因为product模块的controller里有现成的方法，所以直接用就行了
+但是获取sku的attr，也需要一个feign内方法：
+
+      @GetMapping("product/skusaleattrvalue/skuAttrs/{skuId}")
+      List<String> getSkuAttrs(@PathVariable("skuId") Long skuId);
+
+3.其中product内接口：
+
+      /**
+       * 
+       * 
+       * @param skuId
+       * @return
+       * 
+       * 被cart模块远程调用的方法
+       * 根据skuId获取所有的attrs
+       * 
+       */
+      @GetMapping("/skuAttrs")
+      public List<String> getSkuAttrs(@RequestParam long skuId){
+          return skuSaleAttrValueService.getSkuAttrs(skuId);
+      }
+
+4.方法getSkuAttrs：
+
+      /**
+      *
+      * @param skuId
+      * @return
+      *
+      * 根据skuId获取sku的销售属性attrs
+      */
+      @Override
+      public List<String> getSkuAttrs(long skuId) {
+          return baseMapper.selectList(
+                  new QueryWrapper<SkuSaleAttrValueEntity>()
+                          .eq("sku_id",skuId))
+                  .stream()
+                  .map(thisEntity-> 
+                          thisEntity.getAttrName()+":"+thisEntity.getAttrValue()
+                  ).collect(Collectors.toList()
+                  );
+      }
+
+将skuId对应的attrName和attrValue进行拼接返回
+
+
+
+
+5.除了远程调用product外，还需要根据redis-key为key获取数据，并且使用hash存储
+
+
+
+6.使用异步的方式执行，所以将product里面ThisThreadPool和ThisThreadPoolConfiguration复制到cart模块中
+并且在application中配置：
+
+      mall:
+        thread:
+          core-size:  20
+          max-size: 200
+          keep-alive-time:  10
+
+并且将ThisThreadPool配置到方法中：
+
+      @Autowired
+      ThisThreadPool threadPool;
+
+7.接口：
+
+      /**
+       *
+       * @return
+       *
+       * 根据vo提供的信息添加商品
+       */
+      @GetMapping("/addCartItem")
+      public String addCart(@RequestParam Long skuId,@RequestParam Long num, HttpSession session, HttpServletRequest request, Model model){
+          Object thisSession = session.getAttribute(AuthConstant.USER_LOGIN);
+          System.out.println(thisSession);
+          String thisKey;
+          if (thisSession!=null){
+              thisKey=JSON.parseObject(JSON.toJSONString(thisSession), MemberTO.class).getId().toString();
+          }else {
+              thisKey = Arrays.stream(request.getCookies()).filter(
+                              thisCookie -> thisCookie.getName().equals(CartConstant.TEMPLE_USER)
+                      ).collect(Collectors.toList()).get(0)
+                      .getValue();
+          }
+          CartItemVO thisItem=cartService.addCartItem(skuId,num,thisKey);
+          model.addAttribute("cartItem",thisItem);
+          return "success";
+      }
+
+方法addCartItem：
+
+      /**
+       *
+       * @param thisKey
+       * @return
+       *
+       * 添加商品到cart
+       * cart在redis的名称为：
+       *
+       *          katzenyasax-mall::cart::<thisKey>
+       *
+       *  需要用到redis
+       *
+       * 不过存到CartItemVO中，需要用到sku表中的数据，所以还需要远程调用product模块
+       * 不仅要获取sku的实体类，还要根据skuId获取attrs
+       * 之后还需要
+       *
+       */
+      @Override
+      public CartItemVO addCartItem(Long skuId,Long num, String thisKey) {
+          //1.获取商品信息
+          R info = productFeign.info(skuId);
+          SkuInfoTO skuInfo = JSON.parseObject(
+                  JSON.toJSONString(
+                          info.get("skuInfo")
+                  ), SkuInfoTO.class
+          );
+
+          //2.封装CartItemVo
+          CartItemVO item=new CartItemVO();
+          item.setSkuId(skuId.toString());
+          item.setCheck(false);   //默认false，未选中
+          item.setTitle(skuInfo.getSkuTitle());
+          item.setImage(skuInfo.getSkuDefaultImg());
+          item.setSkuAttr(productFeign.getSkuAttrs(skuId));
+
+          item.setPrice(skuInfo.getPrice());
+          item.setCount(num);
+          item.setTotalPrice(
+                  skuInfo.getPrice()
+                          .multiply(BigDecimal
+                                  .valueOf(num)
+                          )
+          );
+          //todo 远程调用coupon模块获取减免
+          item.setReduce(BigDecimal.ZERO);
+          System.out.println(JSON.toJSONString(item));
+
+          //3.从redis中获取数据
+          String redis_key=CartConstant.CART_USER_PREFIX+thisKey;
+          BoundHashOperations<String,Object,Object> ops = redisTemplate.boundHashOps(redis_key);
+
+          //4.增加商品数量存入，或直接存入
+          if(ops.get(skuId.toString())!=null) {
+              CartItemVO oldItem = JSON.parseObject(
+                      ops.get(skuId.toString()).toString()        //redis中存的就是json了，不需要再json化，只需要toString就行了
+                      ,CartItemVO.class
+              );
+              //新的item
+              CartItemVO newItem=oldItem;
+              newItem.setCount(oldItem.getCount()+num);
+              newItem.setTotalPrice(
+                      newItem.getPrice().multiply(
+                              BigDecimal.valueOf(newItem.getCount())
+                      )
+              );
+              ops.put(skuId.toString(),JSON.toJSONString(newItem));
+              return newItem;
+          }else {
+              //直接存item
+              ops.put(skuId.toString(), JSON.toJSONString(item));
+              return item;
+          }
+      }
+
+
+测试一下，不管是登录状态还是非登录状态，都可以正常添加。
+并且在添加成功页面也可以看到目前购物车中该商品的数量
+
+
+
+## 添加购物车后重定向问题
+p243
+
+现在的问题是，在添加成功页面刷新时，相当于再次向服务器发送了addCartItem请求
+解决方案是，请求结束后重定向到另一个展示页面，该展示页面对应的接口会接收重定向时发送的skuId，再在redis中查询一下，从而获取item，进行展示
+
+接口后部分改造为：
+
+      redirectAttributes.addAttribute("skuId",skuId);
+      return "redirect:http://cart.katzenyasax-mall.com/addCartItemSuccess";
+
+注意把Model改成RedirectAttributes
+重定向的接口：
+
+      /**
+       *
+       *
+       * @param skuId
+       * @param model
+       * @return
+       *
+       * 重定向的方法，重定向到专门的展示页面
+       *
+       */
+      @RequestMapping("/addCartItemSuccess")
+      public String addCartItemSuccess(@RequestParam("skuId") Long skuId,Model model){
+          UserInfoTO userInfoTo= CartInterceptor.cartThreadLocal.get();
+          CartItemVO item=new CartItemVO();
+          if(userInfoTo.getUserId()!=null) {
+              item=cartService.getCartItem(skuId,userInfoTo.getUserId().toString());
+          } else {
+              item=cartService.getCartItem(skuId,userInfoTo.getUserKey());
+          }
+
+          model.addAttribute("cartItem",item);
+          return "success";
+      }
+
+方法getCartItem：
+
+      /**
+       *
+       * @param skuId
+       * @param thisKey
+       * @return
+       *
+       * 重定向的页面，从redis中查询该商品
+       */
+      @Override
+      public CartItemVO getCartItem(Long skuId,String thisKey) {
+          //从redis中获取数据
+          String redis_key=CartConstant.CART_USER_PREFIX+thisKey;
+          BoundHashOperations<String,Object,Object> ops = redisTemplate.boundHashOps(redis_key);
+          if(ops.get(skuId.toString())!=null){
+              CartItemVO item = JSON.parseObject(
+                      ops.get(skuId.toString()).toString()        //redis中存的就是json了，不需要再json化，只需要toString就行了
+                      ,CartItemVO.class
+              );
+              return item;
+          }
+          return null;
+      }
+
+
+
+
+
+
+
+## 显示购物车
+p244
+
+url：
+
+      http://cart.katzenyasax-mall.com/cart.html
+
+其中用户信息已经通过过滤器自动获取
+接口：
+
+      /**
+      * @return
+      *
+      * 根据session判断是否登录，
+      * 未登录则显示临时cart
+      * 登录则显示用户cart
+      * 若登陆时临时cart非空还要将临时cart合并到用户cart
+      */
+      @GetMapping("/cart.html")
+      public String getCart(Model model){
+          UserInfoTO userInfoTo= CartInterceptor.cartThreadLocal.get();
+          System.out.println("controller中："+userInfoTo);
+          //返回的cartList页面
+          //return "success";
+          Cart thisCart=new Cart();
+          if(userInfoTo.getUserId()!=null) {
+              thisCart = cartService.getCart(userInfoTo.getUserId().toString());
+          } else {
+              thisCart = cartService.getCart(userInfoTo.getUserKey());
+          }
+
+          model.addAttribute("cart",thisCart);
+          return "cartList";
+      }
+
+方法：
+
+      /**
+       *
+       * @return
+       *
+       * 获取temple cart
+       * 同样从redis获取
+       *
+       */
+      @Override
+      public Cart getCart(String thisKey) {
+          Cart cart=new Cart();
+          cart.setItems(new ArrayList<>());
+          cart.setCountType(0l);
+          cart.setCountNum(0l);
+          cart.setTotalAmount(BigDecimal.ZERO);
+          cart.setReduce(BigDecimal.ZERO);
+
+          //获取数据key的集合
+          String redis_key=CartConstant.CART_USER_PREFIX+thisKey;
+          BoundHashOperations<String,Object,Object> ops = redisTemplate.boundHashOps(redis_key);
+
+          //遍历集合
+          Set<Object> keys = ops.keys();
+          keys.forEach(key->{
+              CartItemVO item = JSON.parseObject(
+                      ops.get(key).toString()
+                      , CartItemVO.class
+              );
+              cart.getItems().add(item);
+              cart.setCountType(cart.getCountType()+1);
+              cart.setCountNum(cart.getCountNum()+ item.getCount());
+              cart.setTotalAmount(cart.getTotalAmount()
+                      .add(item.getTotalPrice())
+              );
+          });
+
+          System.out.println("getTempleCart: "+cart);
+          return cart;
+      }
+
+结果是可以查询到
+
+
+
+
+
+## 购物车合并问题
+p244
+
+登录后，若检测到临时购物车有商品，应当自动合并到当前登录用户的购物车内，就拿getCart方法开刀
+若判定到用户登录，不管用户cart有无存入redis，都要读临时cart并存入redis
+
+      String thisKey= userInfoTO.getUserKey();;
+      if(userInfoTO.getUserId()!=null){
+          //用户已登录
+          //就行了在另一个方法中合并临时cart到用户cart
+          this.writeInUserCart(userInfoTO);
+          thisKey=userInfoTO.getUserId().toString();
+      }
+
+在获取cart之前，判断是否登录，若登录则执行方法writeInUserCart：
+
+      /**
+       *
+       * @param userInfoTO
+       *
+       * 将临时cart的数据写入用户cart中
+       */
+      private void writeInUserCart(UserInfoTO userInfoTO) {
+          //分别获取临时和用户cart的操作柄
+          String keyUser=CartConstant.CART_USER_PREFIX+userInfoTO.getUserId();
+          BoundHashOperations<String,Object,Object> opsUser = redisTemplate.boundHashOps(keyUser);
+          String keyTemple=CartConstant.CART_USER_PREFIX+userInfoTO.getUserKey();
+          BoundHashOperations<String,Object,Object> opsTemple = redisTemplate.boundHashOps(keyTemple);
+          //遍历临时cart中的数据，写入用户cart并删除临时cart的数据
+          Set<Object> templeKeys = opsTemple.keys();
+          if(templeKeys.size()>0){
+              templeKeys.forEach(key->{
+                  CartItemVO item = JSON.parseObject(
+                          opsTemple.get(key).toString()
+                          , CartItemVO.class
+                  );
+                  this.addCartItem(Long.parseLong(
+                          item.getSkuId())
+                          ,item.getCount()
+                          ,userInfoTO.getUserId().toString()
+                  );
+                  //删除临时cart中的数据
+                  opsTemple.delete(key);
+              });
+          }
+      }
+
+测试，删除redis中所有cart
+先未登录状态下添加商品，登录后再查看购物车：
+结果是可以
 
 
 

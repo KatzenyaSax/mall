@@ -59,10 +59,9 @@
             </ul>
             `
             <ul class="header_ul_right">
-                <li style="border: 0;">
-                    <a th:if="${session.loginUser == null}" href="http://auth.katzenyasax-mall.com/login.html"
-                       class="aa">你好，请登录</a>
-                    <a th:if="${session.loginUser != null}">欢迎, [[${session.loginUser.nickname}]]</a>
+                <li>
+                    <a th:if="${session.loginUser == null}" href="http://auth.katzenyasax-mall.com/login.html">你好，请登录</a>
+                    <a th:if="${session.loginUser != null}">[[${session.loginUser.nickname}]]</a>
                 </li>
                 <li>
                     <a th:if="${session.loginUser == null}" href="http://auth.katzenyasax-mall.com/reg.html"

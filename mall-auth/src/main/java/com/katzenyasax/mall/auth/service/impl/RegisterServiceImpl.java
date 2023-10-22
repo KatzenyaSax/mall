@@ -1,6 +1,6 @@
 package com.katzenyasax.mall.auth.service.impl;
 
-import com.katzenyasax.common.to.UserRegisterTo;
+import com.katzenyasax.common.to.UserRegisterTO;
 import com.katzenyasax.common.utils.R;
 import com.katzenyasax.mall.auth.config.SendCodeConfigurationProperties;
 import com.katzenyasax.mall.auth.feign.MemberFeign;
@@ -37,7 +37,7 @@ public class RegisterServiceImpl implements RegisterService {
      */
     @Override
     public R Register(UserRegisterVo vo) {
-        UserRegisterTo to=new UserRegisterTo();
+        UserRegisterTO to=new UserRegisterTO();
         //复制to
         BeanUtils.copyProperties(vo,to);
         R r = memberFeign.register(to);

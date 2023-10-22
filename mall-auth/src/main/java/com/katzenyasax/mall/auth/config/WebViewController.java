@@ -9,7 +9,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebViewController implements WebMvcConfigurer {
     @Override
     public void addViewControllers(ViewControllerRegistry registry){
-        registry.addViewController("/login.html").setViewName("login");
+
+        /**
+         * 淘汰了，目前login.html被作为接口了
+         */
+        //registry.addViewController("/login.html").setViewName("login");
         registry.addViewController("/reg.html").setViewName("reg");
     }
 }

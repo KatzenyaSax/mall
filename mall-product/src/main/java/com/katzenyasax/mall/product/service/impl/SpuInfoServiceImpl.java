@@ -477,6 +477,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
      */
     @Override
     public SkuItemVo getSkuItem(String skuId) {
+        System.out.println("SpuInfoService: getSkuItem");
         //结果封装
         SkuItemVo finale=new SkuItemVo();
 

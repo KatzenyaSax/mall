@@ -1,15 +1,12 @@
 package com.katzenyasax.mall.product.controller;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.katzenyasax.mall.product.entity.SkuSaleAttrValueEntity;
 import com.katzenyasax.mall.product.service.SkuSaleAttrValueService;
@@ -30,6 +27,34 @@ import com.katzenyasax.common.utils.R;
 public class SkuSaleAttrValueController {
     @Autowired
     private SkuSaleAttrValueService skuSaleAttrValueService;
+
+
+    /**
+     *
+     *
+     * @param skuId
+     * @return
+     *
+     * 被cart模块远程调用的方法
+     * 根据skuId获取所有的attrs
+     *
+     */
+    @GetMapping("/skuAttrs/{skuId}")
+    public List<String> getSkuAttrs(@PathVariable("skuId") Long skuId){
+        return skuSaleAttrValueService.getSkuAttrs(skuId);
+    }
+
+
+
+
+
+
+
+
+
+    //===========================================
+
+
 
     /**
      * 列表

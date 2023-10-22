@@ -1,8 +1,8 @@
 package com.katzenyasax.mall.member.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.katzenyasax.common.to.UserLoginTo;
-import com.katzenyasax.common.to.UserRegisterTo;
+import com.katzenyasax.common.to.UserLoginTO;
+import com.katzenyasax.common.to.UserRegisterTO;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.common.utils.R;
 import com.katzenyasax.mall.member.entity.MemberEntity;
@@ -20,8 +20,8 @@ public interface MemberService extends IService<MemberEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
 
-    R register(UserRegisterTo to);
+    R register(UserRegisterTO to);
 
-    R login(UserLoginTo to);
+    R login(UserLoginTO to);
 }
 

@@ -21,7 +21,9 @@ spring:
 
 server:
   port: 10400
-
+  servlet:
+    session:
+      timeout: 0
 
 
 

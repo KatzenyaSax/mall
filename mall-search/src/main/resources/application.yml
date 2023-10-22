@@ -12,7 +12,10 @@ spring:
     name: mall-search
   thymeleaf:
     cache: false
-
+  data:
+    redis:
+      host: 192.168.74.130
+      port: 6379
 
 
 server:

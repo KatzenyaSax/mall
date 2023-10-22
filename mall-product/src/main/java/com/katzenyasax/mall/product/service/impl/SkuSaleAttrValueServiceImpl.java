@@ -1,7 +1,11 @@
 package com.katzenyasax.mall.product.service.impl;
 
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -24,6 +28,28 @@ public class SkuSaleAttrValueServiceImpl extends ServiceImpl<SkuSaleAttrValueDao
         );
 
         return new PageUtils(page);
+    }
+
+
+
+    /**
+     *
+     * @param skuId
+     * @return
+     *
+     * 根据skuId获取sku的销售属性attrs
+     */
+    @Override
+    public List<String> getSkuAttrs(long skuId) {
+        return baseMapper.selectList(
+                new QueryWrapper<SkuSaleAttrValueEntity>()
+                        .eq("sku_id",skuId)
+                )
+                .stream()
+                .map(thisEntity->
+                        thisEntity.getAttrName()+":"+thisEntity.getAttrValue()
+                    ).collect(Collectors.toList()
+                );
     }
 
 }

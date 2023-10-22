@@ -83,6 +83,10 @@ spring:
           predicates:
             - Host=**.auth.katzenyasax-mall.com
 
+        - id: cart-route
+          uri: lb://mall-cart
+          predicates:
+            - Host=**.cart.katzenyasax-mall.com
 
         - id: host-route
           uri: lb://mall-product

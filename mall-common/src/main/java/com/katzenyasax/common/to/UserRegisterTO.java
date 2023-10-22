@@ -7,7 +7,7 @@ import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.Pattern;
 
 @Data
-public class UserRegisterTo {
+public class UserRegisterTO {
     @NotEmpty(message = "未提交用户名！")
     @Length(min = 6,max = 18,message = "用户名必须是6-18位的字符")
     private String userName;

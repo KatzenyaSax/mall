@@ -1,4 +1,4 @@
-package com.katzenyasax.mall.auth;
+package com.katzenyasax.mall.cart.config;
 
 
 import org.springframework.context.annotation.Bean;
@@ -24,6 +24,7 @@ public class SessionConfiguration {
         DefaultCookieSerializer cookieSerializer=new DefaultCookieSerializer();
         cookieSerializer.setDomainName("katzenyasax-mall.com");     //设置作用域为父域
         //cookieSerializer.setCookieName("katzenyasax-mall::session");        //session的名字
+
         return cookieSerializer;
     }
 

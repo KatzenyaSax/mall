@@ -4,8 +4,8 @@ import cn.hutool.core.date.DateTime;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.katzenyasax.common.to.UserLoginTo;
-import com.katzenyasax.common.to.UserRegisterTo;
+import com.katzenyasax.common.to.UserLoginTO;
+import com.katzenyasax.common.to.UserRegisterTO;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.common.utils.Query;
 import com.katzenyasax.common.utils.R;
@@ -43,7 +43,7 @@ public class MemberServiceImpl extends ServiceImpl<MemberDao, MemberEntity> impl
      *
      */
     @Override
-    public R register(UserRegisterTo to) {
+    public R register(UserRegisterTO to) {
 
         //在此之前判断数据库中是否已有重复的手机号、用户名
         //手机号和用户名作为唯一标识（后续可更新）
@@ -87,7 +87,7 @@ public class MemberServiceImpl extends ServiceImpl<MemberDao, MemberEntity> impl
      * 用户登录
      */
     @Override
-    public R login(UserLoginTo to) {
+    public R login(UserLoginTO to) {
         //输入的账号有可能是用户名，也有可能是手机号，所以要同时查
         List<MemberEntity> members=baseMapper.selectList(
                 new QueryWrapper<MemberEntity>()

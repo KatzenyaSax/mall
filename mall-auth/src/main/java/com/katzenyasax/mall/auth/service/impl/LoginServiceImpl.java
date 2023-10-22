@@ -1,6 +1,6 @@
 package com.katzenyasax.mall.auth.service.impl;
 
-import com.katzenyasax.common.to.UserLoginTo;
+import com.katzenyasax.common.to.UserLoginTO;
 import com.katzenyasax.common.utils.R;
 import com.katzenyasax.mall.auth.feign.MemberFeign;
 import com.katzenyasax.mall.auth.service.LoginService;
@@ -25,7 +25,7 @@ public class LoginServiceImpl implements LoginService {
      *
      */
     @Override
-    public R login(UserLoginTo to) {
+    public R login(UserLoginTO to) {
         R r=memberFeign.login(to);
         System.out.println("LoginService Login: "+r);
         return r;

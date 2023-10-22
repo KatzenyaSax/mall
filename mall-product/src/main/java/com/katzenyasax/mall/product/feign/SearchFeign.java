@@ -23,4 +23,5 @@ public interface SearchFeign {
      */
     @RequestMapping("/search/es/up")
     R SkuUp(@RequestBody List<SkuEsModel> skuEsModels);
+
 }
