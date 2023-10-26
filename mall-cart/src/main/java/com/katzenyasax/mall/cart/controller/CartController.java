@@ -107,7 +107,72 @@ public class CartController {
     }
 
 
+    /**
+     *
+     * @param skuId
+     * @param checked
+     * @return
+     *
+     * 选中商品/不选商品
+     */
+    @RequestMapping("/checkItem")
+    public String checkItem(@RequestParam("skuId") Long skuId,@RequestParam("checked") Long checked){
+        UserInfoTO userInfoTo= CartInterceptor.cartThreadLocal.get();
+        String thisKey;
+        if(userInfoTo.getUserId()!=null){
+            thisKey=userInfoTo.getUserId().toString();
+        } else{
+            thisKey=userInfoTo.getUserKey();
+        }
+        cartService.check(skuId,thisKey,checked>0);
+        //重定向到cart界面
+        return "redirect:http://cart.katzenyasax-mall.com/cart.html";
+    }
 
+    /**
+     *
+     * @param skuId
+     * @param num
+     * @return
+     *
+     * 选中商品/不选商品
+     */
+    @RequestMapping("/countItem")
+    public String countItem(@RequestParam("skuId") Long skuId,@RequestParam("num") Long num){
+        UserInfoTO userInfoTo= CartInterceptor.cartThreadLocal.get();
+        String thisKey;
+        if(userInfoTo.getUserId()!=null){
+            thisKey=userInfoTo.getUserId().toString();
+        } else{
+            thisKey=userInfoTo.getUserKey();
+        }
+        cartService.count(skuId,thisKey,num);
+        //重定向到cart界面
+        return "redirect:http://cart.katzenyasax-mall.com/cart.html";
+    }
+
+
+
+    /**
+     *
+     * @param skuId
+     * @return
+     *
+     * 选中商品/不选商品
+     */
+    @RequestMapping("/deleteItem")
+    public String deleteItem(@RequestParam("skuId") Long skuId){
+        UserInfoTO userInfoTo= CartInterceptor.cartThreadLocal.get();
+        String thisKey;
+        if(userInfoTo.getUserId()!=null){
+            thisKey=userInfoTo.getUserId().toString();
+        } else{
+            thisKey=userInfoTo.getUserKey();
+        }
+        cartService.deleteCartItem(skuId,thisKey);
+        //重定向到cart界面
+        return "redirect:http://cart.katzenyasax-mall.com/cart.html";
+    }
 
 
 }

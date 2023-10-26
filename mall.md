@@ -93,7 +93,7 @@ I.安装
     
             2.运行docker：
 
-                    systemctl c;
+                    systemctl start docker;
 
             3.查看docker状态（注意该窗口会阻塞）：
 
@@ -125,7 +125,7 @@ II.配置docker阿里云镜像下载地址
                     EOF
                     sudo systemctl daemon-reload
 
-链接： https://developer.aliyun.com/article/1245481?spm=a2c6h.14164896.0.0.1a9a47c5JPNQiV&scm=20140722.S_community@@%E6%96%87%E7%AB%A0@@1245481._.ID_1245481-RL_docker%E9%98%BF%E9%87%8C%E4%BA%91%E9%95%9C%E5%83%8F-LOC_search~UND~community~UND~item-OR_ser-V_3-P0_1mysql
+[参考链接](https://developer.aliyun.com/article/1245481?spm=a2c6h.14164896.0.0.1a9a47c5JPNQiV&scm=20140722.S_community@@%E6%96%87%E7%AB%A0@@1245481._.ID_1245481-RL_docker%E9%98%BF%E9%87%8C%E4%BA%91%E9%95%9C%E5%83%8F-LOC_search~UND~community~UND~item-OR_ser-V_3-)
 
                     
 
@@ -14681,6 +14681,779 @@ p244
 
 
 
+
+## 选中商品
+p245
+
+也即是改变CartItemVO的check
+请求路径：
+
+      http://cart.katzenyasax-mall.com/checkItem?skuId=2&checked=1
+
+checked=1表示选中，checked=0表示不选
+接口：
+
+      /**
+      * 
+      * @param skuId
+      * @param checked
+      * @return
+      * 
+      * 选中商品/不选商品
+      */
+      @RequestMapping("/checkItem")
+      public String checkItem(@RequestParam("skuId") Long skuId,@RequestParam("checked") Long checked){
+          UserInfoTO userInfoTo= CartInterceptor.cartThreadLocal.get();
+          String thisKey;
+          if(userInfoTo.getUserId()!=null){
+              thisKey=userInfoTo.getUserId().toString();
+          } else{
+              thisKey=userInfoTo.getUserKey();
+          }
+          cartService.check(skuId,thisKey,checked>0);
+          //重定向到cart界面
+          return "redirect:http://cart.katzenyasax-mall.com/cart.html";
+      }
+
+最后重定向回cart界面
+方法：
+
+      /**
+       *
+       * @param skuId
+       * @param thisKey
+       * @param check
+       *
+       * 选中商品
+       * 修改cart中对应skuId的cartItemVO的check属性
+       *
+       * 需要从redis中查询数据
+       */
+      @Override
+      public void check(Long skuId, String thisKey, boolean check) {
+          CartItemVO thisItem=this.getCartItem(skuId,thisKey);
+          thisItem.setCheck(check);
+          BoundHashOperations ops = redisTemplate.boundHashOps(CartConstant.CART_USER_PREFIX + thisKey);
+          ops.delete(skuId.toString());
+          ops.put(skuId.toString(),JSON.toJSONString(thisItem));
+      }
+
+结果是可以选中与不选
+
+
+
+
+
+
+
+
+## 修改商品数量
+p246
+
+请求路径：
+
+      http://cart.katzenyasax-mall.com/countItem?skuId=6&num=7
+
+接口：
+
+      /**
+       *
+       * @param skuId
+       * @param num
+       * @return
+       *
+       * 选中商品/不选商品
+       */
+      @RequestMapping("/countItem")
+      public String countItem(@RequestParam("skuId") Long skuId,@RequestParam("num") Long num){
+          UserInfoTO userInfoTo= CartInterceptor.cartThreadLocal.get();
+          String thisKey;
+          if(userInfoTo.getUserId()!=null){
+              thisKey=userInfoTo.getUserId().toString();
+          } else{
+              thisKey=userInfoTo.getUserKey();
+          }
+          cartService.count(skuId,thisKey,num);
+          //重定向到cart界面
+          return "redirect:http://cart.katzenyasax-mall.com/cart.html";
+      }
+
+方法count：
+
+      /**
+       *
+       * @param skuId
+       * @param thisKey
+       * @param num
+       *
+       * 修改商品数量
+       */
+      @Override
+      public void count(Long skuId, String thisKey, Long num) {
+          CartItemVO thisItem=this.getCartItem(skuId,thisKey);
+          thisItem.setCount(num);
+          thisItem.setTotalPrice(thisItem.getPrice().multiply(BigDecimal.valueOf(num)));
+          BoundHashOperations ops = redisTemplate.boundHashOps(CartConstant.CART_USER_PREFIX + thisKey);
+          ops.delete(skuId.toString());
+          ops.put(skuId.toString(),JSON.toJSONString(thisItem));
+      }
+
+
+
+
+
+
+
+
+
+## 删除商品
+p247
+
+请求路径：
+
+      http://cart.katzenyasax-mall.com/deleteItem?skuId=6
+
+接口：
+
+      /**
+       *
+       * @param skuId
+       * @return
+       *
+       * 选中商品/不选商品
+       */
+      @RequestMapping("/deleteItem")
+      public String deleteItem(@RequestParam("skuId") Long skuId){
+          UserInfoTO userInfoTo= CartInterceptor.cartThreadLocal.get();
+          String thisKey;
+          if(userInfoTo.getUserId()!=null){
+              thisKey=userInfoTo.getUserId().toString();
+          } else{
+              thisKey=userInfoTo.getUserKey();
+          }
+          cartService.deleteCartItem(skuId,thisKey);
+          //重定向到cart界面
+          return "redirect:http://cart.katzenyasax-mall.com/cart.html";
+      }
+
+方法deleteCartItem：
+
+      /**
+       *
+       * @param skuId
+       * @param thisKey
+       *
+       * 从cart中删除对应skuId的商品
+       */
+      public void deleteCartItem(Long skuId,String thisKey){
+          BoundHashOperations ops = redisTemplate.boundHashOps(CartConstant.CART_USER_PREFIX + thisKey);
+          ops.delete(skuId.toString);
+      }
+
+
+
+
+
+
+
+
+
+# 商城业务：消息队列
+
+
+## RabbitMQ
+p248
+
+可以在保证最终一致性的前提下，处理高并发请求，也就是将高并发的请求处理成一条有序队列，服务接口回按照顺序依次执行
+
+工作流程：
+
+      1.生产者（Publisher）生产消息，通过一条长连接将消息送到消息代理（Broker）
+
+      2.消息由消息头和消息体组成，其中消息体中包含了一个路由键（route-key），决定着该消息会进入哪一个队列
+
+      3.消息代理先接收消息，再将将消息送到交换机
+
+      4.交换机通过消息的消息头包含的key-route，将消息送入对应的队列
+
+      5.消费者（Consumer）通过一条长连接与消息代理连接
+
+      6.消费者中的不同服务通过不同的信道，监听并接收不同队列的消息
+
+
+
+
+<!--                                    ==============Broker================
+*     =========        message          |                                  |
+*     Productor   =======================> Reciver                         |
+*     =========     long connection     |     |                            |
+*                                       |     |==>  ExchangerI             |              
+*                                       |     |         |                  |            ====Comsumer====
+*                                       |     |         |                  | channel    |              |
+*                                       |     |         |==>  queueI   ==================> serviceI    |              
+*                                       |     |         |                  |            |              |
+*                                       |     |         |==>  queueII  ==================> serviceII   |                
+*                                       |     |         |                  |            |              |
+*                                       |     |         |==>  queueIII ==================> serviceIII  |                
+*                                       |     |         |                  |            |              |
+*                                       |     |         ······                          ================
+*                                       |     |                            |
+*                                       |     |                            |
+*                                       |     |==>  ExchangerII            |
+*                                       |               |                  |
+*                                       |               |=>   queueI    ······
+*                                       |               |                  |
+*                                       |             ······               |
+*                                       |                                  |              
+*                                       ====================================
+*
+-->
+
+
+
+
+
+
+## docker安装
+p251
+
+启动rabbitmq:management
+
+      docker run -d --name rabbitmq -p 5671:5671 -p 5672:5672 -p 4369:4369 -p 25672:25672 -p 15671:15671 -p 15672:15672 rabbitmq:management
+
+会自动联网安装
+记得开启自启动
+
+      docker update $(docker ps -a -q) --restart=always
+
+访问：
+
+      http://192.168.74.130:15672/
+
+可进入到rabbitmq的管理页面，默认用户名和密码都是guest
+
+
+
+
+
+## 交换机Exchanger
+p251
+
+四种交换机：
+
+      1.director：点对点模式，使用route-key绑定队列，并且route-key精确匹配
+
+      2.headers：点对点模式，属于JMS的一种，已淘汰
+
+      3.fanout：广播模式，交换机中所有队列都会收到
+
+      4.topic：发布订阅模式，同样是通过route-key匹配，但是允许使用通配符部分匹配，匹配到的队列即是订阅了生产者的队列
+
+
+director和fanout没什么好说的，topic需要注意，该种交换机绑定队列时同样需要声明route-key，例如：
+
+      #.aaa       （队列1）
+      bbb.#       （队列2）
+      #.ccc.bbb   （队列3）
+
+其中通配符#表示该处可以是任何字符，但是必须要有，而且只能有一个（有几个取决于有几个.）
+
+
+
+
+
+
+
+
+## SpringBoot整合RabbitMQ
+p255
+
+
+拿order模块下刀，
+
+1.引入依赖：
+
+      <!-- rabbitMQ整合依赖 -->
+      <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-amqp -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-amqp</artifactId>
+       </dependency>
+
+只要引入依赖后，RabbitAutoConfiguration会自动生效
+
+2.application中配置ip、端口和虚拟主机：
+
+      spring:
+          rabbitmq:
+            addresses: 192.168.74.130
+            port: 5672
+            virtual-host: /
+
+3.启动类中加注解，开启rabbit功能：
+
+      @EnableRabbit
+
+整合完毕
+
+
+
+
+## 声明mq组件
+p256
+
+基于AmqpAdmin进行：
+
+      @Autowired
+      AmqpAdmin amqpAdmin;
+
+测试方法：
+
+      @Test
+      void rabbitTest01(){
+          DirectExchange directExchange=new DirectExchange(
+                  "spring.test01.directExchange"      //名称
+                  ,true                       //是否持久化
+                  ,false          //是否自动删除
+          );
+          amqpAdmin.declareExchange(directExchange);
+      }
+
+先创建一个交换机，名称为spring.test01.directExchange，持久化且不自动删除
+amqpAdmin的declareXXX方法，用于声明、也即是创建
+
+测试一下，确实出现了名为spring.test01.directExchange的交换机
+
+
+
+
+声明一个队列：
+
+      @Test
+      void createQueue(){
+          Queue queue=new Queue(
+                  "spring.test01.queue01"
+                  ,true                       //持久化
+                  ,false              //排他性
+                  ,false          //自动删除
+          );
+          //声明一个队列
+          amqpAdmin.declareQueue(queue);
+      }
+
+
+确实有了一个
+
+
+
+
+声明一个绑定关系：
+
+      @Test
+      void createBinding(){
+          Binding binding=new Binding(
+                  /**
+                   * String destination,          目的地
+                   * DestinationType destinationType,     目的地类型
+                   * String exchange,         交换机
+                   * String routingKey,       路由键
+                   * @Nullable Map<String, Object> arguments          自定义参数
+                   */
+
+                  "spring.test01.queue01"
+                  , Binding.DestinationType.QUEUE
+                  ,"spring.test01.directExchange"
+                  ,"testRK"
+                  ,null
+          );
+          //声明一个绑定关系
+          amqpAdmin.declareBinding(binding);
+      }
+
+确实有了一个绑定关系
+
+注意目的地和目的地类型就是非交换机那一方，或是其中一个交换机，因为第三个参数表示绑定的另一方是交换机，而一个绑定必须要有一个交换机
+
+
+
+
+
+## 发送消息
+p256
+
+发送一条消息：
+
+      @Test
+      void rabbitMessageSending(){
+          //创建并发送消息
+          rabbitTemplate.convertAndSend(
+                  "spring.test01.directExchange"
+                  ,"testRK"
+                  ,"ttttest");
+      }   
+
+参数先后是：交换机、路由键、消息
+
+运行之后确实有了一个
+注意消息是object类，用其他bean都可以，但是对象想要发送，必须实现一个序列化接口
+例如要发送一个OrderEntity类对象，该类就必须实现：
+
+      public class OrderEntity implements Serializable {}
+
+实现一个Serializable接口，才能通过默认序列化输出
+
+比如直接发送一个OrderEntity对象：
+
+      @Test
+      void rabbitMessageSending(){
+          OrderEntity message=new OrderEntity();
+          message.setMemberId(1l);
+          message.setMemberUsername("hdow");
+
+          //发送消息
+          rabbitTemplate.convertAndSend(
+                  "spring.test01.directExchange"
+                  ,"testRK"
+                  ,message);
+      }
+
+发送成功后，可以看到队列种有一条消息：
+
+      rO0ABXNyAC1jb20ua2F0emVueWFzYXgubWFsbC5vcmRlci5lbnRpdHkuT3JkZXJFbnRpdHkAAAAAAAAAAQIAKkwADmF1dG9Db25maXJtRGF5dAATTGphdmEv
+      bGFuZy9JbnRlZ2VyO0wAC2JpbGxDb250ZW50dAASTGphdmEvbGFuZy9TdHJpbmc7TAAKYmlsbEhlYWRlcnEAfgACTAARYmlsbFJlY2VpdmVyRW1haWxxAH4A
+      AkwAEWJpbGxSZWNlaXZlclBob25lcQB+AAJMAAhiaWxsVHlwZXEAfgABTAALY29tbWVudFRpbWV0ABBMamF2YS91dGlsL0RhdGU7TAANY29uZmlybVN0YXR1
+      c3EAfgABTAAMY291cG9uQW1vdW50dAAWTGphdmEvbWF0aC9CaWdEZWNpbWFsO0wACGNvdXBvbklkdAAQTGphdmEvbGFuZy9Mb25nO0wACmNyZWF0ZVRpbWVx
+      AH4AA0wADGRlbGV0ZVN0YXR1c3EAfgABTAAPZGVsaXZlcnlDb21wYW55cQB+AAJMAApkZWxpdmVyeVNucQB+AAJMAAxkZWxpdmVyeVRpbWVxAH4AA0wADmRp
+      c2NvdW50QW1vdW50cQB+AARMAA1mcmVpZ2h0QW1vdW50cQB+AARMAAZncm93dGhxAH4AAUwAAmlkcQB+AAVMAAtpbnRlZ3JhdGlvbnEAfgABTAARaW50ZWdy
+      YXRpb25BbW91bnRxAH4ABEwACG1lbWJlcklkcQB+AAVMAA5tZW1iZXJVc2VybmFtZXEAfgACTAAKbW9kaWZ5VGltZXEAfgADTAAEbm90ZXEAfgACTAAHb3Jk
+      ZXJTbnEAfgACTAAJcGF5QW1vdW50cQB+AARMAAdwYXlUeXBlcQB+AAFMAAtwYXltZW50VGltZXEAfgADTAAPcHJvbW90aW9uQW1vdW50cQB+AARMAAtyZWNl
+      aXZlVGltZXEAfgADTAAMcmVjZWl2ZXJDaXR5cQB+AAJMABVyZWNlaXZlckRldGFpbEFkZHJlc3NxAH4AAkwADHJlY2VpdmVyTmFtZXEAfgACTAANcmVjZWl2
+      ZXJQaG9uZXEAfgACTAAQcmVjZWl2ZXJQb3N0Q29kZXEAfgACTAAQcmVjZWl2ZXJQcm92aW5jZXEAfgACTAAOcmVjZWl2ZXJSZWdpb25xAH4AAkwACnNvdXJj
+      ZVR5cGVxAH4AAUwABnN0YXR1c3EAfgABTAALdG90YWxBbW91bnRxAH4ABEwADnVzZUludGVncmF0aW9ucQB+AAF4cHBwcHBwcHBwcHBwcHBwcHBwcHBwcHNy
+      AA5qYXZhLmxhbmcuTG9uZzuL5JDMjyPfAgABSgAFdmFsdWV4cgAQamF2YS5sYW5nLk51bWJlcoaslR0LlOCLAgAAeHAAAAAAAAAAAXQABGhkb3dwcHBwcHBw
+      cHBwcHBwcHBwcHBw
+
+序列化方式是：
+
+      content_type:	application/x-java-serialized-object
+
+
+
+但是如果我想用json输出消息呢？那就把消息转换器改成json的
+写一个配置类RabbitSerializeConfiguration：
+
+      @Configuration
+      public class RabbitSerializeConfiguration {
+          @Bean
+          public MessageConverter messageConverter(){
+              return new Jackson2JsonMessageConverter();
+          }
+      }
+
+相当于重写了rabbit默认的消息转换器，
+默认的消息转换器的逻辑是，如果是String类型消息就直接输出原本的消息；如果不是就参照java默认的序列化机制
+而我们在配置类中加入了同名的组件MessgaeConverter，系统会优先使用该组件，这一举动会使rabbit在处理非String类型消息时参照json序列化
+
+注意两个MessageConverter都是在amqp包下的才有效果
+
+再次测试，消息是：
+
+      {"id":null,"memberId":1,"orderSn":null,"couponId":null,"createTime":null,"memberUsername":"hdow","totalAmount":null,"payAmount":null,"freightAmount":null,"promotionAmount":null,"integrationAmount":null,"couponAmount":null,"discountAmount":null,"payType":null,"sourceType":null,"status":null,"deliveryCompany":null,"deliverySn":null,"autoConfirmDay":null,"integration":null,"growth":null,"billType":null,"billHeader":null,"billContent":null,"billReceiverPhone":null,"billReceiverEmail":null,"receiverName":null,"receiverPhone":null,"receiverPostCode":null,"receiverProvince":null,"receiverCity":null,"receiverRegion":null,"receiverDetailAddress":null,"note":null,"confirmStatus":null,"deleteStatus":null,"useIntegration":null,"paymentTime":null,"deliveryTime":null,"receiveTime":null,"commentTime":null,"modifyTime":null}
+
+编码方式变成了：
+
+      content_type:	application/json
+
+变成了json输出结果了
+
+
+
+
+
+## 接收消息
+p258
+
+在OrderService里写一个监听方法，打上@RabbitLIstener注解：
+
+      /**
+       * 监听消息队列，获取消息
+       */
+      @RabbitListener(queues = {"spring.test01.queue01"})
+      public void listenOrderMessage(Message message){
+          System.out.println("监听到消息："+message.toString()+"，类型为："+message.getClass());
+      }
+
+注意一下，该方法注解只有在容器内才能生效，也就是在各种组件里面@Service、@Controller、@Component等才行
+@RabbitListener可以监听多个队列，放大括号里面就可以了，这里只监听一个
+
+测试一下，开启Order服务，如果队列里出现了一个消息，使用上面的test发送一个OrderEntity，那么会打印：
+
+      监听到消息：(Body:'[B@1f06c07c(byte[820])' MessageProperties [headers={__TypeId__=com.katzenyasax.mall.order.entity.OrderEntity}, contentType=application/json, contentEncoding=UTF-8, contentLength=0, receivedDeliveryMode=PERSISTENT, priority=0, redelivered=false, receivedExchange=spring.test01.directExchange, receivedRoutingKey=testRK, deliveryTag=1, consumerTag=amq.ctag-zOPjexiGSPI21zDUGAr-mA, consumerQueue=spring.test01.queue01])，类型为：class org.springframework.amqp.core.Message
+
+
+接收消息时也可以直接把对象类型放上去：
+
+      public void listenOrderMessage(Message message,OrderEntity body){
+        System.out.println("监听到消息："+body+"，类型为："+message.getClass());
+      }
+
+结果：
+
+      监听到消息：OrderEntity(id=null, memberId=1, orderSn=null, couponId=null, createTime=null, memberUsername=hdow, totalAmount=null, payAmount=null, freightAmount=null, promotionAmount=null, integrationAmount=null, couponAmount=null, discountAmount=null, payType=null, sourceType=null, status=null, deliveryCompany=null, deliverySn=null, autoConfirmDay=null, integration=null, growth=null, billType=null, billHeader=null, billContent=null, billReceiverPhone=null, billReceiverEmail=null, receiverName=null, receiverPhone=null, receiverPostCode=null, receiverProvince=null, receiverCity=null, receiverRegion=null, receiverDetailAddress=null, note=null, confirmStatus=null, deleteStatus=null, useIntegration=null, paymentTime=null, deliveryTime=null, receiveTime=null, commentTime=null, modifyTime=null)，类型为：class org.springframework.amqp.core.Message
+
+可以看到确实接收到了
+
+
+甚至可以获取信道：
+
+      public void listenOrderMessage(Message message, OrderEntity body, Channel channel)
+
+有什么用我就不知道了
+
+
+
+但是需要注意的是@RabbitListener只能支持同一个消息被仅仅一个服务监听到，
+但是碰到很多条消息时，消息可以被负载均衡到不同的服务
+
+要是消息队列里消息太多，比监听并接收该队列的服务器数量还多怎么办呢？那就只有在一台服务器处理完一个消息时，才能接收下一个消息，未被接收的消息就会阻塞在消息代理中准备被处理
+
+
+
+
+
+
+除此之外，还有一个注解是@RabbitHandler，它可以和@RabbitListener注解搭配使用，就可以区分队列消息的类型
+将@RabbitListener放在类上，@RabbitHandler放在方法上，例如拿OrderService开刀：
+
+      @RabbitListener(queues = {"spring.test01.queue01"})
+      @Service("orderService")
+      public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> implements OrderService {
+          /**
+          * 监听OrderEntity对象消息
+          */
+          @RabbitHandler
+          //@RabbitListener(queues = {"spring.test01.queue01"})
+          public void listenOrderMessage(Message message, OrderEntity body, Channel channel){
+              System.out.println("接收到OrderEntity对象消息："+body);
+          }
+
+          /**
+          * 接收String对象消息
+          */
+          @RabbitHandler
+          public void listenOrderMessage(String message){
+              System.out.println("接受到String对象消息："+message);
+          }
+      }
+
+我们先后在test里发送两个消息，测试方法如下：
+
+      @Test
+      void rabbitMessageSending(){
+          OrderEntity message=new OrderEntity();
+          message.setMemberId(1l);
+          message.setMemberUsername("hdow");
+
+          //发送消息
+          rabbitTemplate.convertAndSend(
+                  "spring.test01.directExchange"
+                  ,"testRK"
+                  ,message);
+      }
+      @Test
+      void StringMessageSending(){
+          //发送String消息
+          rabbitTemplate.convertAndSend(
+                  "spring.test01.directExchange"
+                  ,"testRK"
+                  ,"ttttest");
+      }
+
+结果为：
+
+      接受到String对象消息：ttttest
+      接收到OrderEntity对象消息：OrderEntity(id=null, memberId=······
+
+可以看到，可以通过配合使用@RabbitListener和@RabbitHandler，进行方法重载监听不同类型的消息
+
+
+
+
+
+
+## 可靠投递
+
+
+防止消息在发送、接收过程中因为一系列原因导致的的消息丢失
+一种解决方法是使用事务，但是据rabbitMQ官方说法，这可能会使性能下降250倍，因此不推荐使用
+
+另一种解决方案是使用确认机制，具体工作流程如下：
+
+      1.Publisher发送消息到Broker，若Broker收到了消息则调用一个方法confirmCallback进行确认
+
+      2.Broker通过Exchange将消息发往Queue，若Queue未收到消息，则调用一个方法returnCallback表示未收到消息
+
+      3.Consumer开始接收Queue的消息时，采用的是ack机制，若Consumer正确地消费到了消息则将消息从Queue中删除，否则退回到Queue或重新投递等
+
+前两步都是发送端，后一步是接收端的
+
+
+### 生产者到消息代理确认
+p259
+
+1.配置application以开启功能
+注意视频里说的publisher-confirm已经弃用，现版本使用的是：
+
+      spring:
+        rabbitmq:
+          publisher-confirm-type: correlated
+
+2.随后要将redisTemplate的ComfirmCallback自定义，在重新写一个配置类，执行的方法：
+
+      @Configuration
+      public class RabbitConfirmConfiguration {
+          @Autowired
+          RabbitTemplate rabbitTemplate;
+          @PostConstruct
+          public void setRabbitTemplate(){
+              rabbitTemplate.setConfirmCallback(
+                      (correlationData, b, s) -> System.out.println("Data: "+correlationData+" , 是否接收到: "+b+" 原因: "+s)
+              );
+          }
+      }
+
+该方法的作用是将自动配置的rabbitTemplate中的setConfirmCallback方法重写，以便执行我们自定义的操作
+而@PostConstruct就是字面意思，在该配置类实例化之后执行该方法
+
+
+注意不要在RabbitSerializeConfiguration中写这个方法，会循环依赖
+原因就是RabbitTemplate依赖于该配置中的自定义序列化方法，而该配置类有引入了RabbitTemplate的单例实例化对象，二者就造成了循环依赖
+
+
+3.测试一下，还是使用测试类中发送消息的方法
+测试之后发现是执行发送命令的客户端打印了语句，也就是@Test自动生成的一个客户端：
+
+      Data: null , 是否接收到: true 原因: null
+
+注意这里的ack参数，只要消息从Publisher传到Broker，都是true，他不会参考后续进展。事实上，ack的作用就是用来表示消息是否被删除，在这里就可以看作是，Publisher将消息复制了一份交给Broker，Broker收到后就给一个反馈ConfirmCallback告诉Publisher有没有收到消息，如果收到了，ack就为true，消息就会从Publisher删除；没有收到ack就为false，该消息可能会重发，也可能会直接丢弃，依照具体配置执行。
+
+注意，该过程可以看作是整个rabbitMQ中，两点间消息传递确认机制的模板，区别在于任何处理发送失败的消息。
+
+
+
+
+
+### 消息代理到队列确认
+p259
+
+
+1.配置application：
+
+      spring:
+        rabbitmq:
+          publisher-returns: true
+          template:
+            mandatory: true
+
+publisher-returns表示开启消息代理到队列的确认
+template.mandatory表示已异步（新开一个线程执行）方式优先回调return
+
+2.在setRabbitConfirm方法中加上一段：
+
+        /**
+         * 2.broker到queue的确认
+         */
+        rabbitTemplate.setReturnsCallback(returnedMessage ->
+            System.out.println(
+                    "发送失败的消息内容: "+returnedMessage.getMessage()
+                    +" 回复的状态码: "+ returnedMessage.getReplyCode()
+                    +" 回复的文本内容: "+ returnedMessage.getReplyText()
+                    +" 发送该消息的交换机: "+returnedMessage.getExchange()
+                    +" 路由键: "+returnedMessage.getRoutingKey()
+            )
+        );
+
+在旧版本中，这些参数都是单一的，新版本中封装了
+
+
+3.测试，为了认为造成发送失败，将测试方法的路由键暂时修改，随后测试
+同样是在发送消息的客户端中，但是没有在test中特别展示，要在完整终端查看：
+
+      发送失败的消息内容: (Body:'"ttttest"' MessageProperties [headers={__TypeId__=java.lang.String}, contentType=application/json, contentEncoding=UTF-8, contentLength=0, receivedDeliveryMode=PERSISTENT, priority=0, deliveryTag=0]) 回复的状态码: 312 回复的文本内容: NO_ROUTE 发送该消息的交换机: spring.test01.directExchange 路由键: ttttestRK
+
+确实是有错误提示，而且会给出错误的原因：
+
+    回复的状态码: 312 
+    回复的文本内容: NO_ROUTE
+    发送该消息的交换机: spring.test01.directExchange 
+    路由键: ttttestRK
+
+也就是没有正确的路由
+
+
+
+
+
+
+
+
+### 队列到消费者确认
+p260
+
+自带一个自动ack的机制，一旦接收到数据就会回复ack给队列，队列接到反馈后就会删除消息
+但是一个很严重的缺陷是，该机制允许服务器一接收到消息就回复ack，也就是我只管接收到，我一接收到，队列就删除该消息
+但是从逻辑上讲，服务器接收到消息后还应该进行处理，若是在这段处理的时间内服务器宕机，那么此时服务器丢失了消息，而队列那边早就把消息删了，这就导致消息的丢失
+更严重的是，服务器一宕机，队列那边剩余阻塞的消息也会清空
+
+解决方案是手动确认
+
+1.配置application：
+
+      spring:
+        rabbitmq:
+          istener:
+            simple:
+              acknowledge-mode: manual
+
+此时，除非我们手动确认消息，否则消息在队列中是不会删除的，且会一直处于ready状态
+
+2.在接收消息的方法后面手动确认ack，加上channel.basicAck()方法
+
+      /**
+       * 监听OrderEntity对象消息
+       *
+       * 加上了手动确认ack的
+       */
+      @RabbitHandler
+      //@RabbitListener(queues = {"spring.test01.queue01"})
+      public void listenOrderMessage(Message message, OrderEntity body, Channel channel) {
+          System.out.println("接收到OrderEntity对象消息："+body);
+          try {
+              channel.basicAck(
+                      message.getMessageProperties().getDeliveryTag()     //消息的tag
+                      , false                                         //是否批量确认
+              );
+          }catch (Exception e){
+              System.out.println(message.getMessageProperties().getDeliveryTag()+"号消息异常");
+          }
+      }
+
+其中第一个参数是消息的tag，根据消息进入channel的顺序，从1开始的自增id。另外要Message对象的消息才能有tag
+第二个表示是否连带确认后面进入该channel的所有消息
+
+
+同样，basickNack()方法就是不确认ack，其中会多出一个参数requeue，表示是否将消息退回队列重新ready
+例如：
+
+      
+    channel.basicNack(
+            message.getMessageProperties().getDeliveryTag()     //消息的tag
+            , false                                         //是否批量确认
+            , true                                          //退回队列，或是删除消息
+    );
+
+
+      
 
 
 

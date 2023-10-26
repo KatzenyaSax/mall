@@ -222,4 +222,57 @@ public class CartServiceImpl implements CartService {
     }
 
 
+    /**
+     *
+     * @param skuId
+     * @param thisKey
+     *
+     * 从cart中删除对应skuId的商品
+     */
+    public void deleteCartItem(Long skuId,String thisKey){
+        BoundHashOperations ops = redisTemplate.boundHashOps(CartConstant.CART_USER_PREFIX + thisKey);
+        ops.delete(skuId.toString());
+    }
+
+
+    /**
+     *
+     * @param skuId
+     * @param thisKey
+     * @param check
+     *
+     * 选中商品
+     * 修改cart中对应skuId的cartItemVO的check属性
+     *
+     * 需要从redis中查询数据
+     */
+    @Override
+    public void check(Long skuId, String thisKey, boolean check) {
+        CartItemVO thisItem=this.getCartItem(skuId,thisKey);
+        thisItem.setCheck(check);
+        BoundHashOperations ops = redisTemplate.boundHashOps(CartConstant.CART_USER_PREFIX + thisKey);
+        ops.delete(skuId.toString());
+        ops.put(skuId.toString(),JSON.toJSONString(thisItem));
+    }
+
+
+    /**
+     *
+     * @param skuId
+     * @param thisKey
+     * @param num
+     *
+     * 修改商品数量
+     */
+    @Override
+    public void count(Long skuId, String thisKey, Long num) {
+        CartItemVO thisItem=this.getCartItem(skuId,thisKey);
+        thisItem.setCount(num);
+        thisItem.setTotalPrice(thisItem.getPrice().multiply(BigDecimal.valueOf(num)));
+        BoundHashOperations ops = redisTemplate.boundHashOps(CartConstant.CART_USER_PREFIX + thisKey);
+        ops.delete(skuId.toString());
+        ops.put(skuId.toString(),JSON.toJSONString(thisItem));
+    }
+
+
 }

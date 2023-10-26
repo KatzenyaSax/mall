@@ -12,4 +12,10 @@ public interface CartService {
     CartItemVO addCartItem(Long skuId, Long num, String thisKey);
 
     CartItemVO getCartItem(Long skuId, String thisKey);
+
+    void check(Long skuId, String thisKey, boolean b);
+
+    void count(Long skuId, String thisKey, Long num);
+
+    void deleteCartItem(Long skuId,String thisKey);
 }
