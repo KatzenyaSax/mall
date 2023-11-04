@@ -1,11 +1,14 @@
 package com.katzenyasax.mall.product.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.katzenyasax.common.to.SpuInfoTO;
 import com.katzenyasax.common.utils.PageUtils;
+import com.katzenyasax.common.utils.R;
 import com.katzenyasax.mall.product.entity.SpuInfoEntity;
 import com.katzenyasax.mall.product.vo.item.SkuItemVo;
 import com.katzenyasax.mall.product.vo.spu.SpuSaveVO;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 /**
@@ -28,5 +31,9 @@ public interface SpuInfoService extends IService<SpuInfoEntity> {
     void downSpu(Long spuId);
 
     SkuItemVo getSkuItem(String skuId);
+
+    Map<String, BigDecimal> allSpuWeights();
+
+    SpuInfoTO getBySkuId(Long skuId);
 }
 

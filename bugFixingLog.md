@@ -2,7 +2,7 @@
  * @Author: InnerSekiro a18290531268@163.com
  * @Date: 2023-09-25 21:43:28
  * @LastEditors: InnerSekiro a18290531268@163.com
- * @LastEditTime: 2023-10-09 15:58:15
+ * @LastEditTime: 2023-11-01 20:56:12
  * @FilePath: \undefinedc:\Users\ASUS\Desktop\IDEA\mall\bugFixingLog.md
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -150,4 +150,39 @@
     2.补充了登出功能
     
 
+
+## 2023/10/31
+
+更新了以下内容：
+    1.完成了消息队列的测试和环境搭建
+    2.完成了订单服务的页面搭建
+    3.完成了整个订单服务的登录拦截
+    4.完成了订单确认页面的数据封装
     
+
+
+## 2023/11/1
+
+更新了以下内容：
+    1.基本完成了支付页面后端数据封装
+
+
+
+
+
+## 2023/11/3
+
+更新了以下内容：
+    1.基本完成了库存锁定的内容
+    2.完成了存订单的内容
+
+
+
+
+
+
+## 2023/11/4
+
+更新了以下内容：
+    1.基本完成了存订单项的内容
+    2.基本完成了存订单任务的内容

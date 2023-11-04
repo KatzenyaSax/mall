@@ -1,5 +1,6 @@
 package com.katzenyasax.mall.product.controller;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -71,7 +72,18 @@ public class SkuInfoController {
 
 
 
-
+    /**
+     *
+     * @param skuId
+     * @return
+     *
+     * 由order服务调用
+     * 获取价格
+     */
+    @RequestMapping("/price/{skuId}")
+    BigDecimal getPrice(@PathVariable("skuId") Long skuId){
+        return skuInfoService.getById(skuId).getPrice();
+    }
 
 
 

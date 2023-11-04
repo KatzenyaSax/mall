@@ -19,49 +19,49 @@ spring:
 
 
 
-        - id: coupon-route
+        - id: coupon-route-native
           uri: lb://mall-coupon
           predicates:
             - Path= /api/coupon/**
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
-        - id: member-route
+        - id: member-route-native
           uri: lb://mall-member
           predicates:
             - Path= /api/member/**
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
-        - id: order-route
+        - id: order-route-native
           uri: lb://mall-order
           predicates:
             - Path= /api/order/**
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
-        - id: product-route
+        - id: product-route-native
           uri: lb://mall-product
           predicates:
             - Path= /api/product/**
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
-        - id: ware-route
+        - id: ware-route-native
           uri: lb://mall-ware
           predicates:
             - Path= /api/ware/**
           filters:
             - RewritePath=/api/(?<segment>/?.*),/$\{segment}
 
-        - id: oss-policy
+        - id: oss-policy-native
           uri: http://localhost:10200
           predicates:
             - Path= /api/thirdparty/oss/policy
           filters:
             - RewritePath= /api/(?<segment>/?.*),/$\{segment}
 
-        - id: admin-route
+        - id: admin-route-native
           uri: lb://mall-Admin
           predicates:
             - Path= /api/**
@@ -87,6 +87,11 @@ spring:
           uri: lb://mall-cart
           predicates:
             - Host=**.cart.katzenyasax-mall.com
+
+        - id: order-route
+          uri: lb://mall-order
+          predicates:
+            - Host=**.order.katzenyasax-mall.com
 
         - id: host-route
           uri: lb://mall-product

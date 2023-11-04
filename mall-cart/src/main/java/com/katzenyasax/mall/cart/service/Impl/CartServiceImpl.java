@@ -82,9 +82,11 @@ public class CartServiceImpl implements CartService {
             cart.getItems().add(item);
             cart.setCountType(cart.getCountType()+1);
             cart.setCountNum(cart.getCountNum()+ item.getCount());
-            cart.setTotalAmount(cart.getTotalAmount()
-                    .add(item.getTotalPrice())
-            );
+            if(item.getCheck()==true) {
+                cart.setTotalAmount(cart.getTotalAmount()
+                        .add(item.getTotalPrice())
+                );
+            }
         });
 
         System.out.println("getTempleCart: "+cart);

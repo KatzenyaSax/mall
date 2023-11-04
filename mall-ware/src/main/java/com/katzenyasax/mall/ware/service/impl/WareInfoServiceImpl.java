@@ -1,7 +1,15 @@
 package com.katzenyasax.mall.ware.service.impl;
 
+import com.alibaba.fastjson.JSON;
+import com.katzenyasax.common.to.MemberAddressTO;
+import com.katzenyasax.mall.ware.feign.MemberFeign;
+import com.katzenyasax.mall.ware.vo.FareVo;
 import com.qiniu.util.StringUtils;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
 import java.util.Map;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -16,6 +24,15 @@ import com.katzenyasax.mall.ware.service.WareInfoService;
 
 @Service("wareInfoService")
 public class WareInfoServiceImpl extends ServiceImpl<WareInfoDao, WareInfoEntity> implements WareInfoService {
+
+    @Autowired
+    MemberFeign memberFeign;
+
+
+
+
+
+
     /**
      *
      * @param params
@@ -57,6 +74,27 @@ public class WareInfoServiceImpl extends ServiceImpl<WareInfoDao, WareInfoEntity
                 wrapper
         );
         return new PageUtils(finale);
+    }
+
+
+    /**
+     *
+     * @param addrId
+     * @return
+     *
+     * 前端请求，获取fareVo，即地址
+     */
+    @Override
+    public FareVo getFareVo(Long addrId) {
+        //初始化
+        FareVo finale=new FareVo();
+        //运费为8
+        finale.setFare(BigDecimal.valueOf(8));
+        //地址
+        Object memberReceiveAddress = memberFeign.info(addrId).get("memberReceiveAddress");
+        MemberAddressTO address = JSON.parseObject(JSON.toJSONString(memberFeign.info(addrId).get("memberReceiveAddress")), MemberAddressTO.class);
+        finale.setAddress(address);
+        return finale;
     }
 
 }

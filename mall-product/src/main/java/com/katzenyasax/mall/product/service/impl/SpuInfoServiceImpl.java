@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSON;
 import com.katzenyasax.common.to.SkuEsModel;
 import com.katzenyasax.common.to.SkuFullReductionTO;
 import com.katzenyasax.common.to.SpuBoundsTO;
+import com.katzenyasax.common.to.SpuInfoTO;
 import com.katzenyasax.common.utils.R;
 import com.katzenyasax.mall.product.config.ThisThreadPool;
 import com.katzenyasax.mall.product.dao.*;
@@ -21,13 +22,11 @@ import org.apache.commons.collections.map.HashedMap;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -768,7 +767,49 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
     }
 
 
+    /**
+     * 被order模块远程调用的方法
+     * 获取全部spu的weight
+     * 返回其对应的所有sku的weights
+     */
+    @Override
+    public Map<String, BigDecimal> allSpuWeights() {
+        Map<String, BigDecimal> spuWeights = baseMapper.selectList(null).stream().collect(Collectors.toMap(
+                e -> e.getId().toString()
+                , e -> e.getWeight()
+        ));
+        //根据所有的sku对应的spu查spuWeights表内数据，并将skuId和spuWeight拼接为map
+        Map<String, BigDecimal> finale=new HashMap<>();
+        skuInfoDao.selectList(null).forEach(
+                e->{
+                    if(spuWeights.get(e.getSpuId().toString())!=null){
+                        finale.put(e.getSkuId().toString(),spuWeights.get(e.getSpuId().toString()));
+                    }
+                }
+        );
+        return finale;
+    }
 
+
+    /**
+     *
+     * @param skuId
+     * @return
+     *
+     * 被order模块远程调用
+     * 根据skuId获取完整的spuInfoTO
+     */
+    @Override
+    public SpuInfoTO getBySkuId(Long skuId) {
+        SpuInfoEntity entity=spuInfoDao.selectById(
+                skuInfoDao.selectOne(new QueryWrapper<SkuInfoEntity>()
+                        .eq("sku_id",skuId))
+                        .getSpuId()
+        );
+        SpuInfoTO finale= new SpuInfoTO();
+        BeanUtils.copyProperties(entity,finale);
+        return finale;
+    }
 
 
 }

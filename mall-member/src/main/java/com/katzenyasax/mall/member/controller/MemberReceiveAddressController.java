@@ -1,15 +1,13 @@
 package com.katzenyasax.mall.member.controller;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
+import com.katzenyasax.common.to.MemberAddressTO;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.katzenyasax.mall.member.entity.MemberReceiveAddressEntity;
 import com.katzenyasax.mall.member.service.MemberReceiveAddressService;
@@ -30,6 +28,28 @@ import com.katzenyasax.common.utils.R;
 public class MemberReceiveAddressController {
     @Autowired
     private MemberReceiveAddressService memberReceiveAddressService;
+
+
+    /**
+     *
+     * @param id
+     * @return
+     *
+     * 获取该用户的所有地址
+     */
+    @GetMapping("/getByMemberId/{id}")
+    public List<MemberAddressTO> getByMemberId(@PathVariable String id){
+        return memberReceiveAddressService.getByMemberId(id);
+    }
+
+
+
+
+
+
+
+
+    //============================
 
     /**
      * 列表

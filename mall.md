@@ -9549,7 +9549,7 @@ p155
 
 ### 缓存击穿
 
-一个被经常高并发请求访问的数据，在失效的时候，原本的高并发请求不再发往redis而是发往数据库，造成数据库失效的现象
+一个被经常高并发请求访问的数据，在缓存中失效的时候，原本的高并发请求不再发往redis而是发往数据库，造成数据库失效的现象
 
 
 
@@ -9722,7 +9722,11 @@ p158
     解决：使用lua脚本：
 
         String script="if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end";
-        stringRedisTemplate.execute(new DefaultRedisScript<Integer>(script,Ling.class),Arrays.asList("lock"),uuid);
+        Integer ifCorrect = stringRedisTemplate.execute(
+          new DefaultRedisScript<Integer>(script,Ling.class)    //结果返回值
+          ,Arrays.asList("lock")                                //要验证的锁在redis中的名字
+          ,uuid                                                 //验证的数据的本体
+        );
 
     也就是将删除锁的操作全部交给redis封装的api执行，对于java来说这是一个原子操作，
     redis封装了该方法会将所有的获取、判断、传输的操作封装，
@@ -14053,7 +14057,7 @@ p237
 
 
 
-## 判断登录状态
+## 判断登录状态：拦截器
 p239
 
 逻辑是，登录状态下查看到的是用户的购物车，可以用session读取用户是否登录
@@ -14122,6 +14126,7 @@ p239
 
 但是这个userInfoTo同时也是我们想要的，把他也一并注入到controller里，此时用到ThreadLocal技术，允许同一个线程内数据的共享
 核心思想就是，将拦截器标识为一个线程，拦截器通过到controller时，controller指定该线程获取userInfoTo这一数据
+threadLocal可以在该线程的服务的任何位置使用
 
 3.在拦截器内标识线程：
 
@@ -14613,9 +14618,11 @@ url：
               cart.getItems().add(item);
               cart.setCountType(cart.getCountType()+1);
               cart.setCountNum(cart.getCountNum()+ item.getCount());
-              cart.setTotalAmount(cart.getTotalAmount()
-                      .add(item.getTotalPrice())
-              );
+              if(item.getCheck()==true)}
+                cart.setTotalAmount(cart.getTotalAmount()
+                        .add(item.getTotalPrice())
+                );
+              }
           });
 
           System.out.println("getTempleCart: "+cart);
@@ -15183,7 +15190,7 @@ p258
           System.out.println("监听到消息："+message.toString()+"，类型为："+message.getClass());
       }
 
-注意一下，该方法注解只有在容器内才能生效，也就是在各种组件里面@Service、@Controller、@Component等才行
+注意一下，该注解只有在容器内才能生效，也就是在各种组件里面@Service、@Controller、@Component等才行
 @RabbitListener可以监听多个队列，放大括号里面就可以了，这里只监听一个
 
 测试一下，开启Order服务，如果队列里出现了一个消息，使用上面的test发送一个OrderEntity，那么会打印：
@@ -15308,7 +15315,7 @@ p259
         rabbitmq:
           publisher-confirm-type: correlated
 
-2.随后要将redisTemplate的ComfirmCallback自定义，在重新写一个配置类，执行的方法：
+2.随后要将rabbitTemplate的ComfirmCallback自定义，在重新写一个配置类，执行的方法：
 
       @Configuration
       public class RabbitConfirmConfiguration {
@@ -15376,7 +15383,7 @@ template.mandatory表示已异步（新开一个线程执行）方式优先回�
 在旧版本中，这些参数都是单一的，新版本中封装了
 
 
-3.测试，为了认为造成发送失败，将测试方法的路由键暂时修改，随后测试
+3.测试，为了人为造成发送失败，将测试方法的路由键暂时修改，随后测试
 同样是在发送消息的客户端中，但是没有在test中特别展示，要在完整终端查看：
 
       发送失败的消息内容: (Body:'"ttttest"' MessageProperties [headers={__TypeId__=java.lang.String}, contentType=application/json, contentEncoding=UTF-8, contentLength=0, receivedDeliveryMode=PERSISTENT, priority=0, deliveryTag=0]) 回复的状态码: 312 回复的文本内容: NO_ROUTE 发送该消息的交换机: spring.test01.directExchange 路由键: ttttestRK
@@ -15442,7 +15449,7 @@ p260
 第二个表示是否连带确认后面进入该channel的所有消息
 
 
-同样，basickNack()方法就是不确认ack，其中会多出一个参数requeue，表示是否将消息退回队列重新ready
+同样，basicNack()方法就是不确认ack，其中会多出一个参数requeue，表示是否将消息退回队列重新ready
 例如：
 
       
@@ -15454,6 +15461,1328 @@ p260
 
 
       
+
+
+
+
+
+
+
+
+
+# 商城业务：订单服务
+
+
+
+## 页面搭建
+p261
+
+
+1.引入前端页面，引入静态资源到/mydata/nginx/html/static/order
+
+      1.等待支付页，放到 /detail
+      2.订单页，放到 /list
+      3.结算页，放到 /confirm
+      4.收银页，放到 /pay
+
+2.mall.conf里加入order.katzenyasax-mall.com
+
+3.网关配置application：
+
+      - id: order-route
+        uri: lb://mall-order
+        predicates:
+          - Host=**.order.katzenyasax-mall.com
+
+注意网关配置中路由的id是否重复？
+
+4.switchhosts配置:
+
+      192.168.74.130 order.katzenyasax-mall.com
+
+5.引入thymeleaf和devtools：
+
+      <!-- thymeleaf 渲染首页的依赖 -->
+      <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-thymeleaf -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-thymeleaf</artifactId>
+      </dependency>
+      <!-- devtool的依赖 -->
+      <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-devtools -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-devtools</artifactId>
+          <optional>true</optional>
+      </dependency>
+
+6.关闭thymeleaf缓存：
+
+      spring:
+        thymeleaf:
+          cache: false
+
+
+
+
+
+## 整合SpringSession
+p262
+
+1.引入spring session和redis依赖：
+
+      <!-- https://mvnrepository.com/artifact/org.springframework.session/spring-session-data-redis -->
+      <dependency>
+          <groupId>org.springframework.session</groupId>
+          <artifactId>spring-session-data-redis</artifactId>
+          <version>3.1.3</version>
+      </dependency>
+      <!-- redis依赖 -->
+      <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-data-redis -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-data-redis</artifactId>
+          <version>3.1.3</version>
+      </dependency>
+
+3.application中写入redis的端口和ip等
+
+4.从auth模块或cart模块偷SessionConfiguration，因为不仅要自定义redis的序列化方式，还需要让session分布式化
+  不配redis序列化的化，服务器会报错：
+
+        org.springframework.data.redis.serializer.SerializationException
+
+5.启动类加上：
+
+      @EnableRedisHttpSession
+
+6.从product模块偷ThisThreadPool和ThisThreadPoolConfigurationProperties
+因此还需要在application中配置核心线程数等：
+
+      mall:
+        thread:
+          core-size:  20
+          max-size: 200
+          keep-alive-time:  10
+
+7.先配置一个视图解析器：
+
+      @Configuration
+      public class WebViewController implements WebMvcConfigurer {
+      
+          @Override
+          public void addViewControllers(ViewControllerRegistry registry){
+              registry.addViewController("/detail.html").setViewName("detail");
+              registry.addViewController("/pay.html").setViewName("pay");
+              registry.addViewController("/confirm.html").setViewName("confirm");
+              registry.addViewController("/createForWxNative.html").setViewName("createForWxNative");
+          }
+      }
+
+注意这只是用来查看服务器是否正常工作，以后遇到需要在controller中写的页面要把这里对应的删除
+
+
+此时便可以访问到各个页面了，detail、confirm、createForWxNative.html可直接访问，pay需要一些必要参数所以暂时无法进行访问
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 强制登录
+p264
+
+所有有关订单的服务都需要登录
+
+1.在url进来前都必须判断是否为已登录状态，所以写一个拦截器用来判断登录状态：
+
+      @Component
+      public class OrderInterceptor implements HandlerInterceptor {
+          /**
+           * 将该拦截器表示为orderThreadLocal
+           */
+          public static ThreadLocal<MemberTO> orderThreadLocal =new ThreadLocal<>();
+          /**
+           * order模块所有接口前判断是否已登录
+           */
+          @Override
+          public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+              //用户信息封装，之后要判断浏览器中是否有用户信息并封装
+              UserInfoTO userInfoTo=new UserInfoTO();
+              //先判断session，即是否已经登陆
+              Object thisSession= request.getSession().getAttribute(AuthConstant.USER_LOGIN);
+              if(thisSession!= null){
+                  //若session中有名为loginUser的cookie，表示用户已登录
+                  //要将用户信息通过threadLocal的方式交给下游服务其
+                  MemberTO to= JSON.parseObject(JSON.toJSONString(thisSession), MemberTO.class);
+                  orderThreadLocal.set(to);
+                  return true;
+              }
+              //未登录，则直接返回true，提交订单必须要先登录，重定向到登录页面
+              else {
+                  System.out.println("OrderInterceptor: NO LOGIN USER! ");
+                  response.sendRedirect("http://auth.katzenyasax-mall.com/login.html");
+                  return false;
+              }
+          }
+          /**
+          * url处理结束后调用
+          */
+          @Override
+          public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+              //清空threadLocal
+              orderThreadLocal.remove();
+          }
+      }
+
+重写mvc的handler进url之前的拦截器方法，需要判断session是否有userLogin，有则通过，没有则拦截并重定向到登录界面
+后续依然需要清空threadLocal
+
+2.在配置类中注册该拦截器到mvc：
+
+      @Component
+      public class OrderWebConfiguration implements WebMvcConfigurer {
+          @Override
+          public void addInterceptors(InterceptorRegistry registry) {
+              registry
+                      .addInterceptor(new OrderInterceptor())      //添加cart的拦截器
+                      .addPathPatterns("/**")                     //拦截url为/**，即所有url
+              ;
+          }
+      }
+
+addInterceptors方法用于注册拦截器到该模块的mvc
+
+注册之后我们可以测试一下，拦截器是否生效。
+在购物车页面，不登陆进入结算时，服务器打印了：
+
+      OrderInterceptor: NO LOGIN USER! 
+
+依然是在购物车页面，登录进入结算，可以正常进入页面
+
+
+
+
+
+
+
+
+## 确认订单
+p265
+
+url：
+
+      http://order.katzenyasax-mall.com/toTrade
+
+要求返回一个符合要求的OrderConfirmVO对象，而要确认的商品就是redis中check字段为true的商品
+
+接口：
+
+      /**
+       *
+       * @param model
+       * @return
+       *
+       * 根据session获取的用户信息，获得用户的订单确认页面
+       */
+      @RequestMapping("/toTrade")
+      public String toTrade(Model model){
+          MemberTO memberTO = OrderInterceptor.orderThreadLocal.get();
+          //获取orderConfirmVo
+          OrderConfirmVo vo=orderService.orderConfirm(memberTO.getId());
+          model.addAttribute("confirmOrderData",vo);
+          return "confirm";
+      }
+
+方法orderConfirm比较长，分成几个部分来说
+
+
+### 商品（前半部分）
+
+      /**
+       * 1.选中的商品
+       *
+       * 使用redis读取该用户购物车中check=true的商品，得到其id
+       * 参考cart模块service下的getCart方法
+       */
+      //获取该用户的cart操作柄
+      String redis_key= CartConstant.CART_USER_PREFIX+id;
+      BoundHashOperations<String,Object,Object> ops = redisTemplate.boundHashOps(redis_key);
+      //获取数据key的集合
+      Set<Object> keys = ops.keys();
+      //items
+      List<OrderItemVo> items=new ArrayList<>();
+      //所有商品
+      Map<String, BigDecimal> weights = productFeign.allSpuWeights();
+
+
+
+远程调用的producFeign接口内方法：
+ 
+      @GetMapping("product/spuinfo/allSpu")
+      Map<String, BigDecimal> allSpuWeights();
+      
+
+product模块内，spu接口：
+
+      /**
+       * 被order远程调用的接口
+       * 获取全部spu的weights
+       */
+      @RequestMapping("/allSpu")
+      Map<String, BigDecimal> allSpuWeights(){
+          Map<String, BigDecimal> res=spuInfoService.allSpuWeights();
+          return res;
+      }
+
+方法allSpuWeights：
+
+      /**
+       * 被order模块远程调用的方法
+       * 获取全部spu的weight
+       */
+      @Override
+      public Map<String, BigDecimal> allSpuWeights() {
+          Map<String, BigDecimal> weights = baseMapper.selectList(null).stream().collect(Collectors.toMap(
+                  e -> e.getId().toString()
+                  , e -> e.getWeight()
+          ));
+          //根据所有的sku对应的spu查spuWeights表内数据，并将skuId和spuWeight拼接为map
+          Map<String, BigDecimal> finale=new HashMap<>();
+          skuInfoDao.selectList(null).forEach(
+                  e->{
+                      if(spuWeights.get(e.getSpuId().toString())!=null){
+                          finale.put(e.getSkuId().toString(),spuWeights.get(e.getSpuId().toString()));
+                      }
+                  }
+          );
+          return finale;
+      }
+
+
+### 商品（后半部分）
+
+因为还需要远程调用product的sku，获取对应skuId的最新价格，一切以数据库为准
+但是我们可以调用现有的接口方法。
+
+      //遍历keys找寻
+      keys.forEach(key->{
+          OrderItemVo thisVo= JSON.parseObject(
+                  ops.get(key).toString()
+                  , OrderItemVo.class
+          );
+          if(thisVo.getCheck()==true){
+              //若为选中，则获取重量
+              thisVo.setWeight(weights.get(key));
+              //最新价格
+              thisVo.setPrice(productFeign.getPrice(thisVo.getSkuId()));
+              items.add(thisVo);
+          }
+      });
+      finale.setItems(items);
+
+
+feign接口：
+
+      /**
+       *
+       * @param skuId
+       * @return
+       *
+       * 由order服务调用
+       * 获取价格
+       */
+      @RequestMapping("product/skuinfo/price/{skuId}")
+      BigDecimal getPrice(@PathVariable("skuId") Long skuId);
+      
+
+product模块，skuInfoController内接口：
+
+      /**
+       *
+       * @param skuId
+       * @return
+       *
+       * 由order服务调用
+       * 获取价格
+       */
+      @RequestMapping("/price/{skuId}")
+      BigDecimal getPrice(@PathVariable("skuId") Long skuId){
+          return skuInfoService.getById(skuId).getPrice();
+      }
+
+
+
+### 注意一下
+
+一个服务调用另一个服务的feign接口不能用多个
+
+
+
+### 收货地址
+
+将MemberReceiveAddressEntity复制为MemberAddressTO，放到common包下，将用此实体类远程传递对象。
+
+      /**
+       * 2.会员地址列表
+       *
+       * 远程调用member服务
+       */
+      List<MemberAddressVo> memberAddressVos = new ArrayList<>();
+      memberAddressFeign.getByMemberId(id.toString())
+              .forEach(address->{
+                  memberAddressVos.add(JSON.parseObject(JSON.toJSONString(address),MemberAddressVo.class));
+              }
+      );
+      finale.setMemberAddressVos(memberAddressVos);
+
+
+
+远程调用的feign接口：
+
+      @FeignClient("mall-member")
+      public interface MemberAddressFeign {
+          /**
+          *
+          * @param id
+          * @return
+          *
+          * 获取该用户所有的地址
+          */
+          @GetMapping("member/memberreceiveaddress/getByMemberId/{id}")
+          List<MemberAddressTO> getByMemberId(@PathVariable String id);
+      }
+
+member服务，MemberRecieveAddressController下接口：
+
+      /**
+       *
+       * @param id
+       * @return
+       *
+       * 获取该用户的所有地址
+       */
+      @GetMapping("/getByMemberId/{id}")
+      public List<MemberAddressTO> getByMemberId(@PathVariable String id){
+          return memberReceiveAddressService.getByMemberId(id);
+      }
+
+方法getByMemberId：
+
+      /**
+       *
+       * @param memberId
+       * @return
+       *
+       *
+       * order远程调用的方法
+       *
+       * 获得对应userId的地址
+       */
+      @Override
+      public List<MemberAddressTO> getByMemberId(String memberId) {
+          List<MemberAddressTO> finale=new ArrayList<>();
+          baseMapper.selectList(
+                  new QueryWrapper<MemberReceiveAddressEntity>()
+                          .eq("member_id", memberId)
+          ).forEach(address->{
+              finale.add(JSON.parseObject(JSON.toJSONString(address),MemberAddressTO.class));
+          });
+          return finale;
+      }
+
+
+
+### 总数量及总价格
+
+      /**
+       * 4.商品总数 & 商品总价
+       */
+      items.forEach(item->{
+          finale.setCount(finale.getCount()+ item.getCount());
+          finale.setTotal(finale.getTotal().add(item.getTotalPrice()));
+      });
+      finale.setPayPrice(finale.getTotal());
+
+
+
+
+### 是否有货
+
+以一个map存，需要远程调用ware服务
+方法：
+
+      /**
+       * 5.是否有货
+       */
+      Map<Long, Boolean> stocks = wareFeign.getSkuStocks();
+      items.forEach(item->{
+          if(stocks.get(item.getSkuId())==null){
+              stocks.put(item.getSkuId(),Boolean.FALSE);
+          }
+      });
+      finale.setStocks(stocks);
+
+feign接口：
+
+      @FeignClient("mall-ware")
+      public interface WareFeign {
+          /**
+           * 一次性拿取所有有货的商品作为一个map
+           */
+          @GetMapping("ware/waresku/skuStocks")
+          Map<Long,Boolean> getSkuStocks();
+      }
+
+ware下的wareSkuController下接口：
+
+      /**
+       * order服务远程调用
+       * 一次性拿取所有的商品库存信息
+       */
+      @GetMapping("/skuStocks")
+      public Map<Long,Boolean> getSkuStocks(){
+          return wareSkuService.getSkuStocks();
+      }
+
+方法：
+
+       /**
+       *
+       * @return
+       *
+       * 由order模块调用的方法
+       *
+       * 获取所有商品有货商品并返回一个map
+       *
+       */
+      @Override
+      public Map<Long, Boolean> getSkuStocks() {
+          return baseMapper.selectList(null).stream().collect(Collectors.toMap(
+                  s->s.getSkuId(),
+                  s->Boolean.TRUE
+          ));
+      }
+
+
+
+
+
+
+### 运费及地址显示
+
+前端会发起请求获取运费，统一返回一个8块就是了
+url：
+
+      http://katzenyasax-mall.com/api/ware/wareinfo/fare?addrId=
+
+接口：
+
+      /**
+       * 前端请求，运费
+       *
+       * //todo 先直接返回8
+       */
+      @GetMapping("/fare")
+      public R getFare(Long addrId){
+          FareVo data=wareInfoService.getFareVo(addrId);
+          return R.ok().put("data",data);
+      }
+
+方法getFareVo：
+
+      /**
+       *
+       * @param addrId
+       * @return
+       *
+       * 前端请求，获取fareVo，即地址
+       */
+      @Override
+      public FareVo getFareVo(Long addrId) {
+          //初始化
+          FareVo finale=new FareVo();
+          //运费为8
+          finale.setFare(BigDecimal.valueOf(8));
+          //地址
+          Object memberReceiveAddress = memberFeign.info(addrId).get("memberReceiveAddress");
+          MemberAddressTO address = JSON.parseObject(JSON.toJSONString(memberFeign.info(addrId).get ("memberReceiveAddress")), MemberAddressTO.class);
+          finale.setAddress(address);
+          return finale;
+      }
+
+貌似BeanUtils的copyProperties用不了，那就直接转成json再转实体类吧
+
+vo：
+
+      @Data
+      public class FareVo {
+          private MemberAddressTO address;
+          private BigDecimal fare;
+      }
+
+远程调用的feign接口：
+
+      @FeignClient("mall-member")
+      public interface MemberFeign {
+          /**
+          * 
+          * @param id
+          * @return
+          * 
+          * 获取收货地址
+          */
+          @RequestMapping("member/memberreceiveaddress/info/{id}")
+          R info(@PathVariable("id") Long id);
+      }
+
+
+
+
+### 令牌
+
+防止重复提交表单的令牌token，确保幂等性
+
+有天然幂等性的操作，就是操作结果与次数无关的操作，例如删除id为1的数据，由于只有一个id为1的数据，故即使多次删除最终也只有一个数据被删除
+而操作结果与次数有关的则无幂等性，例如数据的加一减一，多次操作会造成错误的结果
+
+因此订单只能有效提交一次，重复提交数据库不予回应，因为多次提交可能造成库存的多次减少等错误清空
+
+解决方案有：
+
+1.使用token
+但是要求原子性操作，即进token、业务完成、删token必须是一个操作
+
+2.悲观锁
+认为所有操作都有可能被其他操作插队
+
+3.乐观锁
+仅用一个version控制版本
+
+4.给每个请求添加一个独有id，验证是否为该请求
+
+
+
+最终选用token
+并且需要用到redis存储token
+也就是每次用户提交请求时
+
+      /**
+       * 3.令牌
+       */
+      //获取一个uuid令牌
+      String orderToken = UUID.randomUUID().toString();
+      finale.setOrderToken(orderToken);
+      //将令牌存入redis，格式为k:orderToken:: 用户id     v:token
+      redisTemplate.opsForValue().set(
+              OrderTokenConstant.ORDER_TOKEN+id.toString()
+              ,orderToken
+              ,30
+              , TimeUnit.MINUTES
+      );
+
+
+
+
+
+
+
+
+
+### 测试
+
+可行
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 提交订单
+
+请求url：
+
+      http://order.katzenyasax-mall.com/submitOrder
+
+前端发送一个OrderSubmitVO：
+
+      OrderSubmitVo(
+        addrId=1            //地址
+        , payType=null
+        , orderToken=bb8742a8-ff40-471a-8bc2-2cd186e3d0a1       //令牌
+        , payPrice=461          //支付价格
+        , remarks=null          
+      )
+
+### 接口
+
+      /**
+       * 提交订单
+       */
+      @RequestMapping("/submitOrder")
+      public String submitOrder(Model model, OrderSubmitVo vo, RedirectAttributes redirectAttributes){
+          MemberTO memberTO = OrderInterceptor.orderThreadLocal.get();
+          System.out.println(vo);
+          //获取下单状态
+          SubmitOrderResponseVo resp=orderService.submitOrder(vo);
+          //System.out.println(resp.getCode());
+          if(resp.getCode().equals(0)){
+              //下单成功
+              model.addAttribute("submitOrderResp",resp);
+              return "pay";
+          } else{
+              switch (resp.getCode()){
+                  case 1:
+                      redirectAttributes.addFlashAttribute("msg","无货");
+                      break;
+                  case 2:
+                      redirectAttributes.addFlashAttribute("msg","价格有变动");
+                      break;
+                  case 3:
+                      redirectAttributes.addFlashAttribute("msg","请勿重复提交订单");
+                      break;
+              }
+              //下单失败，跳转回toTrade页面
+              return "redirect:http://order.katzenyasax-mall.com/toTrade";
+          }
+      }
+
+
+### 需要上锁
+p276
+
+首先在service层的方法里就要验证令牌，而验证令牌的过程需要保证原子性
+但是这里不需要使用redisson实现分布式锁，因为默认情况下提交订单的操作只会来到一台服务器上
+
+所以使用lua脚本进行上锁，脚本如下：
+
+      String script="if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end";
+
+上锁、验证令牌、删锁并返回验证情况的过程：
+
+      /**
+       * 1.验证令牌
+       * 此过程需要保证原子性
+       */
+      String script="if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end";      //lua脚本
+      Long ifTokenCorrect = (Long) redisTemplate.execute(
+              new DefaultRedisScript<Long>(script, Long.class)            //返回值类型
+              , Arrays.asList(OrderTokenConstant.ORDER_TOKEN + userId)       //验证的数据redis中的名字
+              , vo.getOrderToken()                                         //要验证的数据
+      );
+      if (ifTokenCorrect.equals(1l)){
+          //令牌正确，开始执行业务
+      } else{
+        //令牌过期
+        finale.setCode(3);
+      }
+      return finale;
+
+其中redisTemplate的execute方法返回值为验证情况，1表示验证正确，0表示错误
+验证正确时开始执行业务，否则直接返回code为3，表示令牌过期
+
+
+
+
+
+
+
+
+
+### 构造订单基本信息
+p277
+
+接着上面的if，令牌正确执行业务：
+
+      /**
+       * 开始构造OrderEntity，这个会作为回显到前台的数据
+       */
+      OrderEntity order = this.buildOrderEntity();
+
+方法buildOrder：
+
+      /**
+       *
+       * @return
+       *
+       * 创建订单
+       */
+      public OrderEntity buildOrderEntity(){
+
+          OrderSubmitVo vo = submitVoThreadLocal.get();
+          Long userId=OrderInterceptor.orderThreadLocal.get().getId();
+
+          //1.基础信息
+          OrderEntity order=new OrderEntity();
+          order.setMemberId(userId);                  //提交用户
+          order.setOrderSn(IdWorker.getTimeId());     //订单号
+          order.setCreateTime(new DateTime());            //创建时间
+          order.setPayAmount(vo.getPayPrice());           //应付金额
+          //该金额就是确认时直接拿取数据库的介个
+
+          //2.用户信息
+          MemberTO thisMember = JSON.parseObject(
+                  JSON.toJSONString(memberFeign.info(userId).get("member"))
+                  , MemberTO.class
+          );
+          order.setMemberUsername(thisMember.getUsername());
+
+          //3.优惠信息
+          //跳过先 todo
+
+          //4.地址和运费
+          R fare = wareFeign.getFare(vo.getAddrId());
+          FareVo addressAndFare=JSON.parseObject(JSON.toJSONString(fare.get("data")),FareVo.class);
+          //4.1运费
+          order.setFreightAmount(addressAndFare.getFare());           //运费
+          MemberAddressVo addr = addressAndFare.getAddress();
+          //4.2收货人信息
+          order.setBillReceiverPhone(addr.getPhone());        //收票人电话
+          order.setReceiverName(addr.getName());              //收货人姓名
+          order.setReceiverPostCode(addr.getPostCode());      //收货人邮编
+          //4.3详细地址
+          order.setReceiverProvince(addr.getProvince());      //省
+          order.setReceiverCity(addr.getCity());              //城市
+          order.setReceiverRegion(addr.getRegion());          //区
+          order.setReceiverDetailAddress(addr.getDetailAddress());        //详细地址
+
+          return order;
+      }
+
+
+
+### 构建表单项
+p278
+
+为什么要构建订单项？提交订单成功的相应界面里面不需要这个啊？
+是为了存入数据库，光有响应没有实际写库操作也不行啊，
+还要将对应用户的购物车中已经提交订单的商品删了；
+要是用户退款还要退回到购物车；
+这些全都要以数据库中绑定了订单sn（或id）的订单项
+
+
+接着上面创建完订单信息后，创建订单项：
+
+      /**
+       * 开始构造表单项List<OrderItemEntity>，这些是后台操作数据库要用的数据
+       *
+       * 表单项数据的主体为单个商品，通过订单id和sn来和订单进行绑定
+       *
+       * 订单id为后台方便调取数据存入的数据，而sn则是前台用户可以看到的数据
+       *
+       */
+      List<OrderItemEntity> items = this.buildOrderItemEntity(order.getDeliverySn());
+
+方法buildOrderItemEntity，拿到订单的sn，并从threadLocal中拿取用户信息
+
+      /**
+      *
+      * @param sn
+      * @return
+      *
+      * 再次从cart内得到skuId的set，并从数据库中读取数据
+      */
+      public List<OrderItemEntity> buildOrderItemEntity(String sn){
+          //本地线程共享的数据
+          Long userId=OrderInterceptor.orderThreadLocal.get().getId();
+          //获取该用户的cart操作柄
+          String redis_key= CartConstant.CART_USER_PREFIX+userId;
+          BoundHashOperations<String,Object,Object> ops = redisTemplate.boundHashOps(redis_key);
+          //获取数据key的集合，是sku的id
+          Set<Object> keys = ops.keys();
+          List<OrderItemEntity> finale=new ArrayList<>();
+          for (Object key : keys) {
+              OrderItemVo thisItemVO = JSON.parseObject(ops.get(key).toString(), OrderItemVo.class);
+              if (thisItemVO.getCheck()) {
+                  //只有被选中的才是订单商品
+                  OrderItemEntity entity = new OrderItemEntity();
+                  //1.订单信息
+                  entity.setOrderSn(sn);
+
+                  //2.sku信息
+                  entity.setSkuId(thisItemVO.getSkuId());
+                  entity.setSpuName(thisItemVO.getTitle());
+                  entity.setSkuPic(thisItemVO.getImage());
+                  entity.setSkuPrice(thisItemVO.getPrice());
+                  entity.setSkuQuantity(thisItemVO.getCount());
+                  entity.setSkuAttrsVals(String.join(",", thisItemVO.getSkuAttrValues()));
+
+                  //3.spu信息
+                  //从product模块里拿一个SpuInfoTO
+                  SpuInfoTO thisSpu = productFeign.getSpuBySkuId(thisItemVO.getSkuId());
+                  entity.setSpuId(thisSpu.getId());               //spuId
+                  entity.setSpuName(thisSpu.getSpuName());        //spuName
+                  entity.setSpuPic(thisSpu.getSpuDescription());          //描述图
+                  entity.setSpuBrand(thisSpu.getBrandId().toString());        //品牌id
+                  entity.setCategoryId(thisSpu.getCatalogId());               //分类id
+
+                  //4.优惠信息
+                  //todo 暂时不做
+
+                  //5.积分、成长值等
+                  entity.setGiftIntegration(
+                          entity.getSkuPrice().divideAndRemainder(BigDecimal.ONE)[0].intValue()
+                  );     //积分
+                  entity.setGiftGrowth(
+                          entity.getSkuPrice().divideAndRemainder(BigDecimal.ONE)[0].intValue() + new Random().nextInt(10)
+                  );        //成长值
+                  
+                  //保存
+                  finale.add(entity);
+              }
+          }
+          return finale;
+      }
+
+远程调用的productFeign接口内：
+
+      /**
+       * 由orderService调用，根据skuId获取完整的spuInfoTO
+       */
+      @RequestMapping("product/spuinfo/getBySkuId/{skuId}")
+      SpuInfoTO getSpuBySkuId(@PathVariable Long skuId);
+
+
+product模块，spuInfoController内接口：
+
+      /**
+       *
+       * @param skuId
+       * @return
+       *
+       * 由orderService调用，根据skuId获取完整的spuInfoEntity
+       */
+      @RequestMapping("/getBySkuId/{skuId}")
+      public SpuInfoTO getSpuBySkuId(@PathVariable Long skuId){
+          return spuInfoService.getBySkuId(skuId);
+      }
+
+方法getBySkuId：
+
+      /**
+       *
+       * @param skuId
+       * @return
+       *
+       * 被order模块远程调用
+       * 根据skuId获取完整的spuInfoTO
+       */
+      @Override
+      public SpuInfoTO getSpuBySkuId(Long skuId) {
+          SpuInfoEntity entity=spuInfoDao.selectById(
+                  skuInfoDao.selectOne(new QueryWrapper<SkuInfoEntity>()
+                          .eq("sku_id",skuId))
+                          .getSpuId()
+          );
+          SpuInfoTO finale= new SpuInfoTO();
+          BeanUtils.copyProperties(entity,finale);
+          return finale;
+      }
+
+
+
+### 订单状态
+
+0表示未支付
+
+      /**
+       * 订单状态，0表示未支付
+       */
+      order.setSourceType(0);
+
+
+
+
+### 验价
+p279
+
+接着上面的支付状态后：
+
+      /**
+       * 所有商品的价格，和原先的总价进行验证
+       * 如果两者差价小于0.01，代表两者至少小数点后两位之前是相等的，则可以接受
+       */
+      BigDecimal newestPayPrice=this.buildNewestPayPrice(items);
+      if(Math.abs(vo.getPayPrice().subtract(newestPayPrice.add(order.getFreightAmount())).doubleValue())<0.01) {
+          //若二者差值小于0.01，可以接受
+          order.setPayAmount(newestPayPrice.add(order.getFreightAmount()));
+          //【继续下面的业务······】
+      } else {
+          //则表示前后价格不一，打回前端要求重新提交
+          finale.setCode(2);
+      }
+
+方法buildNewestPayPrice：
+
+       /**
+       *
+       * @param orderItems
+       * @return
+       *
+       * 创建最新价格
+       */
+      private BigDecimal buildNewestPayPrice(List<OrderItemEntity> orderItems) {
+          BigDecimal finale = BigDecimal.ZERO;
+          for (OrderItemEntity item : orderItems) {
+              BigDecimal thisPrice = item.getSkuPrice().multiply(
+                      BigDecimal.valueOf(item.getSkuQuantity())
+              );
+              System.out.println(thisPrice);
+              finale = finale.add(thisPrice);
+          }
+          return finale;
+      }
+
+因为在创建orderItem时就是从数据库中拿取的价格，所以这里直接从orderItem遍历拿取每一个价格就行了，再来一次我怀疑性能会爆炸
+
+不要用forEach的lambda表达式了，finale要是final的才能加，否则只能加原子操作
+
+
+
+
+
+### 临时测试
+
+应当能够进入支付页面才算成功
+但是目前还只是完成了数据的回显，并没有做任何的持久化操作
+
+
+
+
+### 存订单
+p280
+
+验价正确后，需要将order和items存入数据库，分别以OrderEntity和OrderItemEntity存入
+redis中，用户对应的cart中已提交订单的数据也要删除
+
+接在上面的验价之后：
+
+      /**
+       * 此时可以认为已经验价成功，order数据应当写到数据库中
+       */
+      this.saveOrderEntity(order);
+      //拿到存入的id
+      Long newId = baseMapper.selectOne(
+              new QueryWrapper<OrderEntity>().eq("order_sn", order.getOrderSn())
+      ).getId();
+
+写一个方法saveOrderEntity保存order：
+
+      /**
+       * 
+       * @param order
+       * 
+       * 保存orderEntity，直接使用baseMapper存
+       */
+      private void saveOrderEntity(OrderEntity order) {
+          baseMapper.insert(order);
+      }
+
+
+
+
+
+
+### 锁定库存
+p280
+
+在保存订单之后，需要对库存进行锁定，因为此时如果发现订单项有库存不足的情况下需要对报异常并返回前端，并且将数据库的数据回滚
+此外还需要令整个方法是原子方法，故加上一个事务注解：
+
+      @Transactional
+
+所谓锁库存，在ware_sku表内的意思就是将字段stock_locked增加，这个字段就是目前已经占用的商品库存，即已经明确提交了订单的商品
+此外还要存到ware_order_task，需要的是order的id和sn
+
+直接将OrderItemEntity提到common模块作为OrderItemTO，传TO
+
+在Ware模块下，WareSkuController内创建接口：
+
+    /**
+     * order远程调用
+     * 锁定orderItems的库存，若库存不足还要返回不足提示
+     */
+    @RequestMapping("/lockWare")
+    public Map<Long,Long> lockWare(@RequestBody List<OrderItemTO> items){
+        try {
+            Map<Long, Long> map = wareSkuService.lockWare(items);
+            return map;
+        } catch (NoStockException e) {
+            System.out.println("锁库存失败");
+            return null;
+        }
+    }
+
+
+方法lockWare：
+
+      /**
+       * @param items
+       * @return 锁定库存
+       * 返回一个map，表示哪些商品是否全部锁定成功
+       */
+      @Transactional(rollbackFor = NoStockException.class)
+      @Override
+      public Map<Long, Long> lockWare(List<OrderItemTO> items) {
+          //一次查所有表中数据
+          List<WareSkuEntity> allWareSku = baseMapper.selectList(null);
+          return items.stream().collect(Collectors.toMap(
+                  item->item.getSkuId()
+                  ,item -> {
+                      /**
+                       * item中有用的信息：skuId，skuQuantity，orderId，orderSn
+                       */
+                      //查询所有skuId为item的skuId的仓库
+                      List<WareSkuEntity> wareSkus = allWareSku.stream().filter(
+                              a -> a.getSkuId().equals(item.getSkuId())
+                      ).toList();
+                      if (wareSkus != null && wareSkus.size() > 0) {
+                          //当有有仓库存有该sku时...
+                          for (WareSkuEntity ware : wareSkus) {
+                              if (ware.getStock()-ware.getStockLocked()>= item.getSkuQuantity()){
+                                  //有一个仓库的库存足够时，将该仓库的部分库存锁定，即是更新该行数据
+                                  //来一个更新数据
+                                  WareSkuEntity newWare=new WareSkuEntity();
+                                  BeanUtils.copyProperties(ware,newWare);
+                                  newWare.setStockLocked(ware.getStockLocked()+ item.getSkuQuantity());
+                                  //更新数据库
+                                  baseMapper.updateById(newWare);
+                                  return ware.getId();
+                              }
+                              else {
+                                  //一个足够库存的仓库也没有，抛异常
+                                  throw new NoStockException(item.getSkuId());
+                              }
+                          }
+                      }
+                      else {
+                          //没有任何仓库存有该sku时，抛异常
+                          throw new NoStockException(item.getSkuId());
+                      }
+                      return null;
+                  }
+          ));
+      }
+
+自定义异常NoStockException：
+
+    public class NoStockException extends RuntimeException{
+        private Long skuId;
+        public NoStockException(Long skuId){
+            super(skuId+"号商品库存不足！");
+        }
+        public Long getSkuId() {
+            return skuId;
+        }
+        public void setSkuId(Long skuId) {
+            this.skuId = skuId;
+        }
+    }
+
+order模块内feign接口：
+
+      /**
+       * order远程调用
+       * 锁定orderItems的库存，若库存不足还要返回不足提示
+       */
+      @RequestMapping("/lockWare")
+      Map<Long,Long> lockWare(@RequestBody List<OrderItemTO> items);
+
+OrderService内的锁定部分为：
+
+      /**
+       * 锁定库存
+       */
+      //专供远程调用的to
+      List<OrderItemTO> tos = items.stream().map(item -> {
+          OrderItemTO to = new OrderItemTO();
+          BeanUtils.copyProperties(item, to);
+          return to;
+      }).collect(Collectors.toList());
+      //获取锁库存响应
+      Map<Long,Long> resp = wareFeign.lockWare(tos);
+      if(resp==null){
+          baseMapper.deleteById(order.getId());   //要删掉提交失败的订单id
+          //锁库存失败时
+          finale.setCode(1);
+          return finale;
+      } else {
+          //锁库存成功
+          //执行业务······
+      }
+
+
+
+
+
+### 存订单项
+
+
+接在锁库存成功的分支后面：
+
+      /**
+       * 存orderItems
+       */
+      this.saveOrderItemEntities(items,newId);
+
+有了order的id和sn，随后将orderItems也存到数据库，写一个方法saveOrderItemEntities：
+
+      /**
+       * @param items
+       * @param newId
+       */
+      private void saveOrderItemEntities(List<OrderItemEntity> items, Long newId) {
+          items.forEach(item->{
+              item.setOrderId(newId);
+              orderItemDao.insert(item);
+          });
+      }
+
+
+
+### 订单任务和对应商品存到ware服务中
+
+
+要存的还有ware_order_task、ware_order_task_detail
+需要远程调用ware模块
+
+要用的数据，task表需要orderId、orderSn，wareId。由这三个确定一个仓库任务
+先存task表，然后才能拿到taskId
+detail数据需要的是taskId，skuId，skuNum，wareId。每一个sku都占一行数据
+
+封装一个WareOrderDetailTO：
+
+      @Data
+      public class WareOrderDetailTO {
+          private Long orderId;
+          private String orderSn;
+          private Long skuId;
+          private Long skuNum;
+          private Long wareId;
+      }
+
+
+接在上面的存订单项后面：
+
+      /**
+       *
+       * 存ware_order_task和ware_order_task_detail
+       */
+      //这个是sku存在哪个ware，前一个是skuId，后一个是wareId
+      //只有锁库存成功时，才会put一个map到R
+      Map<Long,Long> skuInWhichWare = JSON.parseObject(
+              JSON.toJSONString(resp.get("data"))
+              , Map.class
+      );
+      List<WareOrderDetailTO> taskDetailList=new ArrayList<>();
+      for (OrderItemEntity item : items) {
+          WareOrderDetailTO to=new WareOrderDetailTO();
+          //构建数据
+          to.setOrderId(order.getId());
+          to.setOrderSn(order.getOrderSn());
+          to.setSkuId(item.getSkuId());
+          to.setSkuNum(Long.parseLong(item.getSkuQuantity().toString()));
+          to.setWareId(skuInWhichWare.get(item.getSkuId()));      //skuId为key，可以直接拿到对应的value
+          //封装
+          taskDetailList.add(to);
+      }
+      wareFeign.saveTasks(taskDetailList);
+
+feign接口：
+
+      /**
+       * order远程调用
+       * 存ware_order_task和ware_order_task_detail
+       */
+      @RequestMapping("ware/waresku/saveTasks")
+      public void saveTasks(@RequestBody List<WareOrderDetailTO> to)
+
+
+wareSkuController内接口：
+
+      /**
+       * order远程调用
+       * 存ware_order_task和ware_order_task_detail
+       */
+      @RequestMapping("/saveTasks")
+      public void saveTasks(@RequestBody List<WareOrderDetailTO> to){
+          wareSkuService.saveTasks(to);
+      }
+
+方法saveTasks：
+
+      /**
+      * @param to
+      *
+      * 存入ware_order_task和ware_order_task_detail
+      *
+      */
+      @Override
+      public void saveTasks(List<WareOrderDetailTO> to) {
+          for (WareOrderDetailTO task : to) {
+              WareOrderTaskEntity ifExistOne=wareOrderTaskDao.selectOne(new QueryWrapper<WareOrderTaskEntity>()
+                      .eq("order_id",task.getOrderId())
+                      .and(m->m.eq("order_sn",task.getOrderSn()))
+                      .and(n->n.eq("ware_id",task.getWareId())));
+              if (ifExistOne==null) {
+                  //如果此时wareOrderTask表内无数据，则新建一个对象存入
+                  WareOrderTaskEntity taskEntity = new WareOrderTaskEntity();
+                  //构建task
+                  taskEntity.setOrderId(task.getOrderId());
+                  taskEntity.setOrderSn(task.getOrderSn());
+                  taskEntity.setOrderBody(task.getSkuId().toString());
+                  taskEntity.setCreateTime(new DateTime());
+                  taskEntity.setWareId(task.getWareId());
+                  wareOrderTaskDao.insert(taskEntity);
+              } else {
+                  //如果此时wareOrderTask表内已有数据，则将orderBody拼接上该skuId
+                  ifExistOne.setOrderBody(ifExistOne.getOrderBody()+","+task.getSkuId());
+                  wareOrderTaskDao.updateById(ifExistOne);
+              }
+              //再查一遍库，拿到最新的数据
+              ifExistOne=wareOrderTaskDao.selectOne(new QueryWrapper<WareOrderTaskEntity>()
+                      .eq("order_id",task.getOrderId())
+                      .eq("order_sn",task.getOrderSn())
+                      .eq("ware_id",task.getWareId()));
+              //此时不管如何，ifExistOne都有值，而且都拿到了taskId
+              //构建detail
+              WareOrderTaskDetailEntity taskDetailEntity=new WareOrderTaskDetailEntity();
+              taskDetailEntity.setTaskId(ifExistOne.getId());
+              taskDetailEntity.setSkuId(task.getSkuId());
+              taskDetailEntity.setSkuNum(Integer.parseInt(task.getSkuNum().toString()));
+              //存入
+              //?存不了wareId
+              wareOrderTaskDetailDao.insert(taskDetailEntity);
+          }
+      }
+
+
+
+
+### 最终测试
+
+试着提交一个2号sku
+
+结果基本完成要求
+
+
+
 
 
 

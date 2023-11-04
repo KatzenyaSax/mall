@@ -1,15 +1,13 @@
 package com.katzenyasax.mall.ware.controller;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Map;
 
+import com.katzenyasax.mall.ware.vo.FareVo;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.katzenyasax.mall.ware.entity.WareInfoEntity;
 import com.katzenyasax.mall.ware.service.WareInfoService;
@@ -32,18 +30,15 @@ public class WareInfoController {
     private WareInfoService wareInfoService;
 
 
-
     /**
-     * 列表
-     * 要求可以根据key模糊查询
+     * 前端请求，运费
      *
+     * //todo 先直接返回8
      */
-    @RequestMapping("/list")
-    @RequiresPermissions("ware:wareinfo:list")
-    public R list(@RequestParam Map<String, Object> params){
-        PageUtils page = wareInfoService.getWareInfo(params);
-
-        return R.ok().put("page", page);
+    @RequestMapping("/fare")
+    public R getFare(@RequestParam Long addrId){
+        FareVo data=wareInfoService.getFareVo(addrId);
+        return R.ok().put("data",data);
     }
 
 
@@ -61,6 +56,22 @@ public class WareInfoController {
 
 
     //=====================================================
+
+
+    /**
+     * 列表
+     * 要求可以根据key模糊查询
+     *
+     */
+    @RequestMapping("/list")
+    @RequiresPermissions("ware:wareinfo:list")
+    public R list(@RequestParam Map<String, Object> params){
+        PageUtils page = wareInfoService.getWareInfo(params);
+
+        return R.ok().put("page", page);
+    }
+
+
 
     /**
      * 列表

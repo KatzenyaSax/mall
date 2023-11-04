@@ -1,16 +1,16 @@
 package com.katzenyasax.mall.ware.controller;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
+import com.katzenyasax.common.to.OrderItemTO;
+import com.katzenyasax.common.to.WareOrderDetailTO;
+import com.katzenyasax.mall.ware.exception.NoStockException;
 import io.swagger.models.auth.In;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.katzenyasax.mall.ware.entity.WareSkuEntity;
 import com.katzenyasax.mall.ware.service.WareSkuService;
@@ -32,6 +32,49 @@ public class WareSkuController {
     @Autowired
     private WareSkuService wareSkuService;
 
+
+    /**
+     * order服务远程调用
+     * 一次性拿取所有的商品库存信息
+     */
+    @GetMapping("/skuStocks")
+    public Map<Long,Boolean> getSkuStocks(){
+        return wareSkuService.getSkuStocks();
+    }
+
+
+    /**
+     * order远程调用
+     * 锁定orderItems的库存，若库存不足还要返回不足提示
+     */
+    @RequestMapping("/lockWare")
+    public Map<Long,Long> lockWare(@RequestBody List<OrderItemTO> items){
+        try {
+            Map<Long, Long> map = wareSkuService.lockWare(items);
+            return map;
+        } catch (NoStockException e) {
+            System.out.println("锁库存失败");
+            return null;
+        }
+    }
+
+
+    /**
+     * order远程调用
+     * 存ware_order_task和ware_order_task_detail
+     */
+    @RequestMapping("/saveTasks")
+    public void saveTasks(@RequestBody List<WareOrderDetailTO> to){
+        wareSkuService.saveTasks(to);
+    }
+
+
+
+
+
+
+
+    //=============================================
 
 
     /**

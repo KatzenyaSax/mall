@@ -1,9 +1,12 @@
 package com.katzenyasax.mall.ware.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.katzenyasax.common.to.OrderItemTO;
+import com.katzenyasax.common.to.WareOrderDetailTO;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.mall.ware.entity.WareSkuEntity;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -20,5 +23,11 @@ public interface WareSkuService extends IService<WareSkuEntity> {
     PageUtils getSkuInfo(Map<String, Object> params);
 
     Map<Long, Integer> getStockBySkuxId(Long skuId);
+
+    Map<Long, Boolean> getSkuStocks();
+
+    Map<Long, Long> lockWare(List<OrderItemTO> items);
+
+    void saveTasks(List<WareOrderDetailTO> to);
 }
 

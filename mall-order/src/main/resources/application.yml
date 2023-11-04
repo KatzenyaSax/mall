@@ -25,6 +25,13 @@ spring:
     listener:
       simple:
         acknowledge-mode: manual
+  thymeleaf:
+    cache: false
+  data:
+    redis:
+      port: 6379
+      host: 192.168.74.130
+
 
 
 
@@ -41,5 +48,8 @@ server:
 
 
 
-
-
+mall:
+  thread:
+    core-size:  20
+    max-size: 200
+    keep-alive-time:  10

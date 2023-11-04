@@ -1,10 +1,8 @@
 package com.katzenyasax.mall.order.config;
 
 import jakarta.annotation.PostConstruct;
-import org.springframework.amqp.core.ReturnedMessage;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration

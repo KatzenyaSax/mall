@@ -1,8 +1,10 @@
 package com.katzenyasax.mall.product.controller;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Map;
 
+import com.katzenyasax.common.to.SpuInfoTO;
 import com.katzenyasax.mall.product.vo.spu.SpuSaveVO;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +35,18 @@ public class SpuInfoController {
     private SpuInfoService spuInfoService;
 
 
+    /**
+     *
+     * @param skuId
+     * @return
+     *
+     * 由orderService调用，根据skuId获取完整的spuInfoEntity
+     */
+    @RequestMapping("/getBySkuId/{skuId}")
+    public SpuInfoTO getSpuBySkuId(@PathVariable Long skuId){
+        return spuInfoService.getBySkuId(skuId);
+    }
+
 
 
 
@@ -52,6 +66,17 @@ public class SpuInfoController {
     public R save(@RequestBody SpuSaveVO vo){
         spuInfoService.saveSpuVo(vo);
         return R.ok();
+    }
+
+
+    /**
+     * 被order远程调用的接口
+     * 获取全部spu的weights
+     */
+    @RequestMapping("/allSpu")
+    Map<String, BigDecimal> allSpuWeights(){
+        Map<String, BigDecimal> res=spuInfoService.allSpuWeights();
+        return res;
     }
 
 
