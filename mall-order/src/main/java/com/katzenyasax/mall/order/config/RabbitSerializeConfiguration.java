@@ -18,7 +18,4 @@ public class RabbitSerializeConfiguration {
     public MessageConverter messageConverter(){
         return new Jackson2JsonMessageConverter();
     }
-
-
-
 }

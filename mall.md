@@ -87,43 +87,48 @@
 
 ## docker安装
 
-I.安装
+### 安装
 
-            1.网址：https://zhuanlan.zhihu.com/p/143156163
-    
-            2.运行docker：
+1.[参考网址](https://zhuanlan.zhihu.com/p/143156)
 
-                    systemctl start docker;
+2.运行docker
+```bash
+        systemctl start docker
+```
 
-            3.查看docker状态（注意该窗口会阻塞）：
+3.查看docker状态（注意该窗口会阻塞）
+```bash
+        systemctl status docke
+```
 
-                    systemctl status docker
+4.查看docker现有镜像
+```bash
+        docker image
+```
 
-            4.查看docker现有镜像：
+5.设置docker开机自启动
+```bash
+        systemctl enable docker
+```
 
-                    docker images
-
-            5.设置docker开机自启动：
-
-                    systemctl enable docker
-            
-            6.至此安装完成
-
-
+至此安装完成
 
 
 
-II.配置docker阿里云镜像下载地址
 
-            阿里云镜像加速器，按顺序执行以下操作：
 
-                    sudo mkdir -p /etc/docker
-                    sudo tee /etc/docker/daemon.json <<-'EOF'
-                    {
-                    "registry-mirrors": ["https://e6jcuw6y.mirror.aliyuncs.com"]
-                    }
-                    EOF
-                    sudo systemctl daemon-reload
+### 配置docker阿里云镜像下载地址
+
+阿里云镜像加速器，按顺序执行以下操作：
+```bash
+      sudo mkdir -p /etc/docker
+      sudo tee /etc/docker/daemon.json <<-'EOF'
+      {
+      "registry-mirrors": ["https://e6jcuw6y.mirror.aliyuncs.com"]
+      }
+      EOF
+      sudo systemctl daemon-reload
+```
 
 [参考链接](https://developer.aliyun.com/article/1245481?spm=a2c6h.14164896.0.0.1a9a47c5JPNQiV&scm=20140722.S_community@@%E6%96%87%E7%AB%A0@@1245481._.ID_1245481-RL_docker%E9%98%BF%E9%87%8C%E4%BA%91%E9%95%9C%E5%83%8F-LOC_search~UND~community~UND~item-OR_ser-V_3-)
 
@@ -146,8 +151,9 @@ II.配置docker阿里云镜像下载地址
             
 
 I.安装
-
-            docker pull mysql
+```bash
+      docker pull mysql
+```
 
 默认安装最新版mysql.
 
@@ -158,8 +164,9 @@ I.安装
 
 
 II.创建mysql实例并运行.
-
-            docker run -itd --name mysql-test -p 3306:3306 -v /mydata/mysql/log:/var/log/mysql -v /mydata/mysql/data:/var/data/mysql -v /mydata/mysql/conf.d:/etc/mysql.d -e MYSQL_ROOT_PASSWORD=123456 mysql
+```bash
+      docker run -itd --name mysql-test -p 3306:3306 -v /mydata/mysql/log:/var/log/mysql -v /mydata/mysql/data:/var/data/mysql -v /mydata/mysql/conf.d:/etc/mysql.d -e MYSQL_ROOT_PASSWORD=123456 mysql
+```
 
 此时，外部服务器可以通过3306端口访问mysql，其密码为123456.
 将mysql的日志log挂载到/mydata/mysql/log/mysql.
@@ -170,43 +177,45 @@ II.创建mysql实例并运行.
 
 III.连接远程数据库.
 由于本虚拟机ip地址为192.168.74.130，故远程连接时的ip地址要选用此ip.
-    
-            192.168.74.130:3306
-            root
-            123456
+```    
+      192.168.74.130:3306
+      root
+      123456
+```
 
 IV.在linux用docker命令进入mysql.
-
-            docker exec -it [ID] /bin/bash
-
+```bash
+      docker exec -it [ID] /bin/bash
+```
 其中-it表示交互方法.
 [ID]为该容器id开头三个字母.
 /bin/bash表示进入mysql的内部.
 
 随后便可进入mysql的内部文件夹：
-            
-            /var/mysql/log
-            /var/mysql/data
-            /etc/mysql.d
-
+```            
+      /var/mysql/log
+      /var/mysql/data
+      /etc/mysql.d
+```
 
 
 V.在挂载文件夹写入配置文件my.cnf:
-
-            [mysqld]
-            user=mysql
-            character-set-server=utf8
-            default_authentication_plugin=mysql_native_password
-            secure_file_priv=/var/lib/mysql
-            expire_logs_days=7
-            sql_mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
-            max_connections=1000
-            ​
-            [client]
-            default-character-set=utf8
-            ​
-            [mysql]
-            default-character-set=utf8
+```cnf
+      [mysqld]
+      user=mysql
+      character-set-server=utf8
+      default_authentication_plugin=mysql_native_password
+      secure_file_priv=/var/lib/mysql
+      expire_logs_days=7
+      sql_mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+      max_connections=1000
+      ​
+      [client]
+      default-character-set=utf8
+      ​
+      [mysql]
+      default-character-set=utf8
+```
 
 主要是把编码格式改为utf8.
 配置过后要重启容器.
@@ -229,8 +238,9 @@ V.在挂载文件夹写入配置文件my.cnf:
 ## docker安装redis
 
 I.直接pull redis，创建实例并运行：
-
-            docker run -itd --name redis-test -p 6379:6379 -v /mydata/redis/data:/data -v /mydata/redis/conf/redis.conf:/etc/redis/redis.conf -d redis redis-server /etc/redis/redis.conf
+```bash
+      docker run -itd --name redis-test -p 6379:6379 -v /mydata/redis/data:/data -v /mydata/redis/conf/redis.conf:/etc/redis/redis.conf -d redis redis-server /etc/redis/redis.conf
+```
 
 此时，redis的端口6379映射到docker的6379，/data和redis.conf映射到指定位置.
 -d代表后台运行，以redis镜像文件启动redis服务，并加载后面的配置文件.
@@ -239,26 +249,23 @@ I.直接pull redis，创建实例并运行：
 
 
 II.进入redis内部，然后可以使用redis的指令.
+```bash
+      docker exec -it redis redis-指令
+```
 
-            docker exec -it redis redis-指令
 
-
-
-III.持久化
+III.持久化(旧版！)
 在redis.conf里加上一行：
+```conf
+      appendonly yes
+```
 
-            appendonly yes
+随后要重启redis，重启后redis设置的数据，可以直接持久化.
 
-随后要重启redis
-此时redis设置的数据，可以直接持久化.
-
-
-
-
+但是注意新版的redis已经默认支持持久化了
 
 
-IV.连接
-使用的ip是虚拟机的ip地址.
+
 
 
 
@@ -271,15 +278,17 @@ IV.连接
 安装git
 
 在git bash中配置：
+```
+      git config --global user.name "InnerSekiro"
+      git config --global user.email "a18290531268@163.com"
+```
 
-            git config --global user.name "InnerSekiro"
-            git config --global user.email "a18290531268@163.com"
-            
 生成免密连接密钥：
+```
+      ssh-keygen -t rsa -C "a18290531268@163.com"
+```
 
-            ssh-keygen -t rsa -C "a18290531268@163.com"
-
-密钥位置会给出提示.
+密钥位置会给出提示
 
 
 
@@ -297,12 +306,13 @@ IV.连接
 所有模块的父包名（组织名）都应该是：com.katzenyasax.mall.
 
 要创建的模块有：
-
-            product：商品
-            order：订单
-            member：人员
-            coupon：优惠券
-            ware：
+```
+      product：商品
+      order：订单
+      member：人员
+      coupon：优惠券
+      ware：
+```
 
 注意外面应当有一个大型mall模块聚合上述所有模块.
 可以在创建之时创建一个空项目，但是选上maven，创建之后就有pom.xml了，把packaging改为pom.
@@ -313,13 +323,14 @@ IV.连接
 
 
 在总服务的.gitignore添加：
-
-            **/.mvn
-            **/mvnw
-            **/mvnw.cmd
-            **/target/
-            .idea
-            **/.gitignore
+```gitignore
+      **/.mvn
+      **/mvnw
+      **/mvnw.cmd
+      **/target/
+      .idea
+      **/.gitignore
+```
 
 表示上传git时忽略这些无用文件
 
@@ -2098,7 +2109,7 @@ access key：4RTcGMYo6UGNGAlvoicr4bVgw3ysWH
 在BrandEntity中的字段添加注解，@NotBlank、@NotEmpty等
 复杂场景下，使用@Pattern(regexp=" ", message="")，表示不符合正则表达式时，返回报错信息：
 
-            @TableId
+          @TableId
 	        private Long brandId;
 
 	        @NotBlank
@@ -13990,7 +14001,7 @@ p236
 因为后面回远程调用，所以加个@EnableFeignClients
 
 写一个viewController测试一下：
-
+```java
       @Configuration
       public class WebViewController implements WebMvcConfigurer {
           @Override
@@ -13999,6 +14010,7 @@ p236
               registry.addViewController("/cartList.html").setViewName("cartList");
           }
       }
+```
 
 测试路径：
 
@@ -14024,7 +14036,7 @@ p237
       3.商品优惠、价格的变化等
 
 所以数据封装：
-
+```java
       @Data
       public class CartItemVo {
           private String skuId;
@@ -14037,10 +14049,11 @@ p237
           private BigDecimal totalPrice;
           private BigDecimal reduce;          //减免
       }
+```
 
 该类用来表示购物车内单个种类的商品
 另外使用一个购物车类：
-
+```java
       @Data
       public class Cart {
           List<CartItemVo> items;
@@ -14052,7 +14065,7 @@ p237
           * 另外禁止在vo内写其他方法，vo应当只是一个纯粹的变量容器
           */
       }
-
+```
 
 
 
@@ -14076,20 +14089,21 @@ p239
 相应的前端页面也要改成这个路径。
 
 1.随后在common中创建一个to，用于封装用户信息：
-
+```java
       @ToString
       @Data
       public class UserInfoTo {
           private Long id;
           private String userKey;
       }
+```
 
 若已登录，则userId非空，且为当前用户的id
 若未登录，则userKey为临时用户
 
 2.而在请求发到controller之前，对其进行一个登录的校验，使用拦截器进行校验
   在cart模块定义interceptor.CartInterceptor
-
+```java
       @Component
       public class CartInterceptor implements HandlerInterceptor {
           @Override
@@ -14123,28 +14137,32 @@ p239
               return true;
           }
       }
+```
 
 但是这个userInfoTo同时也是我们想要的，把他也一并注入到controller里，此时用到ThreadLocal技术，允许同一个线程内数据的共享
 核心思想就是，将拦截器标识为一个线程，拦截器通过到controller时，controller指定该线程获取userInfoTo这一数据
 threadLocal可以在该线程的服务的任何位置使用
 
 3.在拦截器内标识线程：
-
+```java
       /**
        * 将该拦截器表示为cartThreadLocal
        */
       public static ThreadLocal<UserInfoTo> cartThreadLocal=new ThreadLocal<>();
+```
 
 4.同时还要在重写的preHandler方法内加上userInfoTo：
-
+```java
       cartThreadLocal.set(userInfoTo);
+```
 
 5.接口内，获取数据：
-
+```java
       UserInfoTo userInfoTo= CartInterceptor.cartThreadLocal.get();
+```
 
 6.接下来让拦截器工作，光给个@Component是不够的，还要添加到mvc：
-
+```java
       @Configuration
       public class CartWebConfiguration implements WebMvcConfigurer {
           @Override
@@ -14155,11 +14173,11 @@ threadLocal可以在该线程的服务的任何位置使用
                 ;
           }
       }
-
+```
 
 
 7.整个接口：
-
+```java
       /**
        * @return
        *
@@ -14176,6 +14194,7 @@ threadLocal可以在该线程的服务的任何位置使用
           //return "success";
           return "cartList";
       }
+```
 
 随后重启，测试：
 
@@ -14191,7 +14210,7 @@ threadLocal可以在该线程的服务的任何位置使用
 
 改造一下，若session和cookie中都无数据时，新建一个临时用户
 则将session和cookie改成并列关系：
-
+```java
       if(thisSession!= null){
           //若session中有名为loginUser的cookie，表示用户已登录
           MemberTo to= JSON.parseObject(JSON.toJSONString(thisSession),MemberTo.class);
@@ -14209,18 +14228,19 @@ threadLocal可以在该线程的服务的任何位置使用
               }
           }
       }
+```
 
 并且在无cookie时，新增一个临时用户：
-
+```java
       if(userInfoTo.getUserKey()==null){
           userInfoTo.setUserKey(UUID.randomUUID().toString());
       }
-
+```
 
 
 随后要让controller执行完后，将该cookie存入浏览器，时间为一个月
 定义一个postHandle过滤器，在controller之后执行：
-
+```java
       @Override
       public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView)   throws Exception {
           UserInfoTo userInfoTo = cartThreadLocal.get();
@@ -14229,7 +14249,7 @@ threadLocal可以在该线程的服务的任何位置使用
           cookie.setMaxAge(60*60*24*30);              //过期时间一个月
           response.addCookie(cookie);
       }
-
+```
 此时再次测试，里面就有user-key的cookie了
 
 
@@ -14238,7 +14258,7 @@ threadLocal可以在该线程的服务的任何位置使用
 
 
 再测试一下是否为临时用户，to里加一个成员变量：
-
+```java
       @ToString
       @Data
       public class UserInfoTo {
@@ -14246,13 +14266,15 @@ threadLocal可以在该线程的服务的任何位置使用
           private String userKey;
           private Boolean tempUser = false;
       }
+```
 
 默认为false，在过滤器进行判定到为临时用户时，更改为成员变量：
-
+```java
       userInfoTo.setTempUser(true);
+```
 
 随后修改postHandle方法，只有templeUser为false时，也即是此时本地还未有临时用户时，添加一个cookie：
-
+```java
       @Override
       public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
           UserInfoTo userInfoTo = cartThreadLocal.get();
@@ -14266,6 +14288,7 @@ threadLocal可以在该线程的服务的任何位置使用
           //清空threadLocal，防止内存泄露
           cartThreadLocal.remove();
       }
+```
 
 此时就不会造成每次访问临时cart都会给临时用户续期了
 
@@ -14295,25 +14318,28 @@ url：
 这俩就作为redis-key吧
 
 2.方法中需要用到product的表，所以远程调用product模块，定义一个feign：
-
+```java
       @FeignClient("mall-product")
       public interface ProductFeign {
           @RequestMapping("product/skuinfo/info/{skuId}")
           public R info(@PathVariable("skuId") Long skuId);
       }
+```
 
 cart的启动类加上：
-
+```java
       @EnableFeignClients(basepackges = "com.katzenyasax.mall.cart.feign")
+```
 
 因为product模块的controller里有现成的方法，所以直接用就行了
 但是获取sku的attr，也需要一个feign内方法：
-
+```java
       @GetMapping("product/skusaleattrvalue/skuAttrs/{skuId}")
       List<String> getSkuAttrs(@PathVariable("skuId") Long skuId);
+```
 
 3.其中product内接口：
-
+```java
       /**
        * 
        * 
@@ -14328,9 +14354,10 @@ cart的启动类加上：
       public List<String> getSkuAttrs(@RequestParam long skuId){
           return skuSaleAttrValueService.getSkuAttrs(skuId);
       }
+```
 
 4.方法getSkuAttrs：
-
+```java
       /**
       *
       * @param skuId
@@ -14349,6 +14376,7 @@ cart的启动类加上：
                   ).collect(Collectors.toList()
                   );
       }
+```
 
 将skuId对应的attrName和attrValue进行拼接返回
 
@@ -14361,20 +14389,22 @@ cart的启动类加上：
 
 6.使用异步的方式执行，所以将product里面ThisThreadPool和ThisThreadPoolConfiguration复制到cart模块中
 并且在application中配置：
-
+```yml
       mall:
         thread:
           core-size:  20
           max-size: 200
           keep-alive-time:  10
+```
 
 并且将ThisThreadPool配置到方法中：
-
+```java
       @Autowired
       ThisThreadPool threadPool;
+```
 
 7.接口：
-
+```java
       /**
        *
        * @return
@@ -14398,9 +14428,10 @@ cart的启动类加上：
           model.addAttribute("cartItem",thisItem);
           return "success";
       }
+```
 
 方法addCartItem：
-
+```java
       /**
        *
        * @param thisKey
@@ -14474,7 +14505,7 @@ cart的启动类加上：
               return item;
           }
       }
-
+```
 
 测试一下，不管是登录状态还是非登录状态，都可以正常添加。
 并且在添加成功页面也可以看到目前购物车中该商品的数量
@@ -14494,7 +14525,7 @@ p243
 
 注意把Model改成RedirectAttributes
 重定向的接口：
-
+```java
       /**
        *
        *
@@ -14518,9 +14549,10 @@ p243
           model.addAttribute("cartItem",item);
           return "success";
       }
+```
 
 方法getCartItem：
-
+```java
       /**
        *
        * @param skuId
@@ -14543,7 +14575,7 @@ p243
           }
           return null;
       }
-
+```
 
 
 
@@ -14559,7 +14591,7 @@ url：
 
 其中用户信息已经通过过滤器自动获取
 接口：
-
+```java
       /**
       * @return
       *
@@ -14584,9 +14616,10 @@ url：
           model.addAttribute("cart",thisCart);
           return "cartList";
       }
+```
 
 方法：
-
+```java
       /**
        *
        * @return
@@ -14618,7 +14651,7 @@ url：
               cart.getItems().add(item);
               cart.setCountType(cart.getCountType()+1);
               cart.setCountNum(cart.getCountNum()+ item.getCount());
-              if(item.getCheck()==true)}
+              if(item.getCheck()==true){
                 cart.setTotalAmount(cart.getTotalAmount()
                         .add(item.getTotalPrice())
                 );
@@ -14628,6 +14661,7 @@ url：
           System.out.println("getTempleCart: "+cart);
           return cart;
       }
+```
 
 结果是可以查询到
 
@@ -14921,7 +14955,7 @@ p248
 
 
 
-## docker安装
+## docker安装RabbitMQ
 p251
 
 启动rabbitmq:management
@@ -16278,7 +16312,7 @@ p278
 
 
 接着上面创建完订单信息后，创建订单项：
-
+```java
       /**
        * 开始构造表单项List<OrderItemEntity>，这些是后台操作数据库要用的数据
        *
@@ -16288,9 +16322,10 @@ p278
        *
        */
       List<OrderItemEntity> items = this.buildOrderItemEntity(order.getDeliverySn());
+```
 
 方法buildOrderItemEntity，拿到订单的sn，并从threadLocal中拿取用户信息
-
+```java
       /**
       *
       * @param sn
@@ -16349,18 +16384,19 @@ p278
           }
           return finale;
       }
+ ```     
 
 远程调用的productFeign接口内：
-
+```java
       /**
        * 由orderService调用，根据skuId获取完整的spuInfoTO
        */
       @RequestMapping("product/spuinfo/getBySkuId/{skuId}")
       SpuInfoTO getSpuBySkuId(@PathVariable Long skuId);
-
+```
 
 product模块，spuInfoController内接口：
-
+```java
       /**
        *
        * @param skuId
@@ -16372,9 +16408,11 @@ product模块，spuInfoController内接口：
       public SpuInfoTO getSpuBySkuId(@PathVariable Long skuId){
           return spuInfoService.getBySkuId(skuId);
       }
+```
 
 方法getBySkuId：
 
+```java
       /**
        *
        * @param skuId
@@ -16394,26 +16432,26 @@ product模块，spuInfoController内接口：
           BeanUtils.copyProperties(entity,finale);
           return finale;
       }
-
+```
 
 
 ### 订单状态
 
 0表示未支付
-
+```java
       /**
        * 订单状态，0表示未支付
        */
-      order.setSourceType(0);
+      order.setStatus(0);
 
-
+```
 
 
 ### 验价
 p279
 
 接着上面的支付状态后：
-
+```java
       /**
        * 所有商品的价格，和原先的总价进行验证
        * 如果两者差价小于0.01，代表两者至少小数点后两位之前是相等的，则可以接受
@@ -16427,9 +16465,10 @@ p279
           //则表示前后价格不一，打回前端要求重新提交
           finale.setCode(2);
       }
+```
 
 方法buildNewestPayPrice：
-
+```java
        /**
        *
        * @param orderItems
@@ -16448,6 +16487,7 @@ p279
           }
           return finale;
       }
+```
 
 因为在创建orderItem时就是从数据库中拿取的价格，所以这里直接从orderItem遍历拿取每一个价格就行了，再来一次我怀疑性能会爆炸
 
@@ -16472,7 +16512,7 @@ p280
 redis中，用户对应的cart中已提交订单的数据也要删除
 
 接在上面的验价之后：
-
+```java
       /**
        * 此时可以认为已经验价成功，order数据应当写到数据库中
        */
@@ -16481,9 +16521,10 @@ redis中，用户对应的cart中已提交订单的数据也要删除
       Long newId = baseMapper.selectOne(
               new QueryWrapper<OrderEntity>().eq("order_sn", order.getOrderSn())
       ).getId();
+```
 
 写一个方法saveOrderEntity保存order：
-
+```java
       /**
        * 
        * @param order
@@ -16493,7 +16534,7 @@ redis中，用户对应的cart中已提交订单的数据也要删除
       private void saveOrderEntity(OrderEntity order) {
           baseMapper.insert(order);
       }
-
+```
 
 
 
@@ -16504,8 +16545,10 @@ p280
 
 在保存订单之后，需要对库存进行锁定，因为此时如果发现订单项有库存不足的情况下需要对报异常并返回前端，并且将数据库的数据回滚
 此外还需要令整个方法是原子方法，故加上一个事务注解：
-
+```java
       @Transactional
+```
+
 
 所谓锁库存，在ware_sku表内的意思就是将字段stock_locked增加，这个字段就是目前已经占用的商品库存，即已经明确提交了订单的商品
 此外还要存到ware_order_task，需要的是order的id和sn
@@ -16513,7 +16556,7 @@ p280
 直接将OrderItemEntity提到common模块作为OrderItemTO，传TO
 
 在Ware模块下，WareSkuController内创建接口：
-
+```java
     /**
      * order远程调用
      * 锁定orderItems的库存，若库存不足还要返回不足提示
@@ -16528,10 +16571,11 @@ p280
             return null;
         }
     }
+```
 
 
 方法lockWare：
-
+```java
       /**
        * @param items
        * @return 锁定库存
@@ -16563,7 +16607,7 @@ p280
                                   newWare.setStockLocked(ware.getStockLocked()+ item.getSkuQuantity());
                                   //更新数据库
                                   baseMapper.updateById(newWare);
-                                  return ware.getId();
+                                  return ware.getWareId();
                               }
                               else {
                                   //一个足够库存的仓库也没有，抛异常
@@ -16579,9 +16623,10 @@ p280
                   }
           ));
       }
+```
 
 自定义异常NoStockException：
-
+```java
     public class NoStockException extends RuntimeException{
         private Long skuId;
         public NoStockException(Long skuId){
@@ -16594,18 +16639,20 @@ p280
             this.skuId = skuId;
         }
     }
+```
 
 order模块内feign接口：
-
+```java
       /**
        * order远程调用
        * 锁定orderItems的库存，若库存不足还要返回不足提示
        */
       @RequestMapping("/lockWare")
       Map<Long,Long> lockWare(@RequestBody List<OrderItemTO> items);
+```
 
 OrderService内的锁定部分为：
-
+```java
       /**
        * 锁定库存
        */
@@ -16626,7 +16673,7 @@ OrderService内的锁定部分为：
           //锁库存成功
           //执行业务······
       }
-
+```
 
 
 
@@ -16635,14 +16682,15 @@ OrderService内的锁定部分为：
 
 
 接在锁库存成功的分支后面：
-
+```java
       /**
        * 存orderItems
        */
       this.saveOrderItemEntities(items,newId);
+```
 
 有了order的id和sn，随后将orderItems也存到数据库，写一个方法saveOrderItemEntities：
-
+```java
       /**
        * @param items
        * @param newId
@@ -16653,7 +16701,7 @@ OrderService内的锁定部分为：
               orderItemDao.insert(item);
           });
       }
-
+```
 
 
 ### 订单任务和对应商品存到ware服务中
@@ -16667,7 +16715,7 @@ OrderService内的锁定部分为：
 detail数据需要的是taskId，skuId，skuNum，wareId。每一个sku都占一行数据
 
 封装一个WareOrderDetailTO：
-
+```java
       @Data
       public class WareOrderDetailTO {
           private Long orderId;
@@ -16676,10 +16724,10 @@ detail数据需要的是taskId，skuId，skuNum，wareId。每一个sku都占一
           private Long skuNum;
           private Long wareId;
       }
-
+```
 
 接在上面的存订单项后面：
-
+```java
       /**
        *
        * 存ware_order_task和ware_order_task_detail
@@ -16703,19 +16751,20 @@ detail数据需要的是taskId，skuId，skuNum，wareId。每一个sku都占一
           taskDetailList.add(to);
       }
       wareFeign.saveTasks(taskDetailList);
+```
 
 feign接口：
-
+```java
       /**
        * order远程调用
        * 存ware_order_task和ware_order_task_detail
        */
       @RequestMapping("ware/waresku/saveTasks")
       public void saveTasks(@RequestBody List<WareOrderDetailTO> to)
-
+```
 
 wareSkuController内接口：
-
+```java
       /**
        * order远程调用
        * 存ware_order_task和ware_order_task_detail
@@ -16724,9 +16773,10 @@ wareSkuController内接口：
       public void saveTasks(@RequestBody List<WareOrderDetailTO> to){
           wareSkuService.saveTasks(to);
       }
+```
 
 方法saveTasks：
-
+```java
       /**
       * @param to
       *
@@ -16771,18 +16821,1704 @@ wareSkuController内接口：
               wareOrderTaskDetailDao.insert(taskDetailEntity);
           }
       }
+```
 
+### 整个方法
+```java
+      /**
+      *
+      * @param vo
+      * @return
+      *
+      * 提交订单，接收生成订单的必要信息（OrderSubmitVo）
+      * 返回一个回应消息，即订单（OrderEntity）和提交状态（code）
+      */
+      @Override
+      @Transactional
+      public SubmitOrderResponseVo submitOrder(OrderSubmitVo vo) {
+          //将vo设置为threadLocal，因此可以在整个Service线程内使用
+          submitVoThreadLocal.set(vo);
+          /**
+          * vo内有用的信息为：
+          *      地址id：addrId
+          *      支付方式：type（无用）
+          *      令牌：orderToken=bb8742a8-ff40-471a-8bc2-2cd186e3d0a1
+          *      支付价格：payPrice=461
+          *      remarks=null（无用）
+          */
 
+          //结果封装，初始化
+          SubmitOrderResponseVo finale=new SubmitOrderResponseVo();
+          finale.setOrder(new OrderEntity());
+          finale.setCode(1);
+
+          //登录用户;
+          Long userId = OrderInterceptor.orderThreadLocal.get().getId();
+
+          /**
+          * 1.验证令牌
+          * 此过程需要保证原子性
+          */
+          String script="if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end";      //lua脚本
+          Long ifTokenCorrect = (Long) redisTemplate.execute(
+                  new DefaultRedisScript<Long>(script, Long.class)            //返回值类型
+                  , Arrays.asList(OrderTokenConstant.ORDER_TOKEN + userId)       //验证的数据redis中的名字
+                  , vo.getOrderToken()                                         //要验证的数据
+          );
+          if (ifTokenCorrect.equals(1l)){
+              //令牌正确，开始执行业务
+              finale.setCode(0);
+
+              /**
+              * 开始构造OrderEntity，这个会作为回显到前台的数据
+              */
+              OrderEntity order = this.buildOrderEntity();
+
+              /**
+              * 开始构造表单项List<OrderItemEntity>，这些是后台操作数据库要用的数据
+              *
+              * 表单项数据的主体为单个商品，通过订单id和sn来和订单进行绑定
+              *
+              * 订单id为后台方便调取数据存入的数据，而sn则是前台用户可以看到的数据
+              *
+              */
+              List<OrderItemEntity> items = this.buildOrderItemEntity(order.getDeliverySn());
+              
+              /**
+              * 订单状态，0表示未支付
+              */
+              order.setSourceType(0);
+
+              /**
+              * 所有商品的价格，和原先的总价进行验证
+              * 如果两者差价小于0.01，代表两者至少小数点后两位之前是相等的，则可以接受
+              */
+              BigDecimal newestPayPrice=this.buildNewestPayPrice(items);
+              if(Math.abs(vo.getPayPrice().subtract(newestPayPrice.add(order.getFreightAmount())).doubleValue())<0.01) {
+                  //若二者差值小于0.01，可以接受
+                  order.setPayAmount(newestPayPrice.add(order.getFreightAmount()));
+                  finale.setCode(0);
+              } else {
+                  //则表示前后价格不一，直接打回前端要求重新提交
+                  finale.setCode(2);
+                  return finale;
+              }
+
+              /**
+              * 此时可以认为已经验价成功，order数据应当写到数据库中
+              */
+              this.saveOrderEntity(order);
+              //拿到存入的id
+              Long newId = baseMapper.selectOne(
+                      new QueryWrapper<OrderEntity>().eq("order_sn", order.getOrderSn())
+              ).getId();
+
+              /**
+              * 锁定库存
+              */
+              //专供远程调用的to
+              List<OrderItemTO> tos = items.stream().map(item -> {
+                  OrderItemTO to = new OrderItemTO();
+                  BeanUtils.copyProperties(item, to);
+                  return to;
+              }).collect(Collectors.toList());
+              //获取锁库存响应
+              Map<Long,Long> resp = wareFeign.lockWare(tos);
+              if(resp==null){
+                  baseMapper.deleteById(order.getId());   //要删掉提交失败的订单id
+                  //锁库存失败时
+                  finale.setCode(1);
+                  return finale;
+              } else {
+                  //锁库存成功
+                  /**
+                  * 存orderItems
+                  */
+                  this.saveOrderItemEntities(items,newId);
+
+                  /**
+                  *
+                  * 存ware_order_task和ware_order_task_detail
+                  */
+                  //这个是sku存在哪个ware，前一个是skuId，后一个是wareId
+                  //锁库存失败时给的是null
+                  List<WareOrderDetailTO> taskDetailList=new ArrayList<>();
+                  for (OrderItemEntity item : items) {
+                      WareOrderDetailTO to=new WareOrderDetailTO();
+                      //构建数据
+                      to.setOrderId(order.getId());
+                      to.setOrderSn(order.getOrderSn());
+                      to.setSkuId(item.getSkuId());
+                      to.setSkuNum(Long.parseLong(item.getSkuQuantity().toString()));
+                      Long wareId = resp.get(item.getSkuId());
+                      to.setWareId(wareId);      //skuId为key，可以直接拿到对应的value
+                      //封装
+                      taskDetailList.add(to);
+                  }
+                  wareFeign.saveTasks(taskDetailList);
+
+                  /**
+                  * 完成回显数据的封装，并结束该业务
+                  */
+                  finale.setOrder(order);
+                  System.out.println(finale);
+              }
+          }
+          else {
+              //令牌不一致
+              finale.setCode(3);
+          }
+          return finale;
+      }
+```
 
 
 ### 最终测试
 
-试着提交一个2号sku
-
-结果基本完成要求
-
+试着提交一个有货的2号sku
+结果基本完成要求，存入了一个order，存入了orderItem数据，wareOrderTask、wareOrderTaskDetail也存入了数据
 
 
+试着提交一个无货的67号sku
+结果是，四个表中均未插入数据，即订单异常，连带其他关联表也无数据存入
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 事务
+
+p283
+
+
+上面的锁库存在ware模块中，正常情况下，lockWare中主动抛的异常是自定义异常NoStockException，而这个方法是声明式事务，所以该方法内所有的数据库操作都会回滚，而接口此时感知到异常，则将null返回到order模块，order模块的submitOrder方法看到null时就会将已经存好的order删除，达成关联该order的所有数据全部清空的目的。
+
+但是如果发生一些其他问题，例如方法执行成功，但是服务器返回时超时也会抛出一个超时异常，那么order模块的submitOrder方法就直接报错了，而且该方法是声明式事务，所以此时该方法全部回滚，直接把存好的order回滚。那么此时发现问题，order没存进去，lockWare却执行成功了，库存被减少了，少的库存却找不到订单，这个问题很严重，和order关联的东西没清空完啊。
+
+这就是分布式系统下服务间相互调用的缺点，很容易造成事务不一致的问题。
+
+有可能造成事务不一致的原因：
+1.一个服务执行成功后，返回结果到另一个服务时网络异常，造成超时异常
+2.一个服务执行成功后，结果返回到另一个服务后，另一个服务中后续有方法报错，造成异常
+
+
+
+## 事务的隔离级别
+
+
+@Transactional注解可以指定隔离级别：
+```java
+      @Transaction(isolation = Isolation.READ_COMMITTED)
+```
+
+
+
+### 读未提交 READ_UNCOMMITTED
+
+即允许读还未提交的数据，俗称脏读
+
+未提交的数据，也即是一个事务还没结束时，数据库中数据的中间形态，此时事务还未执行完，因此在逻辑上对数据库的操作还没有完，这个就称为未提交。未提交的数据也不稳定，可能随时会被回滚。因此读未提交读到的很有可能是不完整、甚至错误的数据
+
+
+
+
+
+### 读提交 READ_COMMITTED
+
+即只允许读已提交的数据
+
+只有对数据库的逻辑操作完成后才能读取该数据。Mysql和Oracle默认读提交
+
+
+
+
+
+
+### 可重复读 REPEATABLE_READ
+
+即允许整个事务期间读到的数据都是事务开始时第一次读取到的数据。Mysql默认使用可重复读
+
+例如本事务开始时读到数据，在本事务期间，不管其他事务对该数据进行怎样的操作，在本事务期间读到的该数据永远不变。相当于本事务一开始就把这个数据存到了缓存，本事务期间任何时候要用该数据，就不是读数据库了，而是读缓存（这样好理解，实际上不是缓存）
+
+但是这个缓存并不是将一整个表都存进去，而是存单行的数据，所以说如果本事务使用的是等值查询，共查到了三行数据，那么就将这三行数据存入缓存，而非将整个表存入。但是如果在这之后，另一个事务向该等值查询查到的结果中增加了一行，那么此时本事务再次进行等值查询时，就会发现一行新的数据，而改行数据，不在已存入的缓存中，这就是幻读问题。
+
+
+
+
+### 序列化 SERIALIZABLE
+
+也叫串行化
+
+让每个事务操作数据库按先后顺序，只有一个事务完全完成操作（增删改）后，其他事务才能操作（增删改查）。有点像分布式锁
+
+这样会使数据库完全失去并行能力，大幅度降低系统性能
+
+
+
+
+
+
+## 传播行为
+
+即事务之间的相互调用，是否看作一整个事务，例如三个<font color="red">不同service</font>下的事务
+```java
+      public class SerciceA{
+        @Autowired
+        ServiceB serviceB;
+        @Autowired
+        ServiceC serviceC;
+        @Transactional(timeout=20)
+        public void A(){
+          serviceB.B();
+          serviceC.C();
+        }
+      }
+
+      public class ServiceB{
+        @Transactional(propagation = REQUIRED, timeout=10)
+        public void B(){
+          sout("B");
+        }
+      }
+
+      public class ServiceC{
+        @Transactional(propagation = REQUIRED_NEW, timeout=30)
+        public void C(){
+          sout("C");
+        }
+      }
+```
+
+A调用了B和C，B的传播行为设置为了REQUEIRED，即与A共用一个事务，C的传播行为设置为了REQUIRED_NEW，即是一个新的事务。那么A在调用B时，B如果发生错误，不仅B回滚，A整个事务都会回滚；但是C发生错误时，仅C会回滚，B不回滚，因为C和A、B并非同一个事务
+
+值得一提的是，如果是同一个事务的话，事务的配置遵顼主动调用的事务，即A和B为同一个事务，但是是A主动调用B的，那么事务的配置就按照A来，也即timeout=20，B中配置的timeout=10直接无效化；而C和A、B非一个事务，所以C的配置timeout=30保留了下来
+
+
+### 坑
+
+如果A、B、C都是同一个Service下的，那么不管B和C怎么配置传播行为，这三个都是同一个事务
+
+所以说应该尽量避免调用同一个service中的事务，或者尽量避免事务间的调用
+
+
+
+
+### 解决方案
+
+这个坑也可以解决的，因为本质上原因是本地service对象内的事务之间没有经过代理，所以只要走代理对象就行了
+
+1.引入aop的starter依赖
+```xml
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-aop</artifactId>
+          <version>3.1.3</version>
+      </dependency>
+```
+
+主要用它的aspectj
+
+2.启动类上加上注解开启aop功能：
+```java
+      @EnableAspectJAutoProxy(exposeProxy = true)
+```
+
+并且开启对外暴露代理对象
+
+3.获取代理对象
+```java
+      //代理对象
+      OrderServiceImpl orderService = (OrderServiceImpl) AopContext.currentProxy();
+```
+
+之后在事务中调用所有本service内的其他事务，都要经过这个代理对象调用，否则就会配置失效
+
+
+
+
+
+
+
+
+
+
+
+
+# 分布式事务
+
+## CAP定理
+
+CAP指三点：
+1.一致性Consistency，指同一个数据在不同服务下的值应当为同一个
+2.可用性Avaliability，指集群内某一个服务发生异常时，其他集群能否继续工作（否则应当直接宕机）
+3.分区容错性Partition Tolerance，即允许不同大区之间的服务通信失败（前提是本区内的所有服务间通信是可用的）
+
+CAP定理就是，一个分布式系统下，三项最多满足两项。
+
+一般情况下分区容错性是必须优先满足的，所以只能在一致性和可用性之间二选一，考虑一个场景，集群A和集群B之间有数据应当同步，其各种有一台服务器将要完成该数据的同步，但是在同步的过程中，集群B的服务出现了故障，那么此时考虑满足一致性还是可用性：
+
+若<font color='red'>满足一致性</font>，即数据应当同步，那么为了达到数据不再被操作的目的，B服务集群应当全部宕机，集群A内的所有服务都不能再访问，那么此时便<font color='red'>不满足可用性</font>；
+
+若<font color='red'>满足可用性</font>，那么集群B服务其他的服务都是继续可用的，只不过该数据已经不再是A提交的最新数据了，若该数据在下一次被更新钱，有一个与B同在us区的服务集群C中的一个服务，从B处读取了这个数据，这个数据并没有同步为最新数据，那么此时<font color='red'>不满足一致性</font>。
+
+所以
+
+
+
+
+
+## Raft
+
+满足分区容错性下实现一致性
+
+例如以下场景：一个客户端发出数据同步请求时，该请求发往一个集群，需要让一整个集群都同步这个数据
+
+
+### 选举模式
+
+客户端的请求发往的地方肯定是一个服务器单例，他不可能是集群内的每一个服务都发一份，所以集群内的服务应该有一个专门的单例服务器用于将数据分发到其他服务内，而这个单例服务器就是leader，产生leader的过程成为选举
+
+首先明确集群内的每一个服务，有着三个属性：领导者leader，候选人candidate，随从follower；leader就是分发数据的单例；follower就是响应leader的单例；candidate就是可选举成为leader的一个follower
+
+而选举就是candidate从follower成为leader的过程。
+
+1.首先一个集群内，一个follower服务不再收到leader的消息，可能是通讯中断，也有可能是leader单例错误了，总之这个follower在没有收到任何一个leader消息的时间超过一个时间后，便会成为candidate。该时间称为自旋时间，通常为150ms到300ms，并且注意此时candidate一旦产生，其他节点的自选时间自动暂停
+
+2.随后该candidate会向该集群内其他服务节点发送消息，即开启一轮投票，其他节点的状态全部归为follower，其他节点如果能够接收到，就会进行回应，即投票。
+
+3.只要candidate收到了大多数节点的回应，就会成为一个leader，对其他所有的节点分发数据，不管其他节点是follower还是candidate还是leader，数据同步要求是整个集群范围内。
+
+值得注意的是，可能出现两个甚至多个follower同时结束自选时间而成为candidate的情况，在这种情况下多个candidate会同时开展选举，这种情况就是失败的选举，但是不用担心，最后总会有成功的选举和唯一的leader产生
+
+
+
+### 数据同步
+
+1.确定好一个leader后，客户端有关数据更新的消息会发往这个leader，这个leader首先将自己的数据更新，但是先不提交，而是将更新的数据发往其他节点，且会以一个时间段重复发送，保证与其他节点的连接，防止在数据同步的过程中其他follower成为candidate，而这个时间成为心跳时间，通常为10ms左右
+
+2.其他节点如果能够收到消息，也更新自身的数据，同样先不提交，并且随后将回应leader自己是否更新已数据
+
+3.leader收到大多数节点有回应后，会将数据提交数据库，如果提交成功，会再次发消息给其他节点，让其他节点也进行数据提交
+
+
+
+
+
+
+
+
+## BASE
+
+即最终一致性，既然保证不了强一致性，就允许在一段时间后一致
+
+
+
+
+
+
+
+
+## TCC方案
+
+
+
+
+
+
+
+
+## 最大努力通知方案
+
+
+
+
+
+
+
+
+
+
+
+
+# Seata
+p288
+
+## 工作原理
+
+1.一个服务要开展一个大型业务，需要用到远程调用，这时候这个服务称为TM事务管理器，是整个事务的管理者
+
+2.TM调用其他服务进行数据库操作时，其他服务称为RM资源管理器，是各自数据库的操作者
+
+3.TM开启一个事务时，将开启事务的消息通知TC事务协调器，TC则开始接收对应的注册
+
+4.TM调用RM进行数据操作时，RM就会将这条事务分支，也即是TM要求RM做的事务注册到TC，TC会自动与TM的事务进行绑定，达到同一事务下所有微服务的事务统一
+
+4.RM事务执行过程中，发生错误便通知TC事务执行失败，需要回滚数据，TC再通知所有的RM全部回滚数据，RM全部回滚数据后再通知TC，TC最后再将事务失败的消息发送TM，让TM不要提交
+
+5.如果RM事务执行完毕，会自动提交数据，随后告诉TC自己的事务执行完毕。若全部RM都执行事务完毕，TC则通知TM提交数据
+
+
+
+
+
+
+
+## SpringBoot整合Seata
+
+### 环境准备
+
+1.配置数据库，已经配置过了
+
+2.在需要使用seata的数据库引入undo_log表
+```sql
+      -- 注意此处0.3.0+ 增加唯一索引 ux_undo_log
+      CREATE TABLE `undo_log` (
+        `id` bigint(20) NOT NULL AUTO_INCREMENT,
+        `branch_id` bigint(20) NOT NULL,
+        `xid` varchar(100) NOT NULL,
+        `context` varchar(128) NOT NULL,
+        `rollback_info` longblob NOT NULL,
+        `log_status` int(11) NOT NULL,
+        `log_created` datetime NOT NULL,
+        `log_modified` datetime NOT NULL,
+        `ext` varchar(100) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `ux_undo_log` (`xid`,`branch_id`)
+      ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+···
+
+比方说，order、product、ware、member等，这几个都是由order开启TM调用的RM
+当然最开始导入数据库表的时候已经自带了，不用再手动添加了
+
+
+<!--
+### docker安装seata（似乎无法注册到nacos）
+
+安装seata server镜像
+```bash
+      docker pull seataio/seata-server:1.7.0
+
+      docker run -itd --name seata-server -p 8091:8091 -p 7091:7091 seataio/seata-server:1.7.0
+```
+
+先创建一个文件夹存放数据（如果没有的话，指云服务）
+```bash
+      mkdir -p /mydata/seata/conf
+```
+
+在这个文件夹下创建一个文档
+```bash
+      vim application.yml
+```
+
+将resources的文件复制到/mydata/seata
+```bash
+      docker cp [容器id]:/seata-server/resources /mydata/seata
+```
+
+随后删除镜像，以-v模式启动一个容器
+```bash
+      docker run -itd --name seata-server -p 8091:8091 -p 7091:7091 -v /mydata/seata/conf/application.yml:/seata-server/resources/application.yml --restart=always seataio/seata-server:1.7.0
+```
+
+将application.yml文件挂载到/mydata/seata/config，可以直接在此修改配置文件，但是修改后记得重启服务
+
+
+
+-->
+
+
+
+### windows主机安装seata
+
+直接下载官方文档给的包，此处下载的是1.7.0版本
+
+随后参照官方文档下载seata的包，在数据源创建seat库，加上script/server/db里面的几个表
+
+
+
+### 微服务中引入seata AT模式
+
+引入依赖：
+```xml
+      <!-- seata的依赖 -->
+      <!-- Seata-->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-seata</artifactId>
+            <version>2022.0.0.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.seata</groupId>
+                    <artifactId>seata-spring-boot-starter</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.seata</groupId>
+            <artifactId>seata-spring-boot-starter</artifactId>
+            <version>1.7.0</version>
+        </dependency>
+```
+
+
+application.yml加上：
+```yml
+      seata:
+        enabled: true
+        application-id: ${spring.application.name}    #这个服务的服务名
+        tx-service-group: tx_group                    #自定义的一个事务组，自定义
+        service:
+          vgroup-mapping:
+            tx_group: default         #设置自定义的事务组映射到seata的哪一个集群，默认为default
+        registry:                     #注册
+          type: nacos                 #选型为nacos
+          nacos:
+            server-addr: 192.168.74.130:8848                        #nacos的地址和端口号
+            namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333       #命名空间
+            group: SEATA_GROUP                                    #nacos中，seata的group，默认人SEATA_GROUP
+            application: seata-server                             #seata服务端在nacos中的服务名
+            username: nacos                                       #nacos登录用户
+            password: nacos                                       #nacos登陆密码
+            cluster: default                                      #集群
+```
+
+
+配置完成后开启服务时，控制台打印：
+```
+  Scheduler class: 'org.quartz.core.QuartzScheduler' - running locally.
+  NOT STARTED.
+  Currently in standby mode.
+  Number of jobs executed: 0
+  Using thread pool 'org.quartz.simpl.SimpleThreadPool' - with 10 threads.
+  Using job-store 'org.quartz.simpl.RAMJobStore' - which does not support persistence. and is not clustered.
+```
+
+表示成功了，那么将其他的服务（product和）
+
+
+
+
+
+
+### 使用seata
+
+
+在orderService.submitOrder方法上打注解，表明这个方法TM
+```java
+      @Override
+      @Transactional
+      @GlobalTransactional
+      public SubmitOrderResponseVo submitOrder(OrderSubmitVo vo){···}
+```
+
+这样就完成了，TM事务调用其他事务时，全程不管是哪一步出现异常，所有相关的事务都会进行回滚
+
+
+
+
+
+### 测试
+
+给submitOrder方法后面人为制造一点异常：
+```java
+      ···
+      System.out.println(1/0);
+      return finale;
+```
+
+结束任务的最后一刻来个异常，看看其他相关服务中已经提交的数据会不会回滚
+
+结果是真的可以，order服务提示byZeroException，说明前面的业务全部执行，调用的事务也全部提交了，但是提示异常后，看数据库发现数据和测试前保持一致，说明缺失是可以使用的
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### 缺点
+
+seata的缺点是不满足高并发场景，其原理决定所有高并发会被seata处理成串行化，因为要锁库嘛
+
+所以像前面很久以前写过的保存商品spu的接口SpuInfoService.saveSpuVo，这种也是需要去调用ware服务的，但是由于该接口可能出现高并发，所以其实并不适合用seata去做，而事实上seata不适合绝大多数高并发高热点的场景
+
+但是不用seata，不锁库，还能怎么保持一致性？
+
+答案是保证不了，CAP原则决定保证高可用、分区容错的前提下无法保证强一致性，所以要考虑保证最终一致性，而且这个最终一致性还要不损害性能。怎么做？
+
+可以在saveSpuVo服务抛异常而失败时，再次调用已经提交了数据的服务中的回滚接口，控制这些服务回滚数据。
+
+甚至可以不用发消息，让服务订阅一个队列，当总事务失败时就发消息，服务监听到消息，随后自行回滚相关数据，至于让他们处理多久？多久都行，用户又不需要马上就获得反馈。
+
+
+
+
+
+
+
+
+
+
+
+# RabbitMQ延时队列
+
+
+## 定时任务
+
+
+比如订单确认时间为30分钟，将退单解锁库存的消息设定为40分钟发送一次，则每40分钟订单表全表扫描查看哪些订单已关闭但没有解锁库存的，将所有这样的订单弄成一个任务发送出去，让订阅队列的服务去监听从而让他们自行处理业务
+
+但是如果就这样用的话，有很大的缺点，消耗内存，且给数据库过大的压力。最终一致的时间差也太长，而且容易造成误差
+
+
+
+
+## 存活时间Time To Live
+
+存活时间，可以为消息设置，也可以为队列设置，但是一般为队列设置
+
+
+
+
+
+## 死信Dead Letter
+
+被拒收的消息、过了存活时间的消息，还有消息过多被挤出去的前面的消息，都是死信
+
+
+
+
+
+
+## 死信路由 Dead Letter Exchange
+
+实现延时队列的核心要素
+
+死信路由就是一个普通的路由，和其他路由的区别仅仅是专门接收和传输死信
+
+死信路由会接收死信，每隔一段时间，就将死信交给另一个交换机，死信在另一个交换机会复活，并被交给队列，从而被监听
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 延时队列
+
+
+
+因为订单服务，要求订单未处理的状态不超过30分钟，所以订单从创建，到30分钟后仍未进行处理的话，就要进行删除，同时将库存释放。
+
+所以设想架构，从submitOrder方法创建一个订单来，将该订单作为消息利用路由键user.create.order路由到一个交换机user.exchange.order，要求该交换机不会将以user.create.order为路由键的消息送到任何队列，该路由键的消息会等待死亡（前提是设置了ttl，当然一定要设置ttl）
+
+消息死亡后，发往死信队列delay.queue.order，死信队列再将该消息利用路由键user.post.order路由回user.exchange.order，此时该交换机回根据消息的路由键user.post.order路由到一个队列user.order.post.queue，随后相关服务监听该队列的user.queue.order路由键的消息，并进行处理
+
+  
+                           submitOrder
+                               | ORDER(user.create.order)
+    (user.create.order)        \
+             --------  user.exchange.order  ---- > user.queue.order ------ 
+             |                /          (user.post.order)               |
+             \                |                                          \ 
+    delay.queue.order----------                                          service
+                      (user.post.order)(defined when dle created)
+
+
+
+
+
+## 声明组件
+
+所以需要在order模块通过配置形式先创建几个组件，1个交换机，2个队列，2个绑定关系
+```java
+      /**
+       * 创建交换机stock.exchange.top
+       */
+      @Bean
+      public Exchange stockExchangeTop(){
+          //public TopicExchange(String name, boolean durable, boolean autoDelete, Map<String, Object> arguments)
+          return new TopicExchange(
+                  "stock.exchange.top"           //交换机名
+                  ,true                           //持久化
+                  ,false                          //自动删除
+          );
+      }
+      /**
+       * 创建死信队列stock.queue.delay
+       */
+      @Bean
+      public Queue stockQueueDelay(){
+          //自定义参数，有关死信的全部参数
+          Map<String,Object> arguments=new HashMap<>();
+          arguments.put("x-dead-letter-exchange","stock.exchange.top");              //死信队列从哪个交换机拿死信
+          arguments.put("x-dead-letter-routing-key","stock.key.unlock.unpay");               //死信队列拿到死信后，定时发送到交换机时的路由键
+          arguments.put("x-message-ttl", 5000);                                        //死信定时时间，5000毫秒
+
+          // public Queue(String name, boolean durable, boolean exclusive, boolean autoDelete, @Nullable Map<String, Object> arguments)
+          return new Queue(
+                  "stock.queue.delay"          //交换机名
+                  ,true                        //持久化
+                  ,false                       //排他
+                  ,false                       //自动删除
+                  ,arguments                   //自定义参数
+          );
+      }
+      /**
+       * 创建ware订阅的队列stock.queue.unlock
+       */
+      @Bean
+      public Queue stockQueueUnlock(){
+          // public Queue(String name, boolean durable, boolean exclusive, boolean autoDelete, @Nullable Map<String, Object> arguments)
+          return new Queue(
+                  "stock.queue.unlock"
+                  ,true
+                  ,false
+                  ,false
+          );
+      }
+      /**
+       * 创建死信delay队列和交换机的绑定
+       */
+      @Bean
+      public Binding delayExchangeBinding(){
+          return new Binding(
+                  "stock.queue.delay"                             //目的地是死信队列
+                  , Binding.DestinationType.QUEUE                 //死信队列是队列（QUEUE）
+                  ,"stock.exchange.top"                  //中转exchange
+                  ,"stock.key.locked"                //路由键，该键表明消息死亡时以该键送往死信队列
+                  ,null                       //自定义参数（可以不填）
+          );
+      }
+      /**
+       * 创建交换机和unlock队列的绑定
+       */
+      @Bean
+      public Binding unlockExchangeBinding(){
+          return new Binding(
+                  "stock.queue.unlock"                             //目的地是库存队列
+                  , Binding.DestinationType.QUEUE                 //库存队列是队列（QUEUE）
+                  ,"stock.exchange.top"                  //中转exchange
+                  ,"stock.key.unlock.#"                //路由键
+                  ,null                       //自定义参数（可以不填）
+          );
+      }
+```
+
+注意创建死信队列的三个参数，是官方指定的参数，依次为：
+```
+      x-dead-letter-exchange      //死信队列从哪个交换机拿死信
+      x-dead-letter-routing-key   //死信队列拿到死信后，定时发送的路由键
+      x-message-ttl",3000         //死信定时时间，3000毫秒
+```
+
+随后值得注意的是死信队列到交换机的user.post.order路由键已经在定义死信队列时写明了，不再需要手动定义一个绑定关系
+
+
+## 监听
+
+然后直接在这个config中写一个监听方法吧，打上@RabbitListener就可以自动监听了
+先只用于测试：
+```java
+      /**
+       * 监听stock.queue.unlock队列，拿取解锁信息
+       */
+      @RabbitListener(queues = "stock.queue.unlock")
+      public void listenerOrder(Message message,String msg, Channel channel){
+          System.out.println("收到解锁消息"+message.getMessageProperties().getDeliveryTag()+":"+msg);
+          try {
+              channel.basicAck(
+                      message.getMessageProperties().getDeliveryTag()     //消息的tag
+                      , false                                         //是否批量确认
+              );
+          } catch (IOException e) {
+              throw new RuntimeException(e);
+          }
+      }
+```
+
+重启order服务后在rabbit控制台这个队列弄一个消息过去，看看order控制台会不会打印信息
+```
+      ···
+      收到过期订单2: ······
+      ···
+```
+
+确实收到了消息，并且还确认了消息的收到，队列中的消息也删除了
+
+
+## 测试延时队列
+
+这个时候启动服务应该是可以自动创建组件了
+
+接下来测试延时队列，给交换机发一个消息，路由键是user.create.order，看看什么时候死亡
+
+结果是3秒之后收到了消息并且打印了消息，因为设定的死信时间为3秒
+
+说明延时队列可用了
+
+
+
+
+
+
+
+
+
+
+# 商城业务：订单库存锁定与解锁
+
+
+在订单超时未支付时，就不必再进行手动调用事务解锁库存了，只用向ware服务订阅的队列发一个消息，让他自动进行解锁
+
+
+
+## 名称规定
+
+此项目中mq组件的名称格式应为：领域.组件类型.作用(.附加说明)
+
+领域表示该组件是属于哪个领域的，组件类型为队列queue、交换机exchange、路由键key，作用指明该组件的作用
+
+
+
+## 业务分析
+p294
+
+有以下几种情况订单锁住的库存需要解锁：提交订单异常但库存已锁定时，订单提交成功但30分钟未提交时，订单被主动取消时。
+
+### 超时或取消
+
+那么该订单一定成功提交，库存也一定锁住了，但是已经超时或被取消，此时订单将被标记为未支付。
+
+流程是：
+
+锁库存成功后立刻向一个交换机stock.exchange.top发出消息，路由键为stock.key.locked，消息讲明哪个订单号、哪些仓库、哪个商品sku、几件商品。
+
+交换机拿到该消息后，消息进入等待，等待时间为50min（订单30min内有效），消息死亡后，要发往死信队列stcok.queue.delay，路由键仍为stock.key.locked。
+
+死信队列收到消息后，需要让后端判断该消息的订单是否过期未支付，若是，则将该消息以路由键stock.key.unlock.unpay再次发往交换机；否则不再进行处理，将该消息删除。
+
+如果需要解锁，则交换机拿到该消息后就将该消息以stock.key.unlock.unpay路由键发往ware服务订阅的一个队列stock.queue.unlock，ware服务接收消息并自行处理。
+
+
+
+
+
+
+
+### 异常
+
+发一个消息到stock.queue.unlock，路由键是stock.key.unlock.exception
+
+
+
+
+
+
+
+
+
+### ware服务配置rabbit
+
+在ware服务中：
+
+1.引入依赖：
+```xml
+      <!-- rabbitMQ整合依赖 -->
+      <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-amqp -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-amqp</artifactId>
+       </dependency>
+```
+
+只要引入依赖后，RabbitAutoConfiguration会自动生效
+
+2.application中配置ip、端口和虚拟主机：
+```yml
+      rabbitmq:
+        addresses: 192.168.74.130
+        port: 5672
+        virtual-host: /
+        publisher-confirm-type: correlated
+        publisher-returns: true
+        template:
+          mandatory: true
+        listener:
+          simple:
+            acknowledge-mode: manual
+```
+
+3.启动类中加注解，开启rabbit功能：
+```java
+      @EnableRabbit
+```
+
+4.创建配置类，要求消息以json格式输出
+```java
+      @Configuration
+      public class MqConfiguration {
+          /**
+           * @return
+           *
+           * 把rabbitTemplate中的默认序列化转换器替换为json的序列化
+           */
+          @Bean
+          public MessageConverter messageConverter(){
+              return new Jackson2JsonMessageConverter();
+          }
+      }
+```
+
+5.配置确认，从order模块复制黏贴RabbitConfirmConfiguration
+
+直接在order模块里复制黏贴得了
+
+
+
+
+
+### 创建mq组件
+
+在MqConfiguration声明：
+```java
+      /**
+       * 创建交换机stock.exchange.top
+       */
+      @Bean
+      public Exchange stockExchangeTop(){
+          //public TopicExchange(String name, boolean durable, boolean autoDelete, Map<String, Object> arguments)
+          return new TopicExchange(
+                  "stock.exchange.top"           //交换机名
+                  ,true                           //持久化
+                  ,false                          //自动删除
+          );
+      }
+      /**
+       * 创建死信队列stock.queue.delay
+       */
+      @Bean
+      public Queue stockQueueDelay(){
+          //自定义参数，有关死信的全部参数
+          Map<String,Object> arguments=new HashMap<>();
+          arguments.put("x-dead-letter-exchange","stock.exchange.top");              //死信队列从哪个交换机拿死信
+          arguments.put("x-dead-letter-routing-key","stock.key.unlock.unpay");               //死信队列拿到死信后，定送到交换机时的路由键
+          arguments.put("x-message-ttl",1000*5);                                        //死信定时时间，1000*5
+          // public Queue(String name, boolean durable, boolean exclusive, boolean autoDelete, @NullablMap<String, Object> arguments)
+          return new Queue(
+                  "stock.queue.delay"          //交换机名
+                  ,true                        //持久化
+                  ,false                       //排他
+                  ,false                       //自动删除
+                  ,arguments                   //自定义参数
+          );
+      }
+      /**
+       * 创建ware订阅的队列stock.queue.unlock
+       */
+      @Bean
+      public Queue stockQueueUnlock(){
+          // public Queue(String name, boolean durable, boolean exclusive, boolean autoDelete, @NullablMap<String, Object> arguments)
+          return new Queue(
+                  "stock.queue.unlock"
+                  ,true
+                  ,false
+                  ,false
+          );
+      }
+      /**
+       * 创建死信delay队列和交换机的绑定
+       */
+      @Bean
+      public Binding delayExchangeBinding(){
+          return new Binding(
+                  "stock.queue.delay"                             //目的地是死信队列
+                  , Binding.DestinationType.QUEUE                 //死信队列是队列（QUEUE）
+                  ,"stock.exchange.top"                  //中转exchange
+                  ,"stock.key.unlock.unpay"                //路由键
+                  ,null                       //自定义参数（可以不填）
+          );
+      }
+      /**
+       * 创建交换机和unlock队列的绑定
+       */
+      @Bean
+      public Binding unlockExchangeBinding(){
+          return new Binding(
+                  "stock.queue.unlock"                             //目的地是库存队列
+                  , Binding.DestinationType.QUEUE                 //库存队列是队列（QUEUE）
+                  ,"stock.exchange.top"                  //中转exchange
+                  ,"stock.key.unlock.unpay"                //路由键
+                  ,null                       //自定义参数（可以不填）
+          );
+      }     
+```
+
+但是不会自动创建组件，需要让该服务主动连接上mq
+
+
+
+### 创建监听者
+
+要创建监听者监听一个队列时，才算是连接上mq了，这样服务才会自动创建组件
+```java
+      
+```
+
+这个创建好后，重启服务应该就有组件生成了，进行测试，在stock.exchange.top中，以stock.key.locked发送消息：1，ware输出：
+```
+      收到解锁消息3:111
+```
+
+说明测试成功了
+
+
+
+
+
+
+## 锁库后发送消息
+
+把seata的东西撤了，接下来用rabbit优化回滚业务
+
+
+
+### 锁库存成功的消息发送
+
+在submitOrder方法内，不是有个调用ware服务锁库存的方法lockWare吗？lockWare方法是事务，有一致性的，返回结果只代表要么全部成功要么全部失败，如果全部成功会进入一个收尾环节：先存orderItem，再存ware_task和detail（saveTask方法），最后直接回显数据。
+
+那么怎么存消息呢？答案是在存task和detail时就发消息，但是不从saveTask方法上面开刀，这个方法有可能出现错误，导致失败。
+
+所以为了保证必然发送消息（只要是原版java代码不涉及什么网络的，都视为一定无问题），我们要在远程调用saveTask前的构建list上就发送消息，而我们自定义的一个WareOrderDetailTO就很适合作为消息发送出去。
+
+因为我们构造list的时候是按照每个商品循环的，所以实际上每个to里都包含了商品id、商品数量和仓库id，并且这些只和订单order的id或sn有关系，当ware服务最终监听到消息时，就查这个order，只要订单的状态有异常，即订单的status为4或5，甚至订单本身不存在时，就可以说明这个订单的库存需要释放了。
+
+所以直接在构建list中发出消息：
+```java
+      rabbitTemplate.convertAndSend(
+              "stock.exchange.top"
+              ,"stock.key.locked"
+              ,taskDetailList
+              );
+      System.out.println("向stock.exchange.top发送了消息："+taskDetailList);
+```
+
+这样之后，就算task没有保存到数据库内，和仓库库存有关的消息也发送出去了。
+
+当然，要相信消息队列不会出问题，否则就不用玩了。
+
+
+### ware服务接收消息
+
+用@RabbitListener和@RabbitHandler重载一下方法吧
+```java
+      /**
+     * 拿取对象
+     */
+    @RabbitHandler
+    public void listenerMessage(Message message, List<WareOrderDetailTO> list, Channel channel) throws IOException {
+        System.out.println("收到消息"+":"+list);
+    }
+```
+
+
+### 测试
+
+弄一个订单，提交成功后看ware服务输出：
+```
+      
+```
+
+执行成功，可以确实拿到了数据，接下来进行ware处理异常订单
+
+那如果submitOrder服务异常呢？加一个byZero吧，再试一试，看看ware服务输出
+```
+
+```
+
+可以看到确实也收到了消息，而这样收到消息后，库存要释放，同时对应orderId的task和detail也要进行状态修改，orderId对应taskId，taskId对应detailId，这样进行修改。
+
+
+
+
+
+
+
+
+
+## 解锁库存
+
+在wareSkuService服务里，把上面的拿取list数据的监听器移植进去，随后开始编写解锁库存方法。
+
+### 监听器
+
+```java
+      /**
+       * 拿取对象
+       */
+      @RabbitHandler
+      public void listenerMessage(Message message, List<WareOrderDetailTO> list, Channel channel) throws IOException {
+          System.out.println("收到消息"+":"+list);
+          List<WareOrderDetailTO> tos=new ArrayList<>();
+          for (Object to : list) {
+              tos.add(JSON.parseObject(JSON.toJSONString(to),WareOrderDetailTO.class));
+          }
+          try {
+              //解锁库存
+              Boolean ifSuccess = this.dealWithStock(tos);
+              if(ifSuccess){
+                  System.out.println("解锁成功");
+              } else {
+                  System.out.println("订单正常，不予解锁");
+              }
+              channel.basicAck(
+                      message.getMessageProperties().getDeliveryTag()     //消息的tag
+                      , false                                         //是否批量确认
+              );
+          } catch (Exception e){
+              System.out.println("发生异常，将重新解锁");
+              channel.basicNack(
+                      message.getMessageProperties().getDeliveryTag()     //消息的tag
+                      , false                                         //是否批量确认
+                      ,true                                           //退回队列
+              );
+          }
+      }
+```
+
+会try一个dealWithStock方法，出现异常的话则将消息回退消息队列；成功则直接删除
+
+值得注意的是，从消息中读取的list，是一个linkedList，其所有的key都是String类型，value则是原本的值
+
+所以需要将其利用fastJson转成对象，遍历linkedList，然后才能转化
+
+
+### 主方法
+
+方法dealWithStock
+```java
+      /**
+       * 处理库存
+       */
+      private Boolean dealWithStock(List<WareOrderDetailTO> list){
+          Long orderId = list.get(0).getOrderId();
+          System.out.println(orderId);
+          if (!this.isOrderOn(orderId)) {
+              /**
+               * 删除task，并获取taskId
+               * 要删除details必须获取taskId进行匹配
+               */
+              Long taskId = getTaskIdAndDelete(orderId);
+              /**
+               * 删除details
+               */
+              this.deleteTaskDetail(taskId);
+              /**
+               * 释放库存，就通过list来
+               */
+              this.unlockStock(list);
+              /**
+               * 解锁成功
+               */
+              return true;
+          } else {
+              //订单按照正常支付，则不进行任何业务
+              return false;
+          }
+      }
+```
+
+这个方法，不单单是为了解锁库存，还有这删除库存任务的作用
+
+### 获取taskId并删除task
+
+获取taskId
+```java
+      /**
+       * 从数据库查taskId
+       */
+      private List<Long> getTaskIdAndDelete(Long orderId) {
+          List<WareOrderTaskEntity> tasks = wareOrderTaskDao.selectList(new QueryWrapper<WareOrderTaskEntity>().eq("order_id", orderId));
+          List<Long> taskIds=new ArrayList<>();
+          for (WareOrderTaskEntity thisTask : tasks) {
+              Long taskId = thisTask.getId();
+              wareOrderTaskDao.deleteById(taskId);
+              thisTask.setTaskStatus(0);
+              wareOrderTaskDao.updateById(thisTask);
+              taskIds.add(thisTask.getId());
+          }
+          return taskIds;
+      }
+```
+
+
+
+### 删除detail
+
+方法deleteTaskDetail
+```java
+      /**
+       * 删除taskDetail
+       */
+      private void deleteTaskDetail(List<Long> taskId) {
+          for (Long thisTaskId : taskId) {
+              wareOrderTaskDetailDao.delete(new QueryWrapper<WareOrderTaskDetailEntity>().eq("task_id", thisTaskId));
+          }
+      }
+```
+
+
+### 解锁库存
+
+方法unlockStock
+```java
+      /**
+       * 解锁库存
+       */
+      private void unlockStock(List<WareOrderDetailTO> list) {
+          List<WareSkuEntity> allStocks = wareSkuDao.selectList(null);
+          //System.out.println(allStocks);
+          for (WareSkuEntity stock : allStocks) {
+              //循环现有库存
+              for (WareOrderDetailTO to : list) {
+                  //循环要解锁的库存
+                  if (
+                          stock.getSkuId().equals(to.getSkuId())
+                                  &&
+                                  stock.getWareId().equals(to.getWareId())
+                  ) {
+                      stock.setStockLocked(stock.getStockLocked() - Integer.parseInt(to.getSkuNum().toString()));
+                      wareSkuDao.updateById(stock);
+                  }
+              }
+          }
+      }
+```
+
+
+### 获取订单状态
+
+但是删除的前提是，订单是有效的，因为此时已经过了订单原本存活时间，这个时候去查订单的状态他一定是准确状态，再根据这个状态去进行解锁库存等操作
+
+那么订单状态怎么获取呢？最先想到的应该是open feign调取order服务吧？呵呵，这是不行的，因为order服务是专门面向浏览器的服务，任何order服务的接口都建立在用户已登录的基础上的，而我们服务调用order接口的时候是没有带session的，从而order服务的拦截器会永远拦截调用，并且还要在redis中创建很多空的session！所以说不能远程调用order
+
+那么直接把order存到redis中吧，先不存数据库，这样也解决了30分钟存活时间的问题。30分钟内支付的话，就把这个订单的状态人为改成已支付，ttl改成无限，ware服务查了orderId后再把这个缓存删了；未支付的话30分钟直接删了就好，到时候从redis中查不到对应的orderId时就说明该释放库存了。最后再把最终的订单存到数据库就行了
+
+那么应该在什么时候存redis呢？当然是创建好的时候啊，也即是submitOrder方法，存一个String，key就按照orderId存
+```java
+      /**
+       * 存order到redis
+       */
+      redisTemplate.opsForValue().set(
+              OrderConstant.ORDER_TEMP+order.getId()
+              ,JSON.toJSONString(getStatus())
+      );
+```
+
+所以isOrderOn方法应该是：
+```java
+      /**
+       *
+       * @param orderId
+       * @return
+       *
+       * 获取订单状态，从redis缓存中拿取
+       */
+      private Boolean isOrderOn(Long orderId) {
+          String jjjson = redisTemplate.opsForValue().get(OrderConstant.ORDER_TEMP + orderId);
+          redisTemplate.delete(OrderConstant.ORDER_TEMP + orderId);
+          if(jjjson==null){
+              //redis中无数据
+              return false;
+          } else {
+              //redis中有数据
+              Integer status=Integer.parseInt(jjjson);
+              switch (status){
+                  case 1, 2, 3:
+                      return true;
+                  default:
+                      return false;
+              }
+          }
+      }
+```
+
+同样，要在ware模块配置redis，application里：
+```yml
+      spring:
+        data:
+          redis:
+            host: 192.168.74.130
+            port: 6379
+```
+
+
+
+
+
+
+
+### 拦截器自动放行（不行）
+
+当然上面的问题是因为我们弄了拦截器鉴权，所有order开头的url都会自动拦截判断登录，所以我们可以直接为feign接口调用的url放行
+
+重新写一个feign接口和controller接口
+
+feign:
+```java
+      @FeignClient("mall-order")
+      public interface OrderFeign {
+          /**
+           * 订单状态
+           */
+          @RequestMapping("/status/{id}")
+          Integer getStatus(@PathVariable("id") Long id);
+      }
+```
+
+controller：
+```java
+      /**
+       * 订单状态
+       */
+      @RequestMapping("order/order/status/{id}")
+      public Integer getStatus(@PathVariable("id") Long id){
+          OrderEntity order = orderService.getById(id);
+          return order.getStatus();
+      }
+```
+
+在拦截器内部，preHandler：
+```java
+      if(new AntPathMatcher().match(request.getRequestURI(),"/order/order/status/**")){
+          return true;
+      }
+```
+如果请求的url是/order/order/status/** 的话就直接放行
+
+这样以来，submitOrder方法内就不存redis了，而且dealWithStock方法的isOrderOn也直接调用就行了
+```java
+      /**
+       * 获取订单状态，从redis缓存中拿取
+       */
+      private Boolean isOrderOn(Long orderId) {
+          /*String jjjson = redisTemplate.opsForValue().get(OrderConstant.ORDER_TEMP + orderId).toString();
+          redisTemplate.delete(OrderConstant.ORDER_TEMP + orderId);*/
+          Integer status= orderFeign.getStatus(orderId);
+          if(status==null){
+              return false;
+          } else {
+              switch (status){
+                  case 1, 2, 3:
+                      return true;
+                  default:
+                      return false;
+              }
+          }
+      }
+```
+
+
+
+
+### 测试
+
+当正常下单时，由于订单库存消息的滞留时间仅为20秒，而我们设置在redis中的订单时长为无限，所以ware服务查redis时订单的状态为0，不符合1、2、3三个正常状态，所以模拟一下订单异常时，此时：库存锁定不变；工作单task和仓库出货detail被删除
+
+人为将dealWithStock方法的判断isOrderOn改成false，使直接不进行任何操作，再进行下单，其结果为：库存锁定减少；task和detail保留
+
+结果为成功
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 订单服务：支付订单
+
+## redis中订单状态ttl问题
+
+上一步，已经做到了提交订单时将订单状态上传redis，任何初始订单状态都为0，ware模块经过50分钟后再来读取状态，且需要为1、2、3的任何一个状态才表示为有效订单，除此之外的都应该解锁订单，如何设计？
+
+那就只能支付了，支付后，将此时的订单状态覆盖到redis中，随后ware模块再来读的时候就会判定为有效订单，就会进行减库存操作
+
+但是问题是redis中状态的ttl设置成多少？正常的订单有4个状态，即0、1、2、3，每一次更改状态时都应该复写到redis。ware模块监听到队列消息是在提交订单后50分钟时，在50分钟的前30分钟，订单处于0状态，如果不进行干涉就会在30分钟后失效，所以状态为0时ttl仍然应该是30分钟，问题是后面三个状态设置多少？全部也设置成50分钟得了，毕竟缓存中的状态也只是供ware读的，没什么其他的用途
+
+要么干脆就不在缓存里分什么1、2、3，统一使用0表示无效，1表示有效，同样0的ttl设置为30分钟，1设置成无限，一旦30分钟之内支付了订单，其状态就设置为1表示有效，那么之后存在redis中等待ware处理再删除就行了。
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 数据库中的订单关闭
+
+需要将订单消息发送到一个死信交换机，滞留30分钟后发到指定队列，order服务监听到该消息，将数据库中order的状态改成1，redis中的状态复写成1
+
+### 创建mq组件
+
+上面不是在order创建了一个组件库吗？名称不太规范，再创建一次
+```java
+      @Configuration
+      public class MqConfiguration {
+          //====================== 创建mq组件 ==========================
+          /**
+           * 创建中转交换机order.exchange.top，用于order消息的中转
+           */
+          @Bean
+          public Exchange userExchangeOrder(){
+              //public TopicExchange(String name, boolean durable, boolean autoDelete, Map<String, Object> arguments)
+              return new TopicExchange(
+                      "order.exchange.top"           //交换机名
+                      ,true                           //持久化
+                      ,false                          //自动删除
+              );
+          }
+          /**
+           * 创建死信队列order.queue.delay，用于死消息的中转
+           */
+          @Bean
+          public Queue delayQueueOrder(){
+              //自定义参数，有关死信的全部参数
+              Map<String,Object> arguments=new HashMap<>();
+              arguments.put("x-dead-letter-exchange","order.exchange.top");              //死信队列从哪个交换机拿死信
+              arguments.put("x-dead-letter-routing-key","order.key.post");               //死信队列拿到死信后，定时发送到交换机时的路由键
+              arguments.put("x-message-ttl",1000*30);                                        //死信定时时间，30分钟
+
+              // public Queue(String name, boolean durable, boolean exclusive, boolean autoDelete, @Nullable Map<String, Object> arguments)
+              return new Queue(
+                      "order.queue.delay"          //交换机名
+                      ,true                        //持久化
+                      ,false                       //排他
+                      ,false                       //自动删除
+                      ,arguments                   //自定义参数
+              );
+          }
+          /**
+           * 创建订单队列order.queue.post，用于order消息的发送
+           */
+          @Bean
+          public Queue userQueueOrder(){
+              // public Queue(String name, boolean durable, boolean exclusive, boolean autoDelete, @Nullable Map<String, Object> arguments)
+              return new Queue(
+                      "order.queue.post"
+                      ,true
+                      ,false
+                      ,false
+              );
+          }
+          /**
+           * 创建exchange和死信queue绑定
+           */
+          @Bean
+          public Binding delayBinding(){
+              return new Binding(
+                      "order.queue.delay"                             //目的地是死信队列
+                      , Binding.DestinationType.QUEUE                 //死信队列是队列（QUEUE）
+                      ,"order.exchange.top"                  //中转exchange
+                      ,"order.key.created"                //路由键
+                      ,null                       //自定义参数（可以不填）
+              );
+          }
+          /**
+           * 创建exchange和消息queue的绑定
+           */
+          @Bean
+          public Binding orderBinding(){
+              return new Binding(
+                      "order.queue.post"                             //目的地是消息队列
+                      , Binding.DestinationType.QUEUE                 //消息队列是队列（QUEUE）
+                      ,"order.exchange.top"                  //中转exchange
+                      ,"order.key.post"                //路由键
+                      ,null                       //自定义参数（可以不填）
+              );
+          }
+      }
+```
+
+创建了死信交换机order.exchange.top，死信队列order.queue.delay，死信交换机通过路由键order.key.created发送消息到死信队列，死信队列中消息将以路由键order.key.post发往死信交换机，死信交换机将消息以相同的路由键发往创建好的普通队列order.queue.post，最好order服务会监听该队列，拿取消息
+
+
+
+### 监听器
+
+专门创建一个listener包存放监听者得了，例如listener.PostListener
+```java
+      @Component
+      @RabbitListener(queues = "order.queue.post")
+      public class PostListener {
+          /**
+           * 监听order.queue.post队列，拿取order信息
+           */
+          @RabbitHandler
+          public void listenerOrder(Message message, Long order, Channel channel){
+              System.out.println("收到过期订单"+message.getMessageProperties().getDeliveryTag()+":"+order);
+              System.out.println("将查看是否已处理，若未处理则按照过期处理......");
+              try {
+                  channel.basicAck(
+                          message.getMessageProperties().getDeliveryTag()     //消息的tag
+                          , false                                         //是否批量确认
+                  );
+              } catch (IOException e) {
+                  throw new RuntimeException(e);
+              }
+          }
+      }
+```
+
+注意要加@Component，加入到ioc监听器才会生效
+
+
+### 发送消息
+
+同样在submitOrder方法内，不仅要向ware的死信交换机发，还要向order的死信交换机发，当方法无问题后成功后再发
+
+需要的消息为：orderId
+
+```java
+      /**
+       * 往order发消息
+       */
+      rabbitTemplate.convertAndSend(
+              "order.exchange.top"
+              ,"order.key.created"
+              ,order.getId());
+      System.out.println("向order.exchange.top发送了消息："+order.getId());
+```
+
+注意放在整个方法的最后面，防止消息到达时数据库还未按时更新
+
+或者将消息滞留的时间延长，这个方法最保险
+
+
+### 简单测试
+
+将order发送消息的滞留时间改成3s，stock滞留时间5s
+
+正常下单，看看order服务打印什么：
+```
+      收到订单1:108
+      将查看是否已处理，若未处理则按照过期处理......
+```
+
+ware服务：
+```
+      解锁成功
+```
+
+
+
+### 处理订单
+
+查数据库中订单的状态，看看有没有支付，支付了就给redis中缓存的状态改成1；没有支付的话就不变，仍然是0，让ware模块负责清除
+
+监听器中：
+```java
+      //处理订单当前状态
+      orderService.dealWithOrderStatus(order);
+```
+
+方法dealWithOrderStatus：
+```java
+      /**
+       *
+       * @param order
+       *
+       * 处理订单状态，此时订单若订单不为0或其他，为1，2，3，则缓存中的改成1
+       * 否则不做处理
+       */
+      @Override
+      public void dealWithOrderStatus(Long order) {
+          OrderEntity thisOrder = orderDao.selectOne(new QueryWrapper<OrderEntity>().eq("id",order));
+        //模拟订单已支付的情况，人为做出已支付的情况
+          /*thisOrder.setStatus(1);
+          orderDao.updateById(thisOrder);*/
+
+          if(thisOrder.getStatus().equals(1)){
+              redisTemplate.delete(OrderConstant.ORDER_TEMP+order);
+              redisTemplate.opsForValue().set(
+                      OrderConstant.ORDER_TEMP+order
+                      ,"1"
+              );
+              System.out.println("该订单已支付");
+          } else {
+              System.out.println(order+"号订单未及时付款，已删除");
+          }
+      }
+```
+
+### 测试
+
+将模拟打开，人为固定订单的状态为1，正常下单，看看结果
+
+order模块，submitOrder方法内部：
+```
+      向order.exchange.top发送了消息：132
+```
+
+order模块，监听消息并处理时：
+```
+      收到订单3:132
+      将查看是否已处理，若未处理则按照过期处理......
+
+      该订单已支付
+```
+
+ware服务内：
+```
+      收到消息:[{orderId=132, orderSn=202311131732579231723997369732849665, skuId=67, skuNum=1, wareId=2}]
+      132
+      订单正常，不予解锁
+```
+
+
+基本通过测试，完成功能
 
 

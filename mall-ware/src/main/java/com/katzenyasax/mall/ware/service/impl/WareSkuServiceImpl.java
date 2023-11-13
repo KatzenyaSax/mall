@@ -1,6 +1,8 @@
 package com.katzenyasax.mall.ware.service.impl;
 
 import cn.hutool.core.date.DateTime;
+import com.alibaba.fastjson.JSON;
+import com.katzenyasax.common.constant.OrderConstant;
 import com.katzenyasax.common.to.OrderItemTO;
 import com.katzenyasax.common.to.WareOrderDetailTO;
 import com.katzenyasax.mall.ware.dao.WareOrderTaskDao;
@@ -9,13 +11,17 @@ import com.katzenyasax.mall.ware.entity.WareOrderTaskDetailEntity;
 import com.katzenyasax.mall.ware.entity.WareOrderTaskEntity;
 import com.katzenyasax.mall.ware.exception.NoStockException;
 import com.qiniu.util.StringUtils;
+import com.rabbitmq.client.Channel;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.rabbit.annotation.RabbitHandler;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.IOException;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -29,7 +35,7 @@ import com.katzenyasax.mall.ware.entity.WareSkuEntity;
 import com.katzenyasax.mall.ware.service.WareSkuService;
 import org.springframework.transaction.annotation.Transactional;
 
-
+@RabbitListener(queues = "stock.queue.unlock")
 @Service("wareSkuService")
 public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> implements WareSkuService {
 
@@ -40,9 +46,170 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
     @Autowired
     WareOrderTaskDetailDao wareOrderTaskDetailDao;
 
+    @Autowired
+    WareSkuDao wareSkuDao;
+
+    @Autowired
+    RedisTemplate redisTemplate;
 
 
     /**
+     * 监听stock.queue.unlock队列，拿取string
+     */
+    @RabbitHandler
+    public void listenerOrder(Message message,String msg, Channel channel){
+        System.out.println("收到String消息"+message.getMessageProperties().getDeliveryTag()+":"+msg);
+        try {
+            channel.basicAck(
+                    message.getMessageProperties().getDeliveryTag()     //消息的tag
+                    , false                                         //是否批量确认
+            );
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    /**
+     * 处理对象
+     */
+    @RabbitHandler
+    public void listenerMessage(Message message, List<WareOrderDetailTO> list, Channel channel) throws IOException {
+        System.out.println("收到消息"+":"+list);
+        List<WareOrderDetailTO> tos=new ArrayList<>();
+        for (Object to : list) {
+            tos.add(JSON.parseObject(JSON.toJSONString(to),WareOrderDetailTO.class));
+        }
+        try {
+            //解锁库存
+            Boolean ifSuccess = this.dealWithStock(tos);
+            if(ifSuccess){
+                System.out.println("解锁成功");
+            } else {
+                System.out.println("订单正常，不予解锁");
+            }
+            channel.basicAck(
+                    message.getMessageProperties().getDeliveryTag()     //消息的tag
+                    , false                                         //是否批量确认
+            );
+        } catch (Exception e){
+            System.out.println("发生异常，将重新解锁");
+            channel.basicNack(
+                    message.getMessageProperties().getDeliveryTag()     //消息的tag
+                    , false                                         //是否批量确认
+                    ,true                                           //退回队列
+            );
+        }
+    }
+
+    /**
+     * 解锁库存
+     */
+    private Boolean dealWithStock(List<WareOrderDetailTO> list){
+        Long orderId = list.get(0).getOrderId();
+        System.out.println(orderId);
+        if (!isOrderOn(orderId)) {
+            /**
+             * 删除task，并获取taskId
+             * 要删除details必须获取taskId进行匹配
+             */
+            List<Long> taskId = getTaskIdAndDelete(orderId);
+            /**
+             * 删除details
+             */
+            this.deleteTaskDetail(taskId);
+            /**
+             * 释放库存，就通过list来
+             */
+            this.unlockStock(list);
+
+            /**
+             * 解锁成功
+             */
+            if(redisTemplate.opsForValue().get(OrderConstant.ORDER_TEMP + orderId)!=null) {
+                redisTemplate.delete(OrderConstant.ORDER_TEMP + orderId);
+            }
+            return true;
+        } else {
+            //订单按照正常支付，则不进行任何业务
+            return false;
+        }
+    }
+
+
+
+
+    /**
+     * 获取订单状态，从redis缓存中拿取
+     */
+    private Boolean isOrderOn(Long orderId) {
+        String jjjson = redisTemplate.opsForValue().get(OrderConstant.ORDER_TEMP + orderId).toString();
+        if(jjjson==null){
+            return false;
+        } else {
+            Integer status=Integer.parseInt(jjjson);
+            switch (status){
+                case 1, 2, 3:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+    }
+
+    /**
+     * 从数据库查taskId
+     */
+    private List<Long> getTaskIdAndDelete(Long orderId) {
+        List<WareOrderTaskEntity> tasks = wareOrderTaskDao.selectList(new QueryWrapper<WareOrderTaskEntity>().eq("order_id", orderId));
+        List<Long> taskIds=new ArrayList<>();
+        for (WareOrderTaskEntity thisTask : tasks) {
+            Long taskId = thisTask.getId();
+            wareOrderTaskDao.deleteById(taskId);
+            thisTask.setTaskStatus(0);
+            wareOrderTaskDao.updateById(thisTask);
+            taskIds.add(thisTask.getId());
+        }
+        return taskIds;
+    }
+
+    /**
+     * 删除taskDetail
+     */
+    private void deleteTaskDetail(List<Long> taskId) {
+        for (Long thisTaskId : taskId) {
+            wareOrderTaskDetailDao.delete(new QueryWrapper<WareOrderTaskDetailEntity>().eq("task_id", thisTaskId));
+        }
+    }
+
+    /**
+     * 解锁库存
+     */
+    private void unlockStock(List<WareOrderDetailTO> list) {
+        List<WareSkuEntity> allStocks = wareSkuDao.selectList(null);
+        //System.out.println(allStocks);
+        for (WareSkuEntity stock : allStocks) {
+            //循环现有库存
+            for (WareOrderDetailTO to : list) {
+                //循环要解锁的库存
+                if (
+                        stock.getSkuId().equals(to.getSkuId())
+                                &&
+                                stock.getWareId().equals(to.getWareId())
+                ) {
+                    stock.setStockLocked(stock.getStockLocked() - Integer.parseInt(to.getSkuNum().toString()));
+                    wareSkuDao.updateById(stock);
+                }
+            }
+        }
+    }
+
+
+
+    //======================================================================================
+
+
+    /**0
      *
      * @param params
      * @return
@@ -161,7 +328,7 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
                                 newWare.setStockLocked(ware.getStockLocked()+ item.getSkuQuantity());
                                 //更新数据库
                                 baseMapper.updateById(newWare);
-                                return ware.getId();
+                                return ware.getWareId();
                             }
                             else {
                                 //一个足够库存的仓库也没有，抛异常
@@ -220,6 +387,7 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
             taskDetailEntity.setTaskId(ifExistOne.getId());
             taskDetailEntity.setSkuId(task.getSkuId());
             taskDetailEntity.setSkuNum(Integer.parseInt(task.getSkuNum().toString()));
+
             //存入
             //?存不了wareId
             wareOrderTaskDetailDao.insert(taskDetailEntity);

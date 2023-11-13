@@ -2,7 +2,7 @@
  * @Author: InnerSekiro a18290531268@163.com
  * @Date: 2023-09-25 21:43:28
  * @LastEditors: InnerSekiro a18290531268@163.com
- * @LastEditTime: 2023-11-01 20:56:12
+ * @LastEditTime: 2023-11-09 21:43:35
  * @FilePath: \undefinedc:\Users\ASUS\Desktop\IDEA\mall\bugFixingLog.md
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -186,3 +186,49 @@
 更新了以下内容：
     1.基本完成了存订单项的内容
     2.基本完成了存订单任务的内容
+
+
+
+
+
+## 2023/11/8
+
+更新了以下内容：
+    1.基本完成了order、product、ware模块seata的搭建
+
+
+
+
+
+
+## 2023/11/9
+
+更新了以下内容：
+    1.完成了seata的测试，submitOrder方法可以实现强一致性了
+    2.完成了延时队列的基础测试，但还未加入真实业务
+
+
+
+
+
+
+
+## 2023/11/11
+
+更新了以下内容：
+    1.用延时队列完成了订单消息发送
+
+
+
+
+## 2023/11/12
+
+更新了以下内容：
+    1.完成了ware服务检测订单状态解锁库存等操作
+
+
+
+## 2023/11/13
+
+更新了以下内容：
+    1.基本完成了处理订单的业务

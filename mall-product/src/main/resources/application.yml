@@ -62,11 +62,27 @@ mall:
 
 
 
-
-
-
-
-
+#
+#seata:
+#  enabled: true
+#  application-id: ${spring.application.name}
+#  tx-service-group: tx_group
+#  service:
+#    vgroup-mapping:
+#      tx_group: default
+#  registry:
+#    type: nacos
+#    nacos:
+#      server-addr: 192.168.74.130:8848
+#      namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+#      group: SEATA_GROUP
+#      application: seata-server
+#      username: nacos
+#      password: nacos
+#      cluster: default
+#
+#
+#
 
 
 

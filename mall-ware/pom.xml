@@ -40,6 +40,37 @@
         </dependency>
 
 
+        <!--
+          Seata
+         <dependency>
+             <groupId>com.alibaba.cloud</groupId>
+             <artifactId>spring-cloud-starter-alibaba-seata</artifactId>
+             <version>2022.0.0.0</version>
+             <exclusions>
+                 <exclusion>
+                     <groupId>io.seata</groupId>
+                     <artifactId>seata-spring-boot-starter</artifactId>
+                 </exclusion>
+             </exclusions>
+         </dependency>
+         <dependency>
+             <groupId>io.seata</groupId>
+             <artifactId>seata-spring-boot-starter</artifactId>
+             <version>1.7.0</version>
+         </dependency>
+
+ -->
+
+
+
+        <!-- rabbitMQ整合依赖 -->
+        <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-amqp -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
+
     </dependencies>
     <dependencyManagement>
         <dependencies>

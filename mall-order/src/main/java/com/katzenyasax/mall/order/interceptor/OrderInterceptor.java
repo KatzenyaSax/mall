@@ -6,6 +6,7 @@ import com.katzenyasax.common.to.MemberTO;
 import com.katzenyasax.common.to.UserInfoTO;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.shiro.util.AntPathMatcher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
@@ -23,6 +24,11 @@ public class OrderInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+
+        if(new AntPathMatcher().match(request.getRequestURI(),"/order/order")){
+            return true;
+        }
+
         //用户信息封装，之后要判断浏览器中是否有用户信息并封装
         System.out.println("Entered Interceptor !");
         UserInfoTO userInfoTo=new UserInfoTO();

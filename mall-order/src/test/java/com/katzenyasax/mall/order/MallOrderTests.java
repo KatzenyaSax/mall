@@ -31,6 +31,7 @@ class MallOrderTests {
                 ,true                       //是否持久化
                 ,false          //是否自动删除
         );
+        //声明一个交换机
         amqpAdmin.declareExchange(directExchange);
     }
 
@@ -65,7 +66,7 @@ class MallOrderTests {
                 ,"testRK"
                 ,null
         );
-        //声明一个队列
+        //声明一个绑定
         amqpAdmin.declareBinding(binding);
     }
 

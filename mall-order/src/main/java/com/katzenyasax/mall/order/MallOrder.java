@@ -8,6 +8,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
 
+
 @EnableFeignClients(basePackages = "com.katzenyasax.mall.order.feign")
 @EnableRabbit
 @MapperScan(value = "com.katzenyasax.mall.order.dao")

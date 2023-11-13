@@ -550,8 +550,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
                     //此时catalogII就是一级菜单下的所有二级菜单
                     return catalogII;
                 }));
-
-
         return finale;
     }
 

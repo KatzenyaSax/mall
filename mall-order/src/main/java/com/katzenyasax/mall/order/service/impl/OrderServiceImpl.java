@@ -2,51 +2,48 @@ package com.katzenyasax.mall.order.service.impl;
 
 import cn.hutool.core.date.DateTime;
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.TypeReference;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.katzenyasax.common.constant.CartConstant;
+import com.katzenyasax.common.constant.OrderConstant;
 import com.katzenyasax.common.constant.OrderTokenConstant;
 import com.katzenyasax.common.to.MemberTO;
 import com.katzenyasax.common.to.OrderItemTO;
 import com.katzenyasax.common.to.SpuInfoTO;
 import com.katzenyasax.common.to.WareOrderDetailTO;
+import com.katzenyasax.common.utils.PageUtils;
+import com.katzenyasax.common.utils.Query;
 import com.katzenyasax.common.utils.R;
+import com.katzenyasax.mall.order.dao.OrderDao;
 import com.katzenyasax.mall.order.dao.OrderItemDao;
+import com.katzenyasax.mall.order.entity.OrderEntity;
 import com.katzenyasax.mall.order.entity.OrderItemEntity;
 import com.katzenyasax.mall.order.feign.MemberFeign;
 import com.katzenyasax.mall.order.feign.ProductFeign;
 import com.katzenyasax.mall.order.feign.WareFeign;
 import com.katzenyasax.mall.order.interceptor.OrderInterceptor;
+import com.katzenyasax.mall.order.service.OrderService;
 import com.katzenyasax.mall.order.vo.*;
 import com.rabbitmq.client.Channel;
 import org.springframework.amqp.core.Message;
-import org.springframework.amqp.rabbit.annotation.RabbitHandler;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.BoundHashOperations;
+import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.katzenyasax.common.utils.PageUtils;
-import com.katzenyasax.common.utils.Query;
-
-import com.katzenyasax.mall.order.dao.OrderDao;
-import com.katzenyasax.mall.order.entity.OrderEntity;
-import com.katzenyasax.mall.order.service.OrderService;
-import org.springframework.transaction.annotation.Transactional;
-
-@RabbitListener(queues = {"spring.test01.queue01"})
+//@RabbitListener(queues = {"spring.test01.queue01"})
 @Service("orderService")
 public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> implements OrderService {
 
@@ -66,6 +63,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
 
     @Autowired
     OrderItemDao orderItemDao;
+
+    @Autowired
+    RabbitTemplate rabbitTemplate;
+
+    @Autowired
+    OrderDao orderDao;
 
 
     @Override
@@ -197,7 +200,17 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
      */
     @Override
     @Transactional
+    //@GlobalTransactional
     public SubmitOrderResponseVo submitOrder(OrderSubmitVo vo) {
+        /**
+         * 代理对象
+         * 专用于本地事务间的互相调用
+         * 不调用事务就没有用了
+         */
+        //OrderServiceImpl orderService = (OrderServiceImpl) AopContext.currentProxy();
+
+
+
         //将vo设置为threadLocal，因此可以在整个Service线程内使用
         submitVoThreadLocal.set(vo);
         /**
@@ -275,7 +288,15 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             Long newId = baseMapper.selectOne(
                     new QueryWrapper<OrderEntity>().eq("order_sn", order.getOrderSn())
             ).getId();
-
+            /**
+             * 存order到redis
+             */
+            redisTemplate.opsForValue().set(
+                    OrderConstant.ORDER_TEMP+order.getId()
+                    ,JSON.toJSONString(order.getStatus())
+                    ,30
+                    ,TimeUnit.MINUTES
+            );
             /**
              * 锁定库存
              */
@@ -288,8 +309,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             //获取锁库存响应
             Map<Long,Long> resp = wareFeign.lockWare(tos);
             if(resp==null){
+                //锁库存失败
                 baseMapper.deleteById(order.getId());   //要删掉提交失败的订单id
-                //锁库存失败时
                 finale.setCode(1);
                 return finale;
             } else {
@@ -297,7 +318,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
                 /**
                  * 存orderItems
                  */
-                this.saveOrderItemEntities(items,newId);
+                this.saveOrderItemEntities(items,newId);    //不会出错
 
                 /**
                  *
@@ -318,22 +339,71 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
                     //封装
                     taskDetailList.add(to);
                 }
+
+                /**
+                 * 保存task
+                 */
                 wareFeign.saveTasks(taskDetailList);
-
-
 
                 /**
                  * 完成回显数据的封装，并结束该业务
                  */
                 finale.setOrder(order);
                 System.out.println(finale);
+                /**
+                 * 往ware发消息
+                 */
+                rabbitTemplate.convertAndSend(
+                        "stock.exchange.top"
+                        ,"stock.key.locked"
+                        ,taskDetailList);
+                System.out.println("向stock.exchange.top发送了消息："+taskDetailList);
+                /**
+                 * 往order发消息
+                 */
+                rabbitTemplate.convertAndSend(
+                        "order.exchange.top"
+                        ,"order.key.created"
+                        ,order.getId());
+                System.out.println("向order.exchange.top发送了消息："+order.getId());
             }
         }
         else {
             //令牌不一致
             finale.setCode(3);
         }
+
+
         return finale;
+    }
+
+
+    /**
+     *
+     * @param order
+     *
+     * 处理订单状态，此时订单若订单不为0或其他，为1，2，3，则缓存中的改成1
+     * 否则不做处理
+     */
+    @Override
+    public void dealWithOrderStatus(Long order) {
+        System.out.println(order+":"+order.getClass());
+        System.out.println(orderDao.selectList(null));
+        OrderEntity thisOrder = orderDao.selectOne(new QueryWrapper<OrderEntity>().eq("id",order));
+       //模拟订单已支付的情况，人为做出已支付的情况
+        thisOrder.setStatus(1);
+        orderDao.updateById(thisOrder);
+
+        if(thisOrder.getStatus().equals(1)){
+            redisTemplate.delete(OrderConstant.ORDER_TEMP+order);
+            redisTemplate.opsForValue().set(
+                    OrderConstant.ORDER_TEMP+order
+                    ,"1"
+            );
+            System.out.println("该订单已支付");
+        } else {
+            System.out.println(order+"号订单未及时付款，已删除");
+        }
     }
 
     /**
@@ -395,6 +465,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         order.setOrderSn(IdWorker.getTimeId());     //订单号
         order.setCreateTime(new DateTime());            //创建时间
         //order.setPayAmount(vo.getPayPrice());           //应付金额
+        order.setStatus(0);                                 //未支付状态
         //该金额就是确认时直接拿取数据库的介个
 
         //2.用户信息
@@ -488,13 +559,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
     }
 
 
-    //==========消息代理的测试方法========================================================
+    //==========消息队列的测试方法========================================================
     /**
      * 监听OrderEntity对象消息
      *
      * 加上了手动确认ack的
      */
-    @RabbitHandler
+    //@RabbitHandler
     //@RabbitListener(queues = {"spring.test01.queue01"})
     public void listenOrderMessage(Message message, OrderEntity body, Channel channel) {
         System.out.println("接收到OrderEntity对象消息："+body);
@@ -521,7 +592,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
     /**
      * 接收String对象消息
      */
-    @RabbitHandler
+    //@RabbitHandler
     public void listenOrderMessage(String message,Channel channel){
         System.out.println("接受到String对象消息："+message);
     }

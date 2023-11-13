@@ -31,6 +31,26 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
+
+
+    /**
+     * 订单状态
+     */
+    @RequestMapping("/status/{id}")
+    public Integer getStatus(@PathVariable("id") Long id){
+        OrderEntity order = orderService.getById(id);
+        return order.getStatus();
+    }
+
+
+    //=======================================
+
+
+
+
+
+
+
     /**
      * 列表
      */
