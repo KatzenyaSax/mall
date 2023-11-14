@@ -2513,28 +2513,27 @@ post一个：
 
 
 模糊查询，更改BrandServiceImpl下面的方法为：
-
-            @Override
-            public PageUtils queryPage(Map<String, Object> params) {
-                //获取关键字key
-                String key=(String) params.get("key");
-                log.info(String.valueOf((key==null)));
-                //若关键字key不为空：
-                if(key!=null){
-        
-                    //进行对name和descript的模糊匹配
-                    QueryWrapper<BrandEntity> wrapper=new QueryWrapper<BrandEntity>().like("name",key).or().like("descript",key);
-                    return new PageUtils(this.page(new Query<BrandEntity>().getPage(params),wrapper));
-        
-        
-                }
-                //若关键字不为空
-                IPage<BrandEntity> page = this.page(
-                        new Query<BrandEntity>().getPage(params),
-                        new QueryWrapper<BrandEntity>()
-                );
-                return new PageUtils(page);
-            }
+```java
+      @Override
+      public PageUtils queryPage(Map<String, Object> params) {
+          //获取关键字key
+          String key=(String) params.get("key");
+          log.info(String.valueOf((key==null)));
+          //若关键字key不为空：
+          if(key!=null){
+              //进行对name和descript的模糊匹配
+              QueryWrapper<BrandEntity> wrapper=new QueryWrapper<BrandEntity>().like("name",key).or().like("descript",key);
+              return new PageUtils(this.page(new Query<BrandEntity>().getPage(params),wrapper));
+  
+          }
+          //若关键字不为空
+          IPage<BrandEntity> page = this.page(
+                  new Query<BrandEntity>().getPage(params),
+                  new QueryWrapper<BrandEntity>()
+          );
+          return new PageUtils(page);
+      }
+```
 
 结果是查到了
 但其实不用判断key是否为空，即使为空的话也只是为数据添加了一个开放的判断标准罢了
@@ -7565,9 +7564,9 @@ p124
 
 
 
+
+
 # SpringBoot整合es
-
-
 
 ## 安装 
 p125
@@ -18191,7 +18190,7 @@ p294
 
 
 
-### 拦截器自动放行（不行）
+### 拦截器自动放行（有点问题，还是用redis吧）
 
 当然上面的问题是因为我们弄了拦截器鉴权，所有order开头的url都会自动拦截判断登录，所以我们可以直接为feign接口调用的url放行
 
@@ -18223,11 +18222,11 @@ controller：
 
 在拦截器内部，preHandler：
 ```java
-      if(new AntPathMatcher().match(request.getRequestURI(),"/order/order/status/**")){
+      if(new AntPathMatcher().match("/order/**",request.getRequestURI())){
           return true;
       }
 ```
-如果请求的url是/order/order/status/** 的话就直接放行
+如果请求的url是/order/** 的话就直接放行，因为所有远程调用的方法都是以order开头的，网络应用则都是**.html，记得顺序前面是正则，后面是请求
 
 这样以来，submitOrder方法内就不存redis了，而且dealWithStock方法的isOrderOn也直接调用就行了
 ```java
@@ -18235,9 +18234,7 @@ controller：
        * 获取订单状态，从redis缓存中拿取
        */
       private Boolean isOrderOn(Long orderId) {
-          /*String jjjson = redisTemplate.opsForValue().get(OrderConstant.ORDER_TEMP + orderId).toString();
-          redisTemplate.delete(OrderConstant.ORDER_TEMP + orderId);*/
-          Integer status= orderFeign.getStatus(orderId);
+          Integer status = orderFeign.getStatus(orderId);
           if(status==null){
               return false;
           } else {
@@ -18250,6 +18247,10 @@ controller：
           }
       }
 ```
+
+### 有问题
+
+order服务会无限报未登录最后卡死，应该是之前有什么其他模块的东西用到了order服务
 
 
 
@@ -18274,7 +18275,7 @@ controller：
 
 
 
-# 订单服务：支付订单
+# 商城业务：订单的生命周期
 
 ## redis中订单状态ttl问题
 
@@ -18520,5 +18521,470 @@ ware服务内：
 
 
 基本通过测试，完成功能
+
+
+
+
+
+
+
+
+# 有关消息的细节问题
+
+## 消息丢失
+
+### 网络原因消息发送失败
+
+首先加上try、catch，如果发送失败就要求定时重发，而消本体息应该存到数据库中，标记状态为未发送，之后定时扫描数据库看看有没有未发送的消息
+
+有一个表mq_message
+
+
+
+### 生产者到broker失败
+
+回调机制
+
+
+
+### 消费者宕机
+
+消费者确实接收到消息，但是还未及时处理就宕机，导致消息丢失
+
+解决方案是手动ack，业务处理完后再ack
+
+
+
+
+
+
+
+## 消息重复
+
+服务器业务处理完，手动ack时宕机
+
+设计成幂等性
+
+
+
+
+
+
+
+
+
+
+## 消息积压
+
+消息太多了，服务器消费不过来，或者服务器宕机了
+
+解决方案是，上线更多服务器
+
+或者专门架设一个消费队列的服务器，把消息批量拿出来存数据库，等压力过去后再离线处理数据库数据
+
+
+
+
+
+
+
+
+
+
+
+# 商城业务：支付订单（未完成）
+
+
+
+steam://install/2551500/
+
+
+
+p300
+
+
+
+
+
+
+
+# 商城业务：订单列表
+
+
+## 搭建页面
+p300
+
+请求url：
+```
+      http://member.katzenyasax-mall.com/memberOrder.html
+```
+1.把源码里的html偷到member服务下，然后把里面所有路劲改成katzenyasax-mall.com
+
+2.然后把静态资源引流到nginx，/mydata/nginx/html/static/member
+```bash
+      mv member/ /mydata/nginx/html/static
+```
+
+3.member.katzenyasax-mall.com加到mall.conf
+
+4.switchhost加入
+```
+      192.168.74.130 member.katzenyasax-mall.com
+```
+
+4.引入依赖thymeleaf和devtools：
+```xml
+      <!-- thymeleaf 渲染首页的依赖 -->
+      <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-thymeleaf -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-thymeleaf</artifactId>
+      </dependency>
+      <!-- devtool的依赖 -->
+      <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-devtools -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-devtools</artifactId>
+          <optional>true</optional>
+      </dependency>
+```
+
+5.在application内关闭缓存：
+
+      spring:
+        thymeleaf:
+          cache: false
+
+6.网关配置：
+```yml
+      - id: member-route
+        uri: lb://mall-member
+        predicates:
+          - Host=**.member.katzenyasax-mall.com
+```
+
+7.测试
+
+重启member、gateway，查看订单可以正常访问了，只是缺少数据所以报错
+
+
+## 整合springsession
+
+1.依赖
+```xml
+      <!-- SpringSession 依赖 -->
+      <dependency>
+          <groupId>org.springframework.session<groupId>
+          <artifactId>spring-session-data-redis<artifactId>
+          <version>3.1.3</version>
+      </dependency>
+
+```
+
+2.application
+```yml
+      data:
+        redis:
+          host: 192.168.74.130
+          port: 6379
+```
+
+3.启动类加上：
+```java
+      @EnableRedisHttpSession
+```
+
+4.从auth模块或cart模块偷一个SessionConfiguration，让session分布式化
+
+5.从product模块偷ThisThreadPool和ThisThreadPollConfigurationProperties，随后重启服务后配置application：
+```yml
+    mall:
+      thread:
+        core-size:  20
+        max-size: 200
+        keep-alive-time:  10  
+```
+
+
+
+
+
+
+## 拦截用户登录
+
+查看订单，首先要求用户登录，所以配置一个拦截器，就从order里面偷过来就好
+```java
+      @Component
+      public class MemberInterceptor implements HandlerInterceptor {
+          /**
+           * 将该拦截器表示为orderThreadLocal
+           */
+          public static ThreadLocal<MemberTO> orderThreadLocal =new ThreadLocal<>();
+
+          /**
+           * member模块所有接口前判断是否已登录
+           */
+          @Override
+          public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+              //用户信息封装，之后要判断浏览器中是否有用户信息并封装
+              System.out.println("Entered Interceptor !");
+              UserInfoTO userInfoTo=new UserInfoTO();
+              //先判断session，即是否已经登陆
+              Object thisSession= request.getSession().getAttribute(AuthConstant.USER_LOGIN);
+              if(thisSession!= null){
+                  //若session中有名为loginUser的cookie，表示用户已登录
+                  //要将用户信息通过threadLocal的方式交给下游服务其
+                  MemberTO to= JSON.parseObject(JSON.toJSONString(thisSession), MemberTO.class);
+                  orderThreadLocal.set(to);
+                  return true;
+              }
+              //未登录，则直接返回true，提交订单必须要先登录，重定向到登录页面
+              else {
+                  System.out.println("OrderInterceptor: NO LOGIN USER! will redirect to login.html");
+                  response.sendRedirect("http://auth.katzenyasax-mall.com/login.html");
+                  return false;
+              }
+          }
+          /**
+           * url处理结束后调用
+           */
+          @Override
+          public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+              //清空threadLocal
+              orderThreadLocal.remove();
+          }
+      }
+```
+
+为了让拦截器起作用，还要将这个拦截器进行注册，写一个配置类
+```java
+      @Component
+      public class MemberWebConfiguration implements      WebMvcConfigurer {
+          @Autowired
+          MemberInterceptor memberInterceptor;
+          @Override
+          public void addInterceptors(InterceptorRegistry       registry) {
+              registry
+                      .addInterceptor     (memberInterceptor)      //添加cart的拦     截器
+                      .addPathPatterns("/     **")                     //拦截url为/     **，即所有url
+              ;
+          }
+      }
+```
+
+但是这样一来，以前的很多feign就没法用了，所以需要进行一个路劲的放行，逮着前面那么多模块里的MemberFeign接口的路劲放行就是了
+```java
+      /**
+       * 一定要放行远程调用的url
+       * 我们所有远程调用的url的路劲都是/member开头的，所以直接放行就行了
+       */
+      if(new AntPathMatcher().match("/member/**",request.getRequestUR())){
+          return true;
+      }
+```
+
+这样就完成了，测试一下，没有登录时就直接强制登录了。
+
+
+
+
+## 关于工单的问题
+
+工单肯定是不能删了，为了增加可溯源，进行改变状态代替删除吧
+
+而初始创建的时候就要加上状态了，初始为可以用，如果该工单对应的订单异常了，就改状态为弃用了
+
+所以在wareSkuService内，deleteDetail方法应该改成disableTaskDetail
+```java
+      /**
+       * 弃用taskDetail
+       */
+      private void disableTaskDetail(List<Long> taskId) {
+          for (Long thisTaskId : taskId) {
+              WareOrderTaskDetailEntity thisDetail = wareOrderTaskDetailDao.selectOne(new QueryWrapper<WareOrderTaskDetailEntity>().eq("task_id", thisTaskId));
+              thisDetail.setLockStatus(1L);
+              wareOrderTaskDetailDao.updateById(thisDetail);
+          }
+      }
+```
+
+那么getTaskIdAndDelete也改成getTaskIdAndDisable：
+```java
+      /**
+       * 从数据库查taskId，并弃用task
+       */
+      private List<Long> getTaskIdAndDisable(Long orderId) {
+          List<WareOrderTaskEntity> tasks = wareOrderTaskDao.selectList(new QueryWrapper<WareOrderTaskEntity>().eq("order_id", orderId));
+          List<Long> taskIds=new ArrayList<>();
+          for (WareOrderTaskEntity thisTask : tasks) {
+              //弃用task
+              thisTask.setTaskStatus(0);
+              wareOrderTaskDao.updateById(thisTask);
+              taskIds.add(thisTask.getId());
+          }
+          return taskIds;
+      }
+```
+
+所以saveTasks方法，应该也给task和detail设置上初始状态
+```java
+      taskEntity.setTaskStatus(1);
+      ···
+      taskDetailEntity.setLockStatus(1l);     //已锁定
+```
+
+
+还有原本的
+
+
+
+
+## order服务放行
+
+member需要远程调用order，路径为 /order/** ，在拦截器orderInterceptor放行
+```java
+      if(new AntPathMatcher().match("/order/**",request.getRequestURI())){
+          return true;
+      }
+```
+
+
+
+
+
+
+
+## 封装数据
+
+OrderEntity加上有关OrderItemEntity
+```java
+      @Data
+      public class OrderEntity {
+          private Long id;
+          private Long memberId;
+          private String orderSn;
+          private Long couponId;
+          private Date createTime;
+          private String memberUsername;
+          private BigDecimal totalAmount;
+          private BigDecimal payAmount;
+          private BigDecimal freightAmount;
+          private BigDecimal promotionAmount;
+          private BigDecimal integrationAmount;
+          private BigDecimal couponAmount;
+          private BigDecimal discountAmount;
+          private Integer payType;
+          private Integer sourceType;
+          private Integer status;
+          private String deliveryCompany;
+          private String deliverySn;
+          private Integer autoConfirmDay;
+          private Integer integration;
+          private Integer growth;
+          private Integer billType;
+          private String billHeader;
+          private String billContent;
+          private String billReceiverPhone;
+          private String billReceiverEmail;
+          private String receiverName;
+          private String receiverPhone;
+          private String receiverPostCode;
+          private String receiverProvince;ng receiverCity;
+          private String receiverRegion;
+          private String receiverDetailAddress;
+          private String note;
+          private Integer confirmStatus;
+          private Integer deleteStatus;
+          private Integer useIntegration;
+          private Date paymentTime;
+          private Date deliveryTime;
+          private Date receiveTime;
+          private Date commentTime;
+          private Date modifyTime;
+          @TableField(exist = false)	//不在数据库内
+          private List<OrderItemEntity> orderItemEntityList;
+      }
+```
+
+注意打上非数据库字段注解
+
+orderService内，查询订单的方法：
+```java
+      /**
+       * @param pageNum
+       * @param memberId
+       * @return 获取用户订单，传入的是要去的页码
+       */
+      @Override
+      public PageUtils getMemberOrder(Long pageNum, Long memberId) {
+          System.out.println("     OrderService::getMemberOrder : \"memberId\":"+memberId);
+          Map<String, Object> param = new HashMap<>();
+          param.put("page",pageNum.toString());
+          IPage<OrderEntity> page=this.page(
+                  new Query<OrderEntity>().getPage(param)
+                  ,new QueryWrapper<OrderEntity>()
+                          .eq("member_id",memberId)
+                          .orderByDesc("id")
+          );
+          page.getRecords().stream().map(order -> {
+              List<OrderItemEntity> items = orderItemDao.selectList(new QueryWrapper<OrderItemEntity>().eq("order_id", order.getId()));
+              order.setOrderItemEntityList(items);
+              return order;
+          }).collect(Collectors.toList());
+          return new PageUtils(page);
+      }
+```java
+
+通过order服务的threadLocal获取用户
+
+order模块内调用该方法的接口：
+```java
+      /**
+       * 查询用户的订单，由member服务调用
+       */
+      @RequestMapping("/orders/{pageNum}")
+      public R getMemberOrder(@PathVariable Long pageNum,@RequestParam Long memberId){
+          System.out.println("     OrderController::getMemberOrder : \"memberId\":"+memberId);
+          PageUtils page = orderService.getMemberOrder(pageNum, memberId);
+          return R.ok().put("page",page);
+      }
+```
+
+而在member服务内，应该弄一个feign接口调用这个controller：
+```java
+      @FeignClient("mall-order")
+      public interface OrderFeign {
+          /**
+           * 查询用户的订单，由member服务调用
+           */
+          @RequestMapping("/orders/{pageNum}")
+          R getMemberOrder(@PathVariable Long pageNum,@RequestParam orderId);
+      }
+```
+
+最终调用feign，返回数据的接口是：
+```java
+      /**
+       * 返回订单数据
+       */
+      @RequestMapping("/memberOrder.html")
+      public String getOrderLists(Model model,@RequestParam(value = "pageNum",defaultValue = "1") Long pageNum){
+          Long memberId = MemberInterceptor.orderThreadLocal.get().getId();
+          R r = orderFeign.getMemberOrder(pageNum,memberId);
+          model.addAttribute("orders",r);
+          System.out.println("     MemberWebController::getOrderLists : \"r\":"+r+", \"memberId\":"+memberId);
+          return "orderList";
+      }
+```
+
+测试一下，看看能不能显示
+
+确实可以啊
+
+
+
+
+
+
 
 

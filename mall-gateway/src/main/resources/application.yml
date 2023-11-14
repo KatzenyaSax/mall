@@ -73,6 +73,11 @@ spring:
           predicates:
             - Host=**.item.katzenyasax-mall.com
 
+        - id: member-route
+          uri: lb://mall-member
+          predicates:
+            - Host=**.member.katzenyasax-mall.com
+
         - id: search-route
           uri: lb://mall-search
           predicates:

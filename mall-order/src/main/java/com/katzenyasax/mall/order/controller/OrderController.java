@@ -43,6 +43,18 @@ public class OrderController {
     }
 
 
+    /**
+     * 查询用户的订单，由member服务调用
+     */
+    @RequestMapping("/orders/{pageNum}")
+    public R getMemberOrder(@PathVariable Long pageNum,@RequestParam Long memberId){
+        System.out.println("     OrderController::getMemberOrder : \"memberId\":"+memberId);
+        PageUtils page = orderService.getMemberOrder(pageNum, memberId);
+        return R.ok().put("page",page);
+    }
+
+
+
     //=======================================
 
 

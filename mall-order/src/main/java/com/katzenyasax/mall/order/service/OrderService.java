@@ -1,8 +1,6 @@
 package com.katzenyasax.mall.order.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.katzenyasax.common.to.MemberAddressTO;
-import com.katzenyasax.common.to.MemberTO;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.mall.order.entity.OrderEntity;
 import com.katzenyasax.mall.order.vo.OrderConfirmVo;
@@ -27,5 +25,7 @@ public interface OrderService extends IService<OrderEntity> {
     SubmitOrderResponseVo submitOrder(OrderSubmitVo vo);
 
     void dealWithOrderStatus(Long order);
+
+    PageUtils getMemberOrder(Long id, Long memberId);
 }
 

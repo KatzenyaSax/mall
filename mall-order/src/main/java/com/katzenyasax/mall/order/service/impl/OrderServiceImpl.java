@@ -32,7 +32,6 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.BoundHashOperations;
-import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -291,12 +290,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             /**
              * 存order到redis
              */
-            redisTemplate.opsForValue().set(
+            /*redisTemplate.opsForValue().set(
                     OrderConstant.ORDER_TEMP+order.getId()
                     ,JSON.toJSONString(order.getStatus())
                     ,30
                     ,TimeUnit.MINUTES
-            );
+            );*/
             /**
              * 锁定库存
              */
@@ -353,19 +352,27 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
                 /**
                  * 往ware发消息
                  */
-                rabbitTemplate.convertAndSend(
-                        "stock.exchange.top"
-                        ,"stock.key.locked"
-                        ,taskDetailList);
-                System.out.println("向stock.exchange.top发送了消息："+taskDetailList);
+                try {
+                    rabbitTemplate.convertAndSend(
+                            "stock.exchange.top"
+                            , "stock.key.locked"
+                            , taskDetailList);
+                    System.out.println("向stock.exchange.top发送了消息：" + taskDetailList);
+                }catch (Exception e){
+                    System.out.println("向stock.exchange.top发送消息时发生了错误");
+                }
                 /**
                  * 往order发消息
                  */
-                rabbitTemplate.convertAndSend(
-                        "order.exchange.top"
-                        ,"order.key.created"
-                        ,order.getId());
-                System.out.println("向order.exchange.top发送了消息："+order.getId());
+                try {
+                    rabbitTemplate.convertAndSend(
+                            "order.exchange.top"
+                            , "order.key.created"
+                            , order.getId());
+                    System.out.println("向order.exchange.top发送了消息：" + order.getId());
+                }catch (Exception e){
+                    System.out.println("向order.exchange.top发送消息时发生错误");
+                }
             }
         }
         else {
@@ -406,9 +413,35 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         }
     }
 
+
+    /**
+     * @param pageNum
+     * @param memberId
+     * @return 获取用户订单，传入的是要去的页码
+     */
+    @Override
+    public PageUtils getMemberOrder(Long pageNum, Long memberId) {
+        System.out.println("     OrderService::getMemberOrder : \"memberId\":"+memberId);
+        Map<String, Object> param = new HashMap<>();
+        param.put("page",pageNum.toString());
+        IPage<OrderEntity> page=this.page(
+                new Query<OrderEntity>().getPage(param)
+                ,new QueryWrapper<OrderEntity>()
+                        .eq("member_id",memberId)
+                        .orderByDesc("id")
+        );
+        page.getRecords().stream().map(order -> {
+            List<OrderItemEntity> items = orderItemDao.selectList(new QueryWrapper<OrderItemEntity>().eq("order_id", order.getId()));
+            order.setOrderItemEntityList(items);
+            return order;
+        }).collect(Collectors.toList());
+        return new PageUtils(page);
+    }
+
     /**
      * @param items
      * @param newId
+     * 保存订单项信息
      */
     private void saveOrderItemEntities(List<OrderItemEntity> items, Long newId) {
         items.forEach(item->{

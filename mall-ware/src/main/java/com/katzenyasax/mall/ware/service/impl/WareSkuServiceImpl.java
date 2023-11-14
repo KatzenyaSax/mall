@@ -10,6 +10,7 @@ import com.katzenyasax.mall.ware.dao.WareOrderTaskDetailDao;
 import com.katzenyasax.mall.ware.entity.WareOrderTaskDetailEntity;
 import com.katzenyasax.mall.ware.entity.WareOrderTaskEntity;
 import com.katzenyasax.mall.ware.exception.NoStockException;
+import com.katzenyasax.mall.ware.feign.OrderFeign;
 import com.qiniu.util.StringUtils;
 import com.rabbitmq.client.Channel;
 import org.springframework.amqp.core.Message;
@@ -52,6 +53,8 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
     @Autowired
     RedisTemplate redisTemplate;
 
+    @Autowired
+    OrderFeign orderFeign;
 
     /**
      * 监听stock.queue.unlock队列，拿取string
@@ -71,7 +74,7 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
 
 
     /**
-     * 处理对象
+     * 监听队列
      */
     @RabbitHandler
     public void listenerMessage(Message message, List<WareOrderDetailTO> list, Channel channel) throws IOException {
@@ -113,11 +116,11 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
              * 删除task，并获取taskId
              * 要删除details必须获取taskId进行匹配
              */
-            List<Long> taskId = getTaskIdAndDelete(orderId);
+            List<Long> taskId = getTaskIdAndDisable(orderId);
             /**
              * 删除details
              */
-            this.deleteTaskDetail(taskId);
+            this.disableTaskDetail(taskId);
             /**
              * 释放库存，就通过list来
              */
@@ -143,11 +146,10 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
      * 获取订单状态，从redis缓存中拿取
      */
     private Boolean isOrderOn(Long orderId) {
-        String jjjson = redisTemplate.opsForValue().get(OrderConstant.ORDER_TEMP + orderId).toString();
-        if(jjjson==null){
+        Integer status = orderFeign.getStatus(orderId);
+        if(status==null){
             return false;
         } else {
-            Integer status=Integer.parseInt(jjjson);
             switch (status){
                 case 1, 2, 3:
                     return true;
@@ -158,14 +160,13 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
     }
 
     /**
-     * 从数据库查taskId
+     * 从数据库查taskId，并弃用task
      */
-    private List<Long> getTaskIdAndDelete(Long orderId) {
+    private List<Long> getTaskIdAndDisable(Long orderId) {
         List<WareOrderTaskEntity> tasks = wareOrderTaskDao.selectList(new QueryWrapper<WareOrderTaskEntity>().eq("order_id", orderId));
         List<Long> taskIds=new ArrayList<>();
         for (WareOrderTaskEntity thisTask : tasks) {
-            Long taskId = thisTask.getId();
-            wareOrderTaskDao.deleteById(taskId);
+            //弃用task
             thisTask.setTaskStatus(0);
             wareOrderTaskDao.updateById(thisTask);
             taskIds.add(thisTask.getId());
@@ -174,11 +175,13 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
     }
 
     /**
-     * 删除taskDetail
+     * 弃用taskDetail
      */
-    private void deleteTaskDetail(List<Long> taskId) {
+    private void disableTaskDetail(List<Long> taskId) {
         for (Long thisTaskId : taskId) {
-            wareOrderTaskDetailDao.delete(new QueryWrapper<WareOrderTaskDetailEntity>().eq("task_id", thisTaskId));
+            WareOrderTaskDetailEntity thisDetail = wareOrderTaskDetailDao.selectOne(new QueryWrapper<WareOrderTaskDetailEntity>().eq("task_id", thisTaskId));
+            thisDetail.setLockStatus(1L);
+            wareOrderTaskDetailDao.updateById(thisDetail);
         }
     }
 
@@ -369,6 +372,7 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
                 taskEntity.setOrderBody(task.getSkuId().toString());
                 taskEntity.setCreateTime(new DateTime());
                 taskEntity.setWareId(task.getWareId());
+                taskEntity.setTaskStatus(1);
                 wareOrderTaskDao.insert(taskEntity);
             } else {
                 //如果此时wareOrderTask表内已有数据，则将orderBody拼接上该skuId
@@ -387,6 +391,8 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
             taskDetailEntity.setTaskId(ifExistOne.getId());
             taskDetailEntity.setSkuId(task.getSkuId());
             taskDetailEntity.setSkuNum(Integer.parseInt(task.getSkuNum().toString()));
+            taskDetailEntity.setLockStatus(1l);     //已锁定
+            taskDetailEntity.setWareId(task.getWareId());   //存wareId
 
             //存入
             //?存不了wareId

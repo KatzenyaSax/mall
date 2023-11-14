@@ -1,4 +1,4 @@
-package com.katzenyasax.mall.order.interceptor;
+package com.katzenyasax.mall.member.interceptor;
 
 import com.alibaba.fastjson.JSON;
 import com.katzenyasax.common.constant.AuthConstant;
@@ -6,28 +6,33 @@ import com.katzenyasax.common.to.MemberTO;
 import com.katzenyasax.common.to.UserInfoTO;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.apache.shiro.util.AntPathMatcher;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
 
 @Component
-public class OrderInterceptor implements HandlerInterceptor {
-
+public class MemberInterceptor implements HandlerInterceptor {
     /**
      * 将该拦截器表示为orderThreadLocal
      */
     public static ThreadLocal<MemberTO> orderThreadLocal =new ThreadLocal<>();
 
     /**
-     * order模块所有接口前判断是否已登录
+     * member模块所有接口前判断是否已登录
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
 
-        if(new AntPathMatcher().match("/order/**",request.getRequestURI())){
+
+        /**
+         * 一定要放行远程调用的url
+         * 我们所有远程调用的url的路劲都是/member开头的，所以直接放行就行了
+         */
+        if(new AntPathMatcher().match("/member/**",request.getRequestURI())){
             return true;
         }
+
 
         //用户信息封装，之后要判断浏览器中是否有用户信息并封装
         System.out.println("Entered Interceptor !");
@@ -48,7 +53,6 @@ public class OrderInterceptor implements HandlerInterceptor {
             return false;
         }
     }
-
     /**
      * url处理结束后调用
      */

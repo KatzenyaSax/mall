@@ -13,8 +13,12 @@ spring:
         namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
   application:
     name: mall-member
-
-
+  thymeleaf:
+    cache: false
+  data:
+    redis:
+      host: 192.168.74.130
+      port: 6379
 
 
 
@@ -28,7 +32,11 @@ server:
   port: 6600
 
 
-
+mall:
+  thread:
+    core-size:  20
+    max-size: 200
+    keep-alive-time:  10
 
 
 
