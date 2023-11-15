@@ -18248,9 +18248,7 @@ controller：
       }
 ```
 
-### 有问题
-
-order服务会无限报未登录最后卡死，应该是之前有什么其他模块的东西用到了order服务
+有问题，order服务会无限报未登录最后卡死，应该是之前有什么其他模块的东西用到了order服务
 
 
 
@@ -18604,6 +18602,49 @@ p300
 
 
 
+## 糊弄一下
+
+支付宝支付的url：
+```
+      http://order.katzenyasax-mall.com/aliPayOrder?orderSn=202311151144424721724634503594528769
+```
+
+把之前的消息队列的滞留时间改回30分钟和50分钟，然后把默认已支付的字段注释掉
+
+默认已支付的代码块在order服务，orderService.dealWithOrderStatus，注释：
+```java
+      /*thisOrder.setStatus(1);
+      orderDao.updateById(thisOrder);*/
+```
+
+然后在order写一个接口来直接支付订单，在orderWebController内：
+```java
+      /**
+       * 支付
+       */
+      @RequestMapping("/aliPayOrder")
+      public String aliPayOrder(@RequestParam String orderSn){
+          orderService.aliPayOrder(orderSn);
+          return "redirect:http://member.katzenyasax-mall.com/memberOrder.html";
+      }
+```
+
+方法aliPayOrder
+```java
+      /**
+       * 支付宝支付
+       */
+      @Override
+      public void aliPayOrder(String orderSn) {
+          OrderEntity thisOrder = baseMapper.selectOne(new QueryWrapper<OrderEntity>().eq("order_sn", orderSn));
+          thisOrder.setStatus(1);
+          baseMapper.updateById(thisOrder);
+      }
+```
+
+## 测试
+
+
 
 
 
@@ -18903,6 +18944,8 @@ OrderEntity加上有关OrderItemEntity
           private Date modifyTime;
           @TableField(exist = false)	//不在数据库内
           private List<OrderItemEntity> orderItemEntityList;
+          @TableField(exist = false)	//不在数据库内
+	        private Long index;
       }
 ```
 
@@ -18929,6 +18972,7 @@ orderService内，查询订单的方法：
           page.getRecords().stream().map(order -> {
               List<OrderItemEntity> items = orderItemDao.selectList(new QueryWrapper<OrderItemEntity>().eq("order_id", order.getId()));
               order.setOrderItemEntityList(items);
+              order.setIndex(0l);
               return order;
           }).collect(Collectors.toList());
           return new PageUtils(page);
@@ -18988,3 +19032,7 @@ order模块内调用该方法的接口：
 
 
 
+
+
+## 订单消息通知
+p308

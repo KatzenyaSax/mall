@@ -61,7 +61,7 @@ public class MqConfiguration {
         Map<String,Object> arguments=new HashMap<>();
         arguments.put("x-dead-letter-exchange","stock.exchange.top");              //死信队列从哪个交换机拿死信
         arguments.put("x-dead-letter-routing-key","stock.key.unlock.unpay");               //死信队列拿到死信后，定时发送到交换机时的路由键
-        arguments.put("x-message-ttl", 5000);                                        //死信定时时间，5000毫秒
+        arguments.put("x-message-ttl", 1000*15);                                        //死信定时时间，50min
 
         // public Queue(String name, boolean durable, boolean exclusive, boolean autoDelete, @Nullable Map<String, Object> arguments)
         return new Queue(

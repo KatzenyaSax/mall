@@ -27,5 +27,7 @@ public interface OrderService extends IService<OrderEntity> {
     void dealWithOrderStatus(Long order);
 
     PageUtils getMemberOrder(Long id, Long memberId);
+
+    Boolean aliPayOrder(String orderSn);
 }
 

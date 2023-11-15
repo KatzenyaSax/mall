@@ -37,7 +37,7 @@ public class MqConfiguration {
         Map<String,Object> arguments=new HashMap<>();
         arguments.put("x-dead-letter-exchange","order.exchange.top");              //死信队列从哪个交换机拿死信
         arguments.put("x-dead-letter-routing-key","order.key.post");               //死信队列拿到死信后，定时发送到交换机时的路由键
-        arguments.put("x-message-ttl",1000*3);                                        //死信定时时间，3s
+        arguments.put("x-message-ttl",1000*10);                                        //死信定时时间，30min
 
         // public Queue(String name, boolean durable, boolean exclusive, boolean autoDelete, @Nullable Map<String, Object> arguments)
         return new Queue(
@@ -67,7 +67,7 @@ public class MqConfiguration {
     @Bean
     public Binding delayBinding(){
         return new Binding(
-                "order.queue.post"                             //目的地是死信队列
+                "order.queue.delay"                             //目的地是死信队列
                 , Binding.DestinationType.QUEUE                 //死信队列是队列（QUEUE）
                 ,"order.exchange.top"                  //中转exchange
                 ,"order.key.created"                //路由键

@@ -293,8 +293,6 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             /*redisTemplate.opsForValue().set(
                     OrderConstant.ORDER_TEMP+order.getId()
                     ,JSON.toJSONString(order.getStatus())
-                    ,30
-                    ,TimeUnit.MINUTES
             );*/
             /**
              * 锁定库存
@@ -393,23 +391,32 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
      * 否则不做处理
      */
     @Override
+    @Transactional
     public void dealWithOrderStatus(Long order) {
-        System.out.println(order+":"+order.getClass());
-        System.out.println(orderDao.selectList(null));
-        OrderEntity thisOrder = orderDao.selectOne(new QueryWrapper<OrderEntity>().eq("id",order));
-       //模拟订单已支付的情况，人为做出已支付的情况
-        thisOrder.setStatus(1);
-        orderDao.updateById(thisOrder);
-
-        if(thisOrder.getStatus().equals(1)){
-            redisTemplate.delete(OrderConstant.ORDER_TEMP+order);
-            redisTemplate.opsForValue().set(
-                    OrderConstant.ORDER_TEMP+order
-                    ,"1"
-            );
-            System.out.println("该订单已支付");
-        } else {
-            System.out.println(order+"号订单未及时付款，已删除");
+        OrderEntity thisOrder = orderDao.selectById(order);
+                /*模拟订单已支付的情况，人为做出已支付的情况
+                 thisOrder.setStatus(1);
+                 orderDao.updateById(thisOrder);*/
+        switch (thisOrder.getStatus()) {
+            case 1, 2, 3: {
+                /*redisTemplate.delete(OrderConstant.ORDER_TEMP + order);
+                redisTemplate.opsForValue().set(
+                        OrderConstant.ORDER_TEMP + order
+                        , "1"
+                );*/
+                System.out.println("该订单已支付");
+                break;
+            }
+            default: {
+                System.out.println(order + "号订单未及时付款，已失效");
+                thisOrder.setStatus(4);
+                baseMapper.updateById(thisOrder);
+                /*redisTemplate.delete(OrderConstant.ORDER_TEMP + order);
+                redisTemplate.opsForValue().set(
+                        OrderConstant.ORDER_TEMP + order
+                        , "4"
+                );*/
+            }
         }
     }
 
@@ -436,6 +443,26 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             return order;
         }).collect(Collectors.toList());
         return new PageUtils(page);
+    }
+
+
+    /**
+     * 支付宝支付
+     *
+     * @return
+     */
+    @Override
+    public Boolean aliPayOrder(String orderSn) {
+        OrderEntity thisOrder = baseMapper.selectOne(new QueryWrapper<OrderEntity>().eq("order_sn", orderSn));
+        if (thisOrder.getStatus().equals(0)) {
+            thisOrder.setStatus(1);
+            baseMapper.updateById(thisOrder);
+            //redisTemplate.opsForValue().set(OrderConstant.ORDER_TEMP + thisOrder.getId(), "1");
+            return true;
+        }else {
+            System.out.println("     OrderService::aliPayOrder : 订单已过期");
+            return false;
+        }
     }
 
     /**
