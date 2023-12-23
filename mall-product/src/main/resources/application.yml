@@ -12,6 +12,15 @@ spring:
         username: nacos
         namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
 
+    sentinel:
+      transport:
+        dashboard: localhost:6698
+        port: 8719
+
+
+
+
+
   application:
     name: mall-product
   thymeleaf:

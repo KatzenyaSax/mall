@@ -283,9 +283,6 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
 
 
     /**
-     *
-     * @return
-     *
      * 由order模块调用的方法
      *
      * 获取所有商品有货商品并返回一个map
@@ -293,10 +290,11 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
      */
     @Override
     public Map<Long, Boolean> getSkuStocks() {
-        return baseMapper.selectList(null).stream().collect(Collectors.toMap(
-                s->s.getSkuId(),
-                s->Boolean.TRUE
-        ));
+        Map<Long,Boolean> stocks=new HashMap<>();
+        for (WareSkuEntity thisEntity : baseMapper.selectList(null)) {
+            stocks.put(thisEntity.getSkuId(),true);
+        }
+        return stocks;
     }
 
 

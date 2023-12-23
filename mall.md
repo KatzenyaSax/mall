@@ -3392,9 +3392,6 @@ service中定义方法：
 
 请求体：
 
-            
-
-
 新增参数时，需要选择其所属属性，因此需要两个参数，属性id和自增得到的参数id，存储到attr attrGroup relation的表内
 这个过程应该在新增参数时进行
 
@@ -12723,8 +12720,9 @@ p211
 2.引入common公共模块；
 
 3.启动类上排除mybatis plus依赖：
-
+```java
       @SpringBootApplication(exclude= {DataSourceAutoConfiguration.class})
+```
 
 4.加入nacos，application中：
 
@@ -14923,7 +14921,9 @@ p248
 
 
 
-<!--                                    ==============Broker================
+<!--
+*
+*                                       ==============Broker================
 *     =========        message          |                                  |
 *     Productor   =======================> Reciver                         |
 *     =========     long connection     |     |                            |
@@ -15448,17 +15448,18 @@ p260
 解决方案是手动确认
 
 1.配置application：
-
+```yml
       spring:
         rabbitmq:
           istener:
             simple:
               acknowledge-mode: manual
+```
 
 此时，除非我们手动确认消息，否则消息在队列中是不会删除的，且会一直处于ready状态
 
 2.在接收消息的方法后面手动确认ack，加上channel.basicAck()方法
-
+```java
       /**
        * 监听OrderEntity对象消息
        *
@@ -15477,6 +15478,7 @@ p260
               System.out.println(message.getMessageProperties().getDeliveryTag()+"号消息异常");
           }
       }
+```
 
 其中第一个参数是消息的tag，根据消息进入channel的顺序，从1开始的自增id。另外要Message对象的消息才能有tag
 第二个表示是否连带确认后面进入该channel的所有消息
@@ -15484,14 +15486,13 @@ p260
 
 同样，basicNack()方法就是不确认ack，其中会多出一个参数requeue，表示是否将消息退回队列重新ready
 例如：
-
-      
+```java
     channel.basicNack(
             message.getMessageProperties().getDeliveryTag()     //消息的tag
             , false                                         //是否批量确认
             , true                                          //退回队列，或是删除消息
     );
-
+```
 
       
 
@@ -15521,11 +15522,12 @@ p261
 2.mall.conf里加入order.katzenyasax-mall.com
 
 3.网关配置application：
-
+```yml
       - id: order-route
         uri: lb://mall-order
         predicates:
           - Host=**.order.katzenyasax-mall.com
+```
 
 注意网关配置中路由的id是否重复？
 
@@ -15534,7 +15536,7 @@ p261
       192.168.74.130 order.katzenyasax-mall.com
 
 5.引入thymeleaf和devtools：
-
+```xml
       <!-- thymeleaf 渲染首页的依赖 -->
       <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-thymeleaf -->
       <dependency>
@@ -15548,13 +15550,14 @@ p261
           <artifactId>spring-boot-devtools</artifactId>
           <optional>true</optional>
       </dependency>
+```
 
 6.关闭thymeleaf缓存：
-
+```yml
       spring:
         thymeleaf:
           cache: false
-
+```
 
 
 
@@ -15563,7 +15566,7 @@ p261
 p262
 
 1.引入spring session和redis依赖：
-
+```yml
       <!-- https://mvnrepository.com/artifact/org.springframework.session/spring-session-data-redis -->
       <dependency>
           <groupId>org.springframework.session</groupId>
@@ -15577,6 +15580,7 @@ p262
           <artifactId>spring-boot-starter-data-redis</artifactId>
           <version>3.1.3</version>
       </dependency>
+```
 
 3.application中写入redis的端口和ip等
 
@@ -15586,20 +15590,22 @@ p262
         org.springframework.data.redis.serializer.SerializationException
 
 5.启动类加上：
-
+```java
       @EnableRedisHttpSession
+```
 
 6.从product模块偷ThisThreadPool和ThisThreadPoolConfigurationProperties
 因此还需要在application中配置核心线程数等：
-
+```yml
       mall:
         thread:
           core-size:  20
           max-size: 200
           keep-alive-time:  10
+```
 
 7.先配置一个视图解析器：
-
+```java
       @Configuration
       public class WebViewController implements WebMvcConfigurer {
       
@@ -15611,6 +15617,7 @@ p262
               registry.addViewController("/createForWxNative.html").setViewName("createForWxNative");
           }
       }
+```
 
 注意这只是用来查看服务器是否正常工作，以后遇到需要在controller中写的页面要把这里对应的删除
 
@@ -15636,7 +15643,7 @@ p264
 所有有关订单的服务都需要登录
 
 1.在url进来前都必须判断是否为已登录状态，所以写一个拦截器用来判断登录状态：
-
+```java
       @Component
       public class OrderInterceptor implements HandlerInterceptor {
           /**
@@ -15675,12 +15682,13 @@ p264
               orderThreadLocal.remove();
           }
       }
+```
 
 重写mvc的handler进url之前的拦截器方法，需要判断session是否有userLogin，有则通过，没有则拦截并重定向到登录界面
 后续依然需要清空threadLocal
 
 2.在配置类中注册该拦截器到mvc：
-
+```java
       @Component
       public class OrderWebConfiguration implements WebMvcConfigurer {
           @Override
@@ -15691,6 +15699,7 @@ p264
               ;
           }
       }
+```
 
 addInterceptors方法用于注册拦截器到该模块的mvc
 
@@ -15718,7 +15727,7 @@ url：
 要求返回一个符合要求的OrderConfirmVO对象，而要确认的商品就是redis中check字段为true的商品
 
 接口：
-
+```java
       /**
        *
        * @param model
@@ -15734,12 +15743,13 @@ url：
           model.addAttribute("confirmOrderData",vo);
           return "confirm";
       }
+```
 
 方法orderConfirm比较长，分成几个部分来说
 
 
 ### 商品（前半部分）
-
+```java
       /**
        * 1.选中的商品
        *
@@ -15755,17 +15765,17 @@ url：
       List<OrderItemVo> items=new ArrayList<>();
       //所有商品
       Map<String, BigDecimal> weights = productFeign.allSpuWeights();
-
+```
 
 
 远程调用的producFeign接口内方法：
- 
+```java
       @GetMapping("product/spuinfo/allSpu")
       Map<String, BigDecimal> allSpuWeights();
-      
+```     
 
 product模块内，spu接口：
-
+```java
       /**
        * 被order远程调用的接口
        * 获取全部spu的weights
@@ -15775,9 +15785,10 @@ product模块内，spu接口：
           Map<String, BigDecimal> res=spuInfoService.allSpuWeights();
           return res;
       }
+```
 
 方法allSpuWeights：
-
+```java
       /**
        * 被order模块远程调用的方法
        * 获取全部spu的weight
@@ -15799,13 +15810,13 @@ product模块内，spu接口：
           );
           return finale;
       }
-
+```
 
 ### 商品（后半部分）
 
 因为还需要远程调用product的sku，获取对应skuId的最新价格，一切以数据库为准
 但是我们可以调用现有的接口方法。
-
+```java
       //遍历keys找寻
       keys.forEach(key->{
           OrderItemVo thisVo= JSON.parseObject(
@@ -15821,10 +15832,10 @@ product模块内，spu接口：
           }
       });
       finale.setItems(items);
-
+```
 
 feign接口：
-
+```java
       /**
        *
        * @param skuId
@@ -15835,10 +15846,10 @@ feign接口：
        */
       @RequestMapping("product/skuinfo/price/{skuId}")
       BigDecimal getPrice(@PathVariable("skuId") Long skuId);
-      
+```
 
 product模块，skuInfoController内接口：
-
+```java
       /**
        *
        * @param skuId
@@ -15851,19 +15862,19 @@ product模块，skuInfoController内接口：
       BigDecimal getPrice(@PathVariable("skuId") Long skuId){
           return skuInfoService.getById(skuId).getPrice();
       }
-
+```
 
 
 ### 注意一下
 
-一个服务调用另一个服务的feign接口不能用多个
+一个服务调用另一个服务的feign接口不能有多个
 
 
 
 ### 收货地址
 
 将MemberReceiveAddressEntity复制为MemberAddressTO，放到common包下，将用此实体类远程传递对象。
-
+```java
       /**
        * 2.会员地址列表
        *
@@ -15876,11 +15887,11 @@ product模块，skuInfoController内接口：
               }
       );
       finale.setMemberAddressVos(memberAddressVos);
-
+```
 
 
 远程调用的feign接口：
-
+```java
       @FeignClient("mall-member")
       public interface MemberAddressFeign {
           /**
@@ -15893,9 +15904,10 @@ product模块，skuInfoController内接口：
           @GetMapping("member/memberreceiveaddress/getByMemberId/{id}")
           List<MemberAddressTO> getByMemberId(@PathVariable String id);
       }
+```
 
 member服务，MemberRecieveAddressController下接口：
-
+```java
       /**
        *
        * @param id
@@ -15907,9 +15919,10 @@ member服务，MemberRecieveAddressController下接口：
       public List<MemberAddressTO> getByMemberId(@PathVariable String id){
           return memberReceiveAddressService.getByMemberId(id);
       }
+```
 
 方法getByMemberId：
-
+```java
       /**
        *
        * @param memberId
@@ -15931,11 +15944,11 @@ member服务，MemberRecieveAddressController下接口：
           });
           return finale;
       }
-
+```
 
 
 ### 总数量及总价格
-
+```java
       /**
        * 4.商品总数 & 商品总价
        */
@@ -15944,7 +15957,7 @@ member服务，MemberRecieveAddressController下接口：
           finale.setTotal(finale.getTotal().add(item.getTotalPrice()));
       });
       finale.setPayPrice(finale.getTotal());
-
+```
 
 
 
@@ -15952,7 +15965,7 @@ member服务，MemberRecieveAddressController下接口：
 
 以一个map存，需要远程调用ware服务
 方法：
-
+```java
       /**
        * 5.是否有货
        */
@@ -15963,9 +15976,10 @@ member服务，MemberRecieveAddressController下接口：
           }
       });
       finale.setStocks(stocks);
+```
 
 feign接口：
-
+```java
       @FeignClient("mall-ware")
       public interface WareFeign {
           /**
@@ -15974,9 +15988,10 @@ feign接口：
           @GetMapping("ware/waresku/skuStocks")
           Map<Long,Boolean> getSkuStocks();
       }
+```
 
 ware下的wareSkuController下接口：
-
+```java
       /**
        * order服务远程调用
        * 一次性拿取所有的商品库存信息
@@ -15985,9 +16000,10 @@ ware下的wareSkuController下接口：
       public Map<Long,Boolean> getSkuStocks(){
           return wareSkuService.getSkuStocks();
       }
+```
 
 方法：
-
+```java
        /**
        *
        * @return
@@ -16004,7 +16020,7 @@ ware下的wareSkuController下接口：
                   s->Boolean.TRUE
           ));
       }
-
+```
 
 
 
@@ -16018,7 +16034,7 @@ url：
       http://katzenyasax-mall.com/api/ware/wareinfo/fare?addrId=
 
 接口：
-
+```java
       /**
        * 前端请求，运费
        *
@@ -16029,9 +16045,10 @@ url：
           FareVo data=wareInfoService.getFareVo(addrId);
           return R.ok().put("data",data);
       }
+```
 
 方法getFareVo：
-
+```java
       /**
        *
        * @param addrId
@@ -16051,19 +16068,21 @@ url：
           finale.setAddress(address);
           return finale;
       }
+```
 
 貌似BeanUtils的copyProperties用不了，那就直接转成json再转实体类吧
 
 vo：
-
+```java
       @Data
       public class FareVo {
           private MemberAddressTO address;
           private BigDecimal fare;
       }
+```
 
 远程调用的feign接口：
-
+```java
       @FeignClient("mall-member")
       public interface MemberFeign {
           /**
@@ -16076,7 +16095,7 @@ vo：
           @RequestMapping("member/memberreceiveaddress/info/{id}")
           R info(@PathVariable("id") Long id);
       }
-
+```
 
 
 
@@ -16107,7 +16126,7 @@ vo：
 最终选用token
 并且需要用到redis存储token
 也就是每次用户提交请求时
-
+```java
       /**
        * 3.令牌
        */
@@ -16121,7 +16140,7 @@ vo：
               ,30
               , TimeUnit.MINUTES
       );
-
+```
 
 
 
@@ -16154,7 +16173,7 @@ vo：
       http://order.katzenyasax-mall.com/submitOrder
 
 前端发送一个OrderSubmitVO：
-
+```java
       OrderSubmitVo(
         addrId=1            //地址
         , payType=null
@@ -16162,9 +16181,10 @@ vo：
         , payPrice=461          //支付价格
         , remarks=null          
       )
+```
 
 ### 接口
-
+```java
       /**
        * 提交订单
        */
@@ -16195,7 +16215,7 @@ vo：
               return "redirect:http://order.katzenyasax-mall.com/toTrade";
           }
       }
-
+```
 
 ### 需要上锁
 p276
@@ -16204,11 +16224,12 @@ p276
 但是这里不需要使用redisson实现分布式锁，因为默认情况下提交订单的操作只会来到一台服务器上
 
 所以使用lua脚本进行上锁，脚本如下：
-
+```java
       String script="if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end";
+```
 
 上锁、验证令牌、删锁并返回验证情况的过程：
-
+```java
       /**
        * 1.验证令牌
        * 此过程需要保证原子性
@@ -16226,6 +16247,7 @@ p276
         finale.setCode(3);
       }
       return finale;
+```
 
 其中redisTemplate的execute方法返回值为验证情况，1表示验证正确，0表示错误
 验证正确时开始执行业务，否则直接返回code为3，表示令牌过期
@@ -16242,14 +16264,15 @@ p276
 p277
 
 接着上面的if，令牌正确执行业务：
-
+```java
       /**
        * 开始构造OrderEntity，这个会作为回显到前台的数据
        */
       OrderEntity order = this.buildOrderEntity();
+```
 
 方法buildOrder：
-
+```java
       /**
        *
        * @return
@@ -16297,7 +16320,7 @@ p277
 
           return order;
       }
-
+```
 
 
 ### 构建表单项
@@ -18130,6 +18153,8 @@ p294
 
 ### 获取订单状态
 
+#### 存取redis
+
 但是删除的前提是，订单是有效的，因为此时已经过了订单原本存活时间，这个时候去查订单的状态他一定是准确状态，再根据这个状态去进行解锁库存等操作
 
 那么订单状态怎么获取呢？最先想到的应该是open feign调取order服务吧？呵呵，这是不行的，因为order服务是专门面向浏览器的服务，任何order服务的接口都建立在用户已登录的基础上的，而我们服务调用order接口的时候是没有带session的，从而order服务的拦截器会永远拦截调用，并且还要在redis中创建很多空的session！所以说不能远程调用order
@@ -18190,7 +18215,7 @@ p294
 
 
 
-### 拦截器自动放行（有点问题，还是用redis吧）
+#### 拦截器自动放行（选用）
 
 当然上面的问题是因为我们弄了拦截器鉴权，所有order开头的url都会自动拦截判断登录，所以我们可以直接为feign接口调用的url放行
 
@@ -18248,7 +18273,7 @@ controller：
       }
 ```
 
-有问题，order服务会无限报未登录最后卡死，应该是之前有什么其他模块的东西用到了order服务
+
 
 
 
@@ -18480,18 +18505,34 @@ ware服务：
           /*thisOrder.setStatus(1);
           orderDao.updateById(thisOrder);*/
 
-          if(thisOrder.getStatus().equals(1)){
-              redisTemplate.delete(OrderConstant.ORDER_TEMP+order);
-              redisTemplate.opsForValue().set(
-                      OrderConstant.ORDER_TEMP+order
-                      ,"1"
-              );
-              System.out.println("该订单已支付");
-          } else {
-              System.out.println(order+"号订单未及时付款，已删除");
+          switch (thisOrder.getStatus()) {
+            case 1, 2, 3: {
+                /*redisTemplate.delete(OrderConstant.ORDER_TEMP + order);
+                redisTemplate.opsForValue().set(
+                        OrderConstant.ORDER_TEMP + order
+                        , "1"
+                );*/
+                System.out.println("该订单已支付");
+                break;
+            }
+            default: {
+                System.out.println(order + "号订单未及时付款，已失效");
+                thisOrder.setStatus(4);
+                orderDao.updateById(thisOrder);
+                /*redisTemplate.delete(OrderConstant.ORDER_TEMP + order);
+                redisTemplate.opsForValue().set(
+                        OrderConstant.ORDER_TEMP + order
+                        , "4"
+                );*/
+            }
           }
       }
 ```
+
+此时为30分钟时，订单正常来说只有两种状态：0未付款和1、2、3正常订单
+
+所以此时如果订单状态为0，就马上将其状态改成4已失效，将其存入数据库
+
 
 ### 测试
 
@@ -18590,15 +18631,17 @@ ware服务内：
 
 
 
-# 商城业务：支付订单（未完成）
+# 商城业务：支付
 
 
+## 整合支付宝（未完成）
+
+不想做了
 
 steam://install/2551500/
 
 
 
-p300
 
 
 
@@ -18639,10 +18682,71 @@ p300
           OrderEntity thisOrder = baseMapper.selectOne(new QueryWrapper<OrderEntity>().eq("order_sn", orderSn));
           thisOrder.setStatus(1);
           baseMapper.updateById(thisOrder);
+          redisTemplate.opsForValue().set(OrderConstant.ORDER_TEMP+thisOrder.getId(),"1");
       }
 ```
 
+方法中，不仅要将数据库中的订单状态改成已付款（1），还要讲redis中该订单对应的数据改成"1"，供ware服务50分钟后检验该订单是否有效
+
 ## 测试
+
+结果是可以直接付款，付款后跳转到我的订单
+
+
+
+
+## 问题
+
+如果用户一直在支付窗口，超过30分钟后再付款不就错误了？
+
+所以付款的时候还是要判断订单的状态，如果是4已失效，那就不行了，所以改造：
+```java
+      /**
+       * 支付宝支付
+       *
+       * @return
+       */
+      @Override
+      public Boolean aliPayOrder(String orderSn) {
+          OrderEntity thisOrder = baseMapper.selectOne(new QueryWrapper<OrderEntity>().eq("order_sn", orderSn));
+          if (thisOrder.getStatus().equals(0)) {
+              thisOrder.setStatus(1);
+              baseMapper.updateById(thisOrder);
+              return true;
+          }else {
+              System.out.println("     OrderService::aliPayOrder : 订单已过期");
+              return false;
+          }
+      }
+```
+
+让其已boolean形式回传，表示支付成功与失败
+
+
+# 订单最终联调测试
+
+正常下单一个商品，保证有效期内支付
+
+order服务：
+```
+      向stock.exchange.top发送了消息：[WareOrderDetailTO(orderId=156, orderSn=202311151635451571724707747399901185, skuId=67, skuNum=1, wareId=2)]
+      向order.exchange.top发送了消息：156
+      ······
+      收到订单2:156
+      将查看是否已处理，若未处理则按照过期处理......
+      该订单已支付
+```
+
+ware服务：
+```
+      收到消息:[{orderId=156, orderSn=202311151635451571724707747399901185, skuId=67, skuNum=1, wareId=2}]
+      156
+      订单正常，不予解锁
+```
+
+结果基本正确，其余情况便不再写出，都是正确的
+
+
 
 
 
@@ -19032,7 +19136,1099 @@ order模块内调用该方法的接口：
 
 
 
+# 秒杀
+
+## 调试一下上架功能
+
+一个小问题，上架商品后，发现在购物车结算时ware服务报错，原因是wareSkuService里有个getSkuStocks报
+```
+      java.lang.illegalstateexception: duplicate key 1 (attempted merging values true and true print)
+```
+
+将其改成
+```java
+      /**
+       * 由order模块调用的方法
+       *
+       * 获取所有商品有货商品并返回一个map
+       *
+       */
+      @Override
+      public Map<Long, Boolean> getSkuStocks() {
+          Map<Long,Boolean> stocks=new HashMap<>();
+          for (WareSkuEntity thisEntity : baseMapper.selectList(null)) {
+              stocks.put(thisEntity.getSkuId(),true);
+          }
+          return stocks;
+      }
+```
+
+再调试下就没问题了
 
 
-## 订单消息通知
-p308
+
+
+
+
+## 后台添加秒杀商品
+p311
+
+npm run dev，然后打开后台管理，每日秒杀里添加场次
+
+
+
+
+
+
+### 查询场次关联商品
+
+url：
+```
+      localhost:10100/api/coupon/seckillskurelation/list
+```
+
+参数：
+```
+      t=1700361745496&page=1&limit=10&key=&promotionSessionId=1
+```
+
+表示分页数据，和该场次的id
+
+seckillSkuRelationController中：
+```java
+      /**
+       * 查秒杀场次的关联商品
+       */
+      @RequestMapping("/list")
+      public R listSeckillSku(@RequestParam Map<String, Object> params){
+          PageUtils page = seckillSkuRelationService.listSeckillSku(params);
+          return R.ok().put("page", page);
+      }
+```
+
+在seckillSkuRelationService中写方法listSeckillSku
+```java
+      /**
+       * 获取场次关联的商品
+       */
+      @Override
+      public PageUtils listSeckillSku(Map<String, Object> params) {
+          if(!StringUtils.isNullOrEmpty((String) params.get("promotionSessionId"))){
+              IPage<SeckillSkuRelationEntity> page = this.page(
+                      new Query<SeckillSkuRelationEntity>().getPage(params)
+                      , new QueryWrapper<SeckillSkuRelationEntity>().eq("promotion_session_id", (String) params.get("promotionSessionId"))
+              );
+              return new PageUtils(page);
+          }
+          return null;
+      }
+```
+
+
+
+### 添加关联商品
+
+url
+```
+      localhost:10100/api/coupon/seckillskurelation/save
+```
+
+参数：
+```
+      promotionId: ""
+      promotionSessionId: 1
+      seckillCount: 50
+      seckillLimit: 1
+      seckillPrice: 4299
+      seckillSort: "1"
+      skuId: "1"
+      t: 1700362336387
+```
+
+接口
+```java
+      /**
+       * 保存关联商品
+       */
+      @RequestMapping("/save")
+      public R saveSeckillSku(@RequestBody SeckillSkuRelationEntity seckillSkuRelation){
+          seckillSkuRelationService.saveSeckillSku(seckillSkuRelation);
+          return R.ok();
+      }
+```
+
+方法saveSeckillSku
+```java
+      /**
+       * 保存关联商品
+       */
+      @Override
+      public void saveSeckillSku(SeckillSkuRelationEntity seckillSkuRelation) {
+          baseMapper.insert(seckillSkuRelation);
+      }
+```
+
+
+### 删除秒杀关联商品
+
+删除一个秒杀关联商品时，同时从redis和数据库中删除
+
+removeSessionSkuRelation方法：
+```java
+      /**
+       * 删除sessionSkuRelation，数据库与redis
+       */
+      @Override
+      public void removeSessionSkuRelation(List<Long> list) {
+          list.forEach(relationId->{
+              SeckillSkuRelationEntity thisRelation = baseMapper.selectById(relationId);
+              /**
+               * 从redis中删除该session的hash表中key为skuId的键值对
+               */
+              redisTemplate.boundHashOps(SeckillConstant.SECKILL_SKU_PREFIX+thisRelation.getPromotionSessionId()).delete(thisRelation.getSkuId().toString());
+              /**
+               * 在数据库中删除该relation
+               */
+              baseMapper.deleteById(relationId);
+          });
+      }
+```
+
+
+
+
+
+## 独立部署seckill服务
+p312
+
+秒杀服务承受很高的并发量，应该与普通的product服务分开来，
+
+创建seckill模块，引入devtools、lombok、spring web、redis、open feign
+
+创建完成后加入mall
+
+### 排除mysql
+
+在主程序入口加上
+```java
+      @SpringBootApplication(exclude= {DataSourceAutoConfiguration.class})
+```
+
+### 配置application.yml
+
+需要的是网关设置、redis设置，thymeleaf关闭缓存，nacos注册中心等
+```yml
+      spring:
+        cloud:
+          nacos:
+            discovery:
+              server-addr: 192.168.74.130:8848
+              username: nacos
+              password: nacos
+              namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+        application:
+          name: mall-seckill
+        thymeleaf:
+          cache: false
+      server:
+        port: 10600
+```
+
+还需要配置的是bootstarp.yml
+```yml
+      spring:
+        cloud:
+          nacos:
+            config:
+              server-addr: 192.168.74.130:8848
+              username: nacos
+              password: nacos
+              namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+```
+
+### 启用nacos
+
+启动类加上
+```java
+      @EnableDiscoveryClient
+```
+
+### 配置网关
+
+switchhosts加上
+```
+      192.168.74.130 seckill.katzenyasax-mall.com
+```
+
+在gateway模块下配置网关
+```yml
+      - id: seckill-route
+        uri: lb://mall-seckill
+        predicates:
+          - Host=**.seckill.katzenyasax-mall.com
+```
+
+mall.conf里加上监听域名
+```
+      seckill.katzenyasax-mall.com
+```
+
+随后重启nginx
+
+
+### 配置redis
+
+在application里配置redis
+```yml
+      spring:
+        data:
+          redis:
+            host: 192.168.74.130
+            port: 6379
+```
+
+
+## 秒杀商品上架
+p301
+
+在高并发场景下，频繁地访问数据库，进行库存信息的crud，效率会非常低下，特别是商品信息的展示和库存自动化处理。
+
+所以将秒杀商品上架时，就将其存入到redis中，用作缓存，缓存的效率肯定是比mysql效率高太多了
+
+
+### 保存秒杀场次
+
+将场次也一并存入redis，写saveSession方法，在coupon模块的seckillSessionController中重写这个RequestMapping
+
+controller：
+```java
+      /**
+       * 保存场次信息，保存至redis
+       */
+      @RequestMapping("/save")
+      public R saveSession(@RequestBody SeckillSessionEntity seckillSession){
+          return seckillSessionService.saveSession(seckillSession);
+      }
+```
+
+saveSession方法：
+```java
+      /**
+       * 报错session至数据库与redis
+       */
+      @Override
+      public R saveSession(SeckillSessionEntity seckillSession) {
+          /**
+           * 存入数据库
+           */
+          baseMapper.insert(seckillSession);
+          /**
+           * 存入redis
+           */
+          redisTemplate.opsForValue().set(
+                  SeckillConstant.SECKILL_SESSION+seckillSession.getId()
+                  ,JSON.toJSONString(seckillSession)
+          );
+          return R.ok();
+      }
+```
+
+
+
+### 保存秒杀商品
+
+在coupon服务中，saveSeckillSku方法中，不仅将其sku保存至数据库，还要将商品对应的skuInfo一并封装存入redis
+
+```java
+      /**
+       * 保存关联商品
+       */
+      @Override
+      public void saveSeckillSku(SeckillSkuRelationEntity seckillSkuRelation) {
+          /**
+           * 存入数据库
+           */
+          baseMapper.insert(seckillSkuRelation);
+          /**
+           * 存入redis
+           */
+          //从product查skuInfo
+          SkuInfoTO skuInfo = JSON.parseObject(
+                  JSON.toJSONString(productFeign.info(seckillSkuRelation.getSkuId()).get("skuInfo"))
+                  ,SkuInfoTO.class
+          );
+          //finale，最终数据封装
+          SeckillSkuRelationTO finale=new SeckillSkuRelationTO();
+          //使用BeanUtils赋值
+          BeanUtils.copyProperties(seckillSkuRelation,finale);
+          //封装
+          finale.setSkuInfoTO(skuInfo);
+          //存入redis
+          redisTemplate.boundHashOps(SeckillConstant.SECKILL_SKU_PREFIX+seckillSkuRelation.getPromotionSessionId()).put(
+                  seckillSkuRelation.getSkuId().toString()
+                  , JSON.toJSONString(finale)
+          );
+      }
+```
+
+此时存入redis中对应promotionSessionId的应该是一个hash，key是skuId，value则是该skuId在该场次中的信息，以及该sku的详细信息，如：
+```
+      "67":
+      "{"id":17,"promotionSessionId":4,"seckillCount":100,"seckillLimit":1,"seckillPrice":100,"seckillSort":0,"skuId":67,"skuInfoTO":{"brandId":14,"catalogId":1434,"price":204.0,"saleCount":0,"skuDefaultImg":"https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/O1CN01zMHkd41kXtmxYkg1r_%21%21391424694.webp","skuDesc":"DX","skuId":67,"skuName":"Zio-II Watch DX","skuSubtitle":"","skuTitle":"Zio-II Watch DX","spuId":57}}"
+
+```
+
+
+
+### 查询秒杀商品
+
+随后获取sku数据的方法listSeckillSku
+```java
+     /**
+       * 获取场次关联的商品
+       */
+      @Override
+      public PageUtils listSeckillSku(Map<String, Object> params) {
+          /**
+           * 从数据库中获取数据
+           */
+          if(!StringUtils.isNullOrEmpty((String) params.get("promotionSessionId"))){
+              IPage<SeckillSkuRelationEntity> page = this.page(
+                      new Query<SeckillSkuRelationEntity>().getPage(params)
+                      , new QueryWrapper<SeckillSkuRelationEntity>().eq("promotion_session_id", (String) params.get("promotionSessionId"))
+              );
+              return new PageUtils(page);
+          }
+          return null;
+      }
+```
+
+最后，接口：
+```java
+      /**
+       * 查秒杀场次的关联商品
+       */
+      @RequestMapping("/list")
+      public R listSeckillSku(@RequestParam Map<String, Object> params){
+          PageUtils page = seckillSkuRelationService.listSeckillSku(params);
+          System.out.println("SeckillSkuRelationController::listSeckillSku: page"+page.getList());
+          return R.ok().put("page", page);
+      }
+```
+
+随后测试，可以发现关联商品，且coupon模块按要求打印了：
+```
+      SeckillSkuRelationController::listSeckillSku: page[SeckillSkuRelationEntity(id=5, promotionId=null, promotionSessionId=1, skuId=76, seckillPrice=159.0000, seckillCount=100, seckillLimit=1, seckillSort=1), SeckillSkuRelationEntity(id=8, promotionId=null, promotionSessionId=1, skuId=67, seckillPrice=111.0000, seckillCount=1, seckillLimit=2, seckillSort=0)]
+```
+
+可以了
+
+
+
+
+
+## 定时执行任务
+p312
+
+为了使明天的秒杀可以在规定时间自动开始，无需人工开始，因此添加为定时任务
+
+### 原生定时任务
+
+实例如下：
+```java
+      @Component
+      @EnableScheduling
+      public class ScheduleTest {
+          @Scheduled(cron = "1-10 * * * * ? ")
+          public void test01(){
+              System.out.println("TEST");
+          }
+      }
+```
+
+*cron\[拉\]表示时间，意义按音标区分，同音标还有chron等*
+
+根据cron表达式，每分钟的第1秒到第10秒，每秒都执行一下方法test01
+
+测试中，确实按照这样进行了打印。
+```
+      TEST
+      TEST
+      TEST
+      TEST
+      TEST
+      TEST
+      TEST
+      TEST
+      TEST
+      TEST
+```
+
+此外，还需要将此类放到IOC中，否则不会执行
+
+
+### 关于阻塞问题
+
+正常情况下，任务应当以cron中的 "1-10 * * * * ? " 为标准执行，也即是每分钟的前10秒执行一次。
+
+这是正常情况下，但是考虑一下单个任务的执行时间，若单个任务的执行时间大于了1秒，假设为3秒，那我们在方法上加上：
+```java
+      Thread.sleep(3000);
+```
+
+再次进行测试，看看实际上会执行几次任务：
+```
+      TEST
+      TEST
+      TEST
+```
+
+实际上只执行了三次，并且可以分析得知，其执行的时间分别为第1、5、9秒时执行的，每次执行之后都要阻塞三秒，因此第2、3、4秒应该执行的任务就被第1秒执行的任务挤占了。
+
+这实际上也是单线程下的缺陷，让同一个线程在短时间内执行多个任务就容易出现阻塞问题，这个时候使用多线程就可以了。
+
+解决方法有：异步编排、线程池、配置异步定时任务
+
+什么是异步定时任务？其实就是让每一个任务以一个单独的线程启动，只需要两个注解就可以了：
+```java
+      @Component
+      @EnableAsync
+      @EnableScheduling
+      public class ScheduleTest {
+          @Scheduled(cron = "1-10 * * * * ? ")
+          @Async
+          public void test01() throws InterruptedException {
+              System.out.println("TEST");
+              Thread.sleep(3000);
+          }
+      }
+```
+
+随后再次执行：
+```
+      TEST
+      TEST
+      TEST
+      TEST
+      TEST
+      TEST
+      TEST
+      TEST
+      TEST
+      TEST
+```
+
+可以看到确实是每秒执行一次
+
+但是注意，这两个注解底层仍然是按照线程池来的，它使用的是spring.task线程池，可以在application中自定义
+```yml
+      spring:
+        task:
+          execution:
+            pool:
+              core-size: 20
+              max-size: 50
+```
+
+
+
+
+## 定时秒杀商品上架
+p313
+
+秒杀场次开始的url为：
+```
+      http://localhost:10100/api/coupon/seckillpromotion/update
+```
+
+参数为：
+```
+      endTime: "2023-12-18T16:00:00.000+00:00"
+      id: 1
+      startTime: "2023-11-18T16:00:00.000+00:00"
+      status: 1
+      t: 1701344735308
+      title: "2023.11.19"
+```
+
+也就是说其实就是一个update操作，用status来控制上架与下架
+
+seckill模块中专门创建一个SeckillSchedule用来定时任务
+```java
+      @EnableAsync
+      @EnableScheduling
+      @Component
+      /**
+       * 定时任务
+       */
+      public class SeckillSchedule {
+          @Autowired
+          CouponFeign couponFeign;
+          /**
+           * 动态查询最近三天要上架的商品，将其上线，随后等待其自动生效
+           */
+          @Scheduled(cron = "0 0 3 * * ? ")
+          public void uploadSeckill(){
+              couponFeign.uploadSession(
+                      couponFeign.selectInThreeDays()
+              );
+          }
+      }
+```
+
+创建了指向coupon服务的feign
+```java
+      @FeignClient("mall-coupon")
+      public interface CouponFeign {
+          /**
+           * 由seckill模块定时任务模块调用，上线秒杀场次
+           */
+          @RequestMapping("coupon/seckillsession/uploadSession")
+          void uploadSession(@RequestParam List<Long> sessionIds);
+          /**
+           * 由seckill模块定时任务调用，查询三日后将开始的秒杀的场次的sessionId
+           */
+          @RequestMapping("coupon/seckillsession/selectInThreeDays")
+          List<Long> selectInThreeDays();
+      }
+```
+
+其中两个在seckillSessionController中的接口为：
+```java
+      /**
+       * 由seckill模块定时任务模块调用，上线秒杀场次
+       */
+      @RequestMapping("/uploadSession")
+      public void uploadSession(@RequestParam List<Long> sessionIds){
+          seckillSessionService.uploadSession(sessionIds);
+      }
+
+
+      /**
+       * 由seckill模块定时任务调用，查询三日后将开始的秒杀的场次的sessionId
+       */
+      @RequestMapping("/selectInThreeDays")
+      public List<Long> selectInThreeDays(){
+          return seckillSessionService.selectInThreeDays();
+      }
+```
+
+各自对应的方法为：
+```java
+      /**
+       * 上线秒杀场次
+       */
+      @Override
+      public void uploadSession(List<Long> sessionIds) {
+          sessionIds.forEach(id->{
+              SeckillSessionEntity thisSession = baseMapper.selectById(id);
+              thisSession.setStatus(1);
+              baseMapper.updateById(thisSession);
+          });
+      }
+
+
+      /**
+       * 查询三日后将开始的秒杀场次，以List<Long>形式返回值
+       */
+      @Override
+      public List<Long> selectInThreeDays() {
+          List<SeckillSessionEntity> allDown = baseMapper.selectList(new QueryWrapper<SeckillSessionEntity>().eq("status", 0));
+          List<Long> ids=new ArrayList<>();
+          allDown.forEach(thisSession->{
+              if(thisSession.getStartTime().getDay()-new Date().getDay()<=2){
+                  ids.add(thisSession.getId());
+              }
+          });
+          return ids;
+      }
+```
+
+正如cron表达式 0 0 3 * * ?  所示，每天的三点钟时，自动执行一个任务，先远程调用coupon模块查看在三日内即将开始的秒杀场次，获取其所有的id所成的list，然后将list再次传给远程调用的coupon模块中用来上线的方法。最终实现每日三点钟自动上线秒杀，相当于给用户一个预告。
+
+不过，秒杀场次和对应商品还得是人来手动添加。
+
+
+
+
+
+
+## 主页查询秒杀商品
+p318
+
+请求：http://seckill.katzenyasax-mall.com/getCurrentSeckillSkus
+
+数据封装：
+```java
+      @Data
+      @TableName("sms_seckill_session")
+      public class SeckillSessionTO implements Serializable {
+        private static final long serialVersionUID = 1L;
+        @TableId
+        private Long id;
+        private String name;
+        private Date startTime;
+        private Date endTime;
+        private Integer status;
+        private Date createTime;
+        private List<SeckillSkuRelationTO> relationTOList;
+      }
+
+      @Data
+      @TableName("sms_seckill_sku_relation")
+      public class SeckillSkuRelationTO implements Serializable {
+        private static final long serialVersionUID = 1L;
+        @TableId
+        private Long id;
+        private Long promotionId;
+        private Long promotionSessionId;
+        private Long skuId;
+        private BigDecimal seckillPrice;
+        private BigDecimal seckillCount;
+        private BigDecimal seckillLimit;
+        private Integer seckillSort;
+        private SkuInfoTO skuInfoTO;
+        private Long startTime;
+        private Long endTime;
+      }
+```
+
+
+需求是查询进三日内秒杀场次内的所有商品，因此用当前时间（前端时间）和seckillSession的startTime比对，间隔小于三日的场次的所有商品为需求商品。
+
+但是不要让每次都让服务器来给商品信息，只需要拿到近三天内的秒杀场次的sessionId，根据这个sessionId从redis拿对应的商品就行了。
+
+并且之前为了写自动上线近三天内的秒杀场次，还写了一个方法selectInThreeDays，但是其返回的是List<Long>，因此直接以这个方法为基础写一个返回List<SeckillSessionTO>的方法：
+```java
+      /**
+       * 查询最近三日的session
+       */
+      @Override
+      public List<SeckillSessionTO> selectCurrentSession() {
+          List<SeckillSessionEntity> allDown = baseMapper.selectList(new QueryWrapper<SeckillSessionEntity>().eq("status",1));
+          List<SeckillSessionEntity> entities=new ArrayList<>();
+          allDown.forEach(thisSession->{
+              //若此时处于某个秒杀场次
+              if(new Date().after(thisSession.getStartTime()) && new Date().before(thisSession.getEndTime())){
+                  entities.add(thisSession);
+              }
+              else if(thisSession.getStartTime().getDay()-new Date().getDay()<=2){
+                  entities.add(thisSession);
+              }
+          });
+          return entities.stream().map(thisSession->{
+              //单个to
+              SeckillSessionTO thisTO = JSON.parseObject(JSON.toJSONString(thisSession), SeckillSessionTO.class);
+              //得到该to对应的relationTOs
+              List<SeckillSkuRelationTO> relationTOs = seckillSkuRelationDao.selectList(
+                      new QueryWrapper<SeckillSkuRelationEntity>().eq("promotion_session_id", thisTO.getId())
+              ).stream().map(
+                      thisRelation -> JSON.parseObject(JSON.toJSONString(thisRelation), SeckillSkuRelationTO.class)
+              ).collect(Collectors.toList());
+              //封装
+              thisTO.setRelationTOList(relationTOs);
+              return thisTO;
+          }).collect(Collectors.toList());
+      }
+```
+
+在Controller中：
+```java
+      /**
+       * 由seckill模块调用，返回现在的session
+       */
+      @RequestMapping("/selectSessionEntityInThreeDays")
+      public List<SeckillSessionTO> selectCurrentSession(){
+          return seckillSessionService.selectCurrentSession();
+      }
+```
+
+这里是把SeckillSessionEntity提取出来当作SeckillSessionTO了
+
+feign接口：
+```java
+      /**
+       * 由seckill模块调用，返回现在的session
+       */
+      @GetMapping("coupon/seckillsession/selectCurrentSession")
+      List<SeckillSessionTO> selectCurrentSession();
+```
+
+因此seckill模块中的方法：
+```java
+      /**
+       * 查询进三日所有的有秒杀的商品
+       */
+      public List<SeckillSkuRelationTO> getCurrentSeckillSku() {
+          List<SeckillSessionTO> tos = couponFeign.selectCurrentSession();
+          //最近的一次，可能是正在进行的场次，也有可能是马上开始的场次
+          SeckillSessionTO session=tos.get(0);
+          //key
+          String key = SeckillConstant.SECKILL_SKU_PREFIX + session.getId();
+          //遍历单个场次
+          List<SeckillSkuRelationTO> finale = session.getRelationTOList().stream().map(relation ->{
+                  //遍历该场次对应的skuRelation
+              SeckillSkuRelationTO skuRelationTO = JSON.parseObject(
+                      redisTemplate.boundHashOps(key).get(relation.getSkuId().toString()).toString()
+                      , SeckillSkuRelationTO.class
+              );
+              skuRelationTO.setStartTime(session.getStartTime().getTime());
+              skuRelationTO.setEndTime(session.getEndTime().getTime());
+              return skuRelationTO;
+          }).collect(Collectors.toList());
+          System.out.println(finale);
+          return finale;
+      }
+```
+
+controller：
+```java
+      /**
+       * 商城主页查询所有的seckill信息，包括seckillSkuRelation和skuInfo
+       */
+      @GetMapping("/getCurrentSeckillSkus")
+      public List<SeckillSkuRelationTO> getCurrentSeckillSku(){
+          return webService.getCurrentSeckillSku();
+      }
+```
+
+
+前端接收到的数据为：
+```
+      {"msg":"success","code":0,"data":[{"id":19,"promotionId":null,"promotionSessionId":6,"skuId":67,"seckillPrice":100,"seckillCount":100,"seckillLimit":1,"seckillSort":1,"skuInfoTO":{"skuId":67,"spuId":57,"skuName":"Zio-II Watch DX","skuDesc":"DX","catalogId":1434,"brandId":14,"skuDefaultImg":"https://kaztenyasax-mall.oss-cn-beijing.aliyuncs.com/O1CN01zMHkd41kXtmxYkg1r_%21%21391424694.webp","skuTitle":"Zio-II Watch DX","skuSubtitle":"","price":204.0,"saleCount":0},"startTime":1703001600000,"endTime":1703952000000}]}
+```
+
+
+
+## 秒杀场次删除
+
+同时从redis和数据库对其进行删除
+
+sessionService中removeSession方法
+```java
+      /**
+       * 删除session，数据库与redis一同删除
+       */
+      @Override
+      public void removeSessions(List<Long> list) {
+          list.forEach(id->{
+              /**
+               * 从数据库中删除
+               */
+              baseMapper.deleteById(id);
+              /**
+               * 从redis删除
+               */
+              redisTemplate.opsForHash().delete(SeckillConstant.SECKILL_SKU_PREFIX+id.toString());
+          });
+      }
+```
+
+
+## 秒杀商品详情页
+p319
+
+秒杀商品需要渲染到其详情页，若查到此时有秒杀场次，此时其价格需要替换为秒杀价格；若近期内有秒杀场次，附上一个秒杀预告价格
+
+修改product模块spuInfoService中的getSkuItem方法，在里面加一个段查询最近的秒杀场次，直接远程调用seckill模块的selectCurrentSeckillSku方法，因为从秒杀活动中点进去的商品一定是最近一个场次中有的，所以这种情况下一定是有的。
+
+```java
+      CompletableFuture<Void> thread6 = thread1.thenAcceptAsync(res->{
+          //6.商品的优惠信息
+          for(SeckillSkuRelationTO seckillSkuRelationTO:seckillFeign.getCurrentSeckillSku()){
+              if(seckillSkuRelationTO.getSkuId().equals(Long.parseLong(skuId))){
+                  //发现了最近场次中有该sku的优惠
+                  SkuItemVo.SeckillSkuVo seckill=new SkuItemVo.SeckillSkuVo();
+                  //复制
+                  BeanUtils.copyProperties(seckillSkuRelationTO,seckill);
+                  finale.setSeckillSkuVo(seckill);
+                  break;
+              }
+          }
+      }, threadPool.TPE());
+```
+
+
+结果是可以看到商品详情界面有秒杀价（当然提前设置好了前端）
+
+但是有一个问题，刷新一次就没有优惠信息了，解决方法是把SpuInfoService的getSkuItem的异步编排删了，修改后的方法：
+```java
+      /**
+       *
+       * @param skuId
+       * @return finale
+       *
+       *
+       * 根据skuId，获取符合详情页的所有内容
+       * 返回值为一个SkuItemVo对象
+       *
+       *
+       */
+      @Override
+      public SkuItemVo getSkuItem(String skuId) {
+          System.out.println("SpuInfoService:SkuItemVO(Input): skuId : "+skuId);
+          //结果封装
+          SkuItemVo finale=new SkuItemVo();
+          //1.sku基本信息，直接通过mapper和skuId获取
+          SkuInfoEntity skuInfo=skuInfoDao.selectById(skuId);
+          finale.setInfo(skuInfo);
+
+          //2.图片信息
+          finale.setImages(skuImagesDao
+                  .selectList(new QueryWrapper<SkuImagesEntity>()
+                          .eq("sku_id", skuId)
+                  )
+          );
+
+          //3.spu销售信息组合
+          List<SkuItemVo.SkuItemSaleAttrVo> saleAttr = this.getSkuItemSaleAttrVo(finale.getInfo().getSpuId());
+          finale.setSaleAttr(saleAttr);
+
+          //4.spu介绍
+          finale.setDesc(spuInfoDescDao
+                  .selectById(finale.getInfo().getSpuId())
+          );
+
+          //5.spu规格参数
+          List<SkuItemVo.SpuItemAttrGroupVo> groupAttrs = this.getSpuItemAttrGroupVo(finale.getInfo().getSpuId());
+          finale.setGroupAttrs(groupAttrs);
+
+          //6.商品的优惠信息
+          for(SeckillSkuRelationTO seckillSkuRelationTO:seckillFeign.getCurrentSeckillSku()){
+              if(seckillSkuRelationTO.getSkuId().equals(Long.parseLong(skuId))){
+                  //发现了最近场次中有该sku的优惠
+                  SkuItemVo.SeckillSkuVo seckill=new SkuItemVo.SeckillSkuVo();
+                  //复制
+                  BeanUtils.copyProperties(seckillSkuRelationTO,seckill);
+                  finale.setSeckillSkuVo(seckill);
+                  break;
+              }
+          }
+
+          System.out.println("SpuInfoService:getSkuItem:"+finale);
+          return finale;
+      }
+```
+
+这样之后刷新就不会出现秒杀信息没有的问题了，而且发现以前遗留下来的商品规格消失的问题也解决了
+
+
+
+
+
+
+## 秒杀逻辑
+
+应该强调，承受高并发时，服务一定不要使用过多的中间件，也不要调用过多的其他服务，只让他保持自有服务的运行就好
+
+具体而言，秒杀的逻辑，即是让秒杀请求全部进到自己的服务，自己处理完，确保并发结束或秒杀结束时，再将处理完的结果使用一个普通mq传给其他服务，比如库存服务，订单服务等，剩下的交由这些服务处理就行
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 登录校验
+p321
+
+必须要登录，才能进行秒杀。可以到order模块偷。
+
+拦截器：
+```java
+      @Component
+      public class SeckillUserInterceptor implements HandlerInterceptor {
+          /**
+           * 将该拦截器表示为seckillThreadLocal
+           */
+          public static ThreadLocal<MemberTO> seckillThreadLocal =new ThreadLocal<>();
+          /**
+           * seckill模块所有接口前判断是否已登录
+           */
+          @Override
+          public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+              //放行主页的getCurrentSeckillSkus
+              if(new AntPathMatcher().match("/getCurrentSeckillSkus",request.getRequestURI())){
+                  return true;
+              }
+              //用户信息封装，之后要判断浏览器中是否有用户信息并封装
+              System.out.println("Entered Interceptor !");
+              //先判断session，即是否已经登陆
+              Object thisSession= request.getSession().getAttribute(AuthConstant.USER_LOGIN);
+              if(thisSession!= null){
+                  //若session中有名为loginUser的cookie，表示用户已登录
+                  //要将用户信息通过threadLocal的方式交给下游服务其
+                  MemberTO to= JSON.parseObject(JSON.toJSONString(thisSession), MemberTO.class);
+                  seckillThreadLocal.set(to);
+                  return true;
+              }
+              //未登录，则直接返回true，提交订单必须要先登录，重定向到登录页面
+              else {
+                  System.out.println("SeckillInterceptor: NO LOGIN USER! will redirect to login.html");
+                  response.sendRedirect("http://auth.katzenyasax-mall.com/login.html");
+                  return false;
+              }
+          }
+          /**
+           * url处理结束后调用
+           */
+          @Override
+          public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+              //清空threadLocal
+              seckillThreadLocal.remove();
+          }
+      }
+```
+
+特别注意一定要记得放行无需登录的接口，否则会出现无限判定无登录从而在redis中每次都创建空的登录对象
+
+注册拦截器，在config中写一个：
+```java
+      @Component
+      public class SeckillWebConfiguration implements WebMvcConfigurer {
+          @Autowired
+          SeckillUserInterceptor seckillUserInterceptor;
+          @Override
+          public void addInterceptors(InterceptorRegistry registry) {
+              registry
+                      .addInterceptor(seckillUserInterceptor)      //添加cart的拦截器
+                      .addPathPatterns("/**")                     //拦截url为/**，即所有url
+              ;
+          }
+      }
+```
+
+将用户信息也放到threadLocal中待用
+
+
+
+
+
+
+## 信号量、库存锁定问题
+
+校验信号量，在redis中储存。就在定时任务上架秒杀场次时，远程调用coupon模块的uploadSession方法内存储信号量
+
+方法uploadSession：
+```java
+      /**
+       * 上线秒杀场次
+       */
+      @Override
+      public R uploadSession(List<Long> sessionIds) {
+          sessionIds.forEach(id->{
+              SeckillSessionEntity thisSession = baseMapper.selectById(id);
+              thisSession.setStatus(1);
+              /**
+               * 在数据库中修改状态
+               */
+              baseMapper.updateById(thisSession);
+              /**
+               * 查询对应的秒杀商品，并存信号量
+               */
+              BoundHashOperations ops = redisTemplate.boundHashOps(SeckillConstant.SECKILL_SKU_SEMAPHORE + id);
+              seckillSkuRelationDao.selectList(new QueryWrapper<SeckillSkuRelationEntity>().eq("promotion_session_id",id)).forEach(thisRelation->{
+                  ops.put(
+                          thisRelation.getSkuId().toString()
+                          ,thisRelation.getSeckillCount().toString()
+                  );
+              });
+          });
+          return R.ok();
+      }
+```
+
+之后会在redis中存一个以Katzenyasax-mall::seckill:sekSemaphore::promotionSessionId为名的hash，存储sku的信号量
+
+
+
+## 有关场次的删减（待实现）
+
+需要联调，这里就不做了
+
+
+
+
+
+## 秒杀实现
+p322
+
+点击立即抢购后的url是：http://seckill.katzenyasax-mall.com/kill?killId=6-67&key=undefined&num=1
+
+除此之外
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Sentinel
+p325
+
+实现高并发下微服务的熔断降级。
+
+熔断：没用熔断的情况下，如果微服务之间在互相调用，其中一台微服务发送故障导致不可以，从而无法对其他微服务的调用做出回应，就会造成该条调用链资源全部用于等待，极其影响性能。熔断即是将该台故障微服务停掉，将其排除出服务发现中心，使其他微服务不会再向这台微服务发送请求，往其他可用的同业务微服务发送请求。
+
+降级：主动排除某台可用微服务的其中一个或多个业务逻辑（并不是停掉整个微服务），从而将该微服务的资源全方位放到其他部分的服务。
+
+
+
+## SpringBoot整合Sentinel
+p327
+
+### 引入依赖
+
+common模块引入依赖：
+```xml
+      <!-- sentinel依赖 -->
+      <!-- https://mvnrepository.com/artifact/com.alibaba.cloud/spring-cloud-starter-alibaba-sentinel -->
+      <dependency>
+          <groupId>com.alibaba.cloud</groupId>
+          <artifactId>spring-cloud-starter-alibaba-sentinel</artifactId>
+      </dependency>
+```
+
+
+### 启动控制台
+
+下载控制台对应alibaba的版本，以6698端口启动：
+```bash
+      java -jar sentinel-dashboard-1.8.6.jar --server.port=6698
+```
+
+
+### 配置
+
+每个微服务要被sentinel监控，需要对其进行配置：
+```yml
+      spring:
+        cloud:
+          sentinel:
+            transport:
+              dashboard: localhost:6698
+              port: 8719
+```
+
+其中dashboard为控制台端口，port为随便写的一个未被占用的端口，sentinel通过这个端口进行监控
+
+
+
+
+
+

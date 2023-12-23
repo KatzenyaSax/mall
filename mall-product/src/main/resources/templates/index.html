@@ -523,6 +523,10 @@
       <div class="swiper-container swiper_section_second_list_left">
         <div class="swiper-wrapper">
           <div class="swiper-slide">
+            <!-- 动态拼装秒杀商品信息 -->
+            <ul id="seckillSkuContent"></ul>
+          </div>
+          <div class="swiper-slide">
             <ul>
               <li>
                 <img src="/static/index/img/section_second_list_img1.jpg" alt="">
@@ -616,12 +620,12 @@
   }
 
   $.get("http://seckill.katzenyasax-mall.com/getCurrentSeckillSkus", function (res) {
-    if (res.data.length > 0) {
-      res.data.forEach(function (item) {
-        $("<li onclick='toDetail(" + item.skuId + ")'></li>").append($("<img style='width: 130px; height: 130px' src='" + item.skuInfo.skuDefaultImg + "' />"))
-                .append($("<p>"+item.skuInfo.skuTitle+"</p>"))
+    if (res.length > 0) {
+      res.forEach(function (item) {
+        $("<li onclick='toDetail(" + item.skuId + ")'></li>").append($("<img style='width: 130px; height: 130px' src='" + item.skuInfoTO.skuDefaultImg + "' />"))
+                .append($("<p>"+item.skuInfoTO.skuTitle+"</p>"))
                 .append($("<span>" + item.seckillPrice + "</span>"))
-                .append($("<s>" + item.skuInfo.price + "</s>"))
+                .append($("<s>" + item.skuInfoTO.price + "</s>"))
                 .appendTo("#seckillSkuContent");
       })
     }

@@ -2,42 +2,39 @@ package com.katzenyasax.mall.product.service.impl;
 
 import cn.hutool.core.date.DateTime;
 import com.alibaba.fastjson.JSON;
-import com.katzenyasax.common.to.SkuEsModel;
-import com.katzenyasax.common.to.SkuFullReductionTO;
-import com.katzenyasax.common.to.SpuBoundsTO;
-import com.katzenyasax.common.to.SpuInfoTO;
+import com.aliyuncs.utils.StringUtils;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.katzenyasax.common.to.*;
+import com.katzenyasax.common.utils.PageUtils;
+import com.katzenyasax.common.utils.Query;
 import com.katzenyasax.common.utils.R;
 import com.katzenyasax.mall.product.config.ThisThreadPool;
 import com.katzenyasax.mall.product.dao.*;
 import com.katzenyasax.mall.product.entity.*;
 import com.katzenyasax.mall.product.feign.CouponFeign;
 import com.katzenyasax.mall.product.feign.SearchFeign;
+import com.katzenyasax.mall.product.feign.SeckillFeign;
 import com.katzenyasax.mall.product.feign.WareFeign;
-import com.katzenyasax.mall.product.vo.item.SkuItemSaleAttrVo;
+import com.katzenyasax.mall.product.service.SpuInfoService;
 import com.katzenyasax.mall.product.vo.item.SkuItemVo;
 import com.katzenyasax.mall.product.vo.spu.*;
-import com.aliyuncs.utils.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.map.HashedMap;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.katzenyasax.common.utils.PageUtils;
-import com.katzenyasax.common.utils.Query;
-
-import com.katzenyasax.mall.product.service.SpuInfoService;
-import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service("spuInfoService")
@@ -86,12 +83,12 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
     @Autowired
     ThisThreadPool threadPool;
 
-
+    @Autowired
+    SeckillFeign seckillFeign;
 
 
     /**
      *
-     * @param params
      * @return
      *
      * mybatis plus自动生成的方法
@@ -101,7 +98,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<SpuInfoEntity> page = this.page(
                 new Query<SpuInfoEntity>().getPage(params),
-                new QueryWrapper<SpuInfoEntity>()
+                new QueryWrapper<>()
         );
 
         return new PageUtils(page);
@@ -303,7 +300,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
     public PageUtils getSpuInfo(@NotNull Map<String, Object> params) {
         //params里面有key、catelogId、brandId、status
 
-        QueryWrapper<SpuInfoEntity> wrapper=new QueryWrapper<SpuInfoEntity>();
+        QueryWrapper<SpuInfoEntity> wrapper= new QueryWrapper<>();
         String key=(String) params.get("key");
         if(!StringUtils.isEmpty(key)){
             log.info("key not null: "+key);
@@ -476,58 +473,56 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
      */
     @Override
     public SkuItemVo getSkuItem(String skuId) {
-        System.out.println("SpuInfoService: getSkuItem");
+        System.out.println("SpuInfoService:SkuItemVO(Input): skuId : "+skuId);
+       // System.out.println("SpuInfoService: getSkuItem");
         //结果封装
         SkuItemVo finale=new SkuItemVo();
 
-        CompletableFuture<SkuInfoEntity> thread1=CompletableFuture.supplyAsync(()->{
-            //1.sku基本信息，直接通过mapper和skuId获取
-            SkuInfoEntity skuInfo=skuInfoDao.selectById(skuId);
-            finale.setInfo(skuInfo);
-            return skuInfo;
-        });
 
-        CompletableFuture<Void> thread2=CompletableFuture.runAsync(()->{
-            //2.图片信息
-            finale.setImages(skuImagesDao
-                    .selectList(new QueryWrapper<SkuImagesEntity>()
-                            .eq("sku_id", skuId)
-                    )
-            );
-        },threadPool.TPE());
+        //1.sku基本信息，直接通过mapper和skuId获取
+        SkuInfoEntity skuInfo=skuInfoDao.selectById(skuId);
+        finale.setInfo(skuInfo);
 
-        CompletableFuture<Void> thread3 = thread1.thenAcceptAsync(res -> {
-            //3.spu销售信息组合
-            List<SkuItemVo.SkuItemSaleAttrVo> saleAttr = this.getSkuItemSaleAttrVo(res.getSpuId());
-            finale.setSaleAttr(saleAttr);
-        }, threadPool.TPE());
-
-        CompletableFuture<Void> thread4 = thread1.thenAcceptAsync(res -> {
-            //4.spu介绍
-            finale.setDesc(spuInfoDescDao
-                    .selectById(res.getSpuId())
-            );
-        }, threadPool.TPE());
-
-        CompletableFuture<Void> thread5 = thread1.thenAcceptAsync(res -> {
-            //5.spu规格参数
-            List<SkuItemVo.SpuItemAttrGroupVo> groupAttrs = this.getSpuItemAttrGroupVo(res.getSpuId());
-            finale.setGroupAttrs(groupAttrs);
-        }, threadPool.TPE());
-
-        //6.商品的优惠信息
-        // TODO 远程调用coupon模块，获取优惠信息
-
-        //判断1-6的线程是否完成：
-        CompletableFuture.allOf(
-                thread1
-                ,thread2
-                ,thread3
-                ,thread4
-                ,thread5
+        //2.图片信息
+        finale.setImages(skuImagesDao
+                .selectList(new QueryWrapper<SkuImagesEntity>()
+                        .eq("sku_id", skuId)
+                )
         );
 
-        System.out.println(JSON.toJSONString(finale));
+        //3.spu销售信息组合
+        List<SkuItemVo.SkuItemSaleAttrVo> saleAttr = this.getSkuItemSaleAttrVo(finale.getInfo().getSpuId());
+        finale.setSaleAttr(saleAttr);
+
+
+        //4.spu介绍
+        finale.setDesc(spuInfoDescDao
+                .selectById(finale.getInfo().getSpuId())
+        );
+
+
+        //5.spu规格参数
+        List<SkuItemVo.SpuItemAttrGroupVo> groupAttrs = this.getSpuItemAttrGroupVo(finale.getInfo().getSpuId());
+        finale.setGroupAttrs(groupAttrs);
+
+
+        //6.商品的优惠信息
+        for(SeckillSkuRelationTO seckillSkuRelationTO:seckillFeign.getCurrentSeckillSku()){
+            if(seckillSkuRelationTO.getSkuId().equals(Long.parseLong(skuId))){
+                //发现了最近场次中有该sku的优惠
+                SkuItemVo.SeckillSkuVo seckill=new SkuItemVo.SeckillSkuVo();
+                //复制
+                BeanUtils.copyProperties(seckillSkuRelationTO,seckill);
+                finale.setSeckillSkuVo(seckill);
+                break;
+            }
+        }
+
+        //判断1-6的线程是否完成：
+
+
+        System.out.println("SpuInfoService:getSkuItem:"+finale);
+
         return finale;
     }
 

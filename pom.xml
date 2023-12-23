@@ -20,6 +20,8 @@
 
         <module>mall-search</module>
 
+        <module>mall-seckill</module>
+
         <module>mall-common</module>
 
         <module>renren-fast</module>

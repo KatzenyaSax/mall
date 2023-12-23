@@ -98,6 +98,12 @@ spring:
           predicates:
             - Host=**.order.katzenyasax-mall.com
 
+
+        - id: seckill-route
+          uri: lb://mall-seckill
+          predicates:
+            - Host=**.seckill.katzenyasax-mall.com
+
         - id: host-route
           uri: lb://mall-product
           predicates:

@@ -1,21 +1,18 @@
 package com.katzenyasax.mall.coupon.controller;
 
-import java.util.Arrays;
-import java.util.Map;
-
-import org.apache.shiro.authz.annotation.RequiresPermissions;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.katzenyasax.mall.coupon.entity.SeckillSessionEntity;
-import com.katzenyasax.mall.coupon.service.SeckillSessionService;
+import com.katzenyasax.common.to.SeckillSessionTO;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.common.utils.R;
+import com.katzenyasax.mall.coupon.entity.SeckillSessionEntity;
+import com.katzenyasax.mall.coupon.service.SeckillSessionService;
+import org.apache.shiro.authz.annotation.RequiresPermissions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -30,6 +27,49 @@ import com.katzenyasax.common.utils.R;
 public class SeckillSessionController {
     @Autowired
     private SeckillSessionService seckillSessionService;
+
+    @Autowired
+    RedisTemplate redisTemplate;
+
+
+    /**
+     * 保存场次信息，保存至redis
+     */
+    @RequestMapping("/save")
+    public R saveSession(@RequestBody SeckillSessionEntity seckillSession){
+        return seckillSessionService.saveSession(seckillSession);
+    }
+
+
+    /**
+     * 由seckill模块定时任务模块调用，上线秒杀场次
+     */
+    @RequestMapping("/uploadSession")
+    public R uploadSession(@RequestParam List<Long> sessionIds){
+        return seckillSessionService.uploadSession(sessionIds);
+    }
+
+
+    /**
+     * 由seckill模块定时任务调用，查询三日后将开始的秒杀的场次的sessionId
+     */
+    @RequestMapping("/selectInThreeDays")
+    public List<Long> selectInThreeDays(){
+        return seckillSessionService.selectInThreeDays();
+    }
+
+    /**
+     * 由seckill模块调用，返回现在的session
+     *
+     * 由product模块调用，返回现在或最近的一个session
+     */
+    @RequestMapping("/selectCurrentSession")
+    public List<SeckillSessionTO> selectSessionEntityInThreeDays(){
+        return seckillSessionService.selectCurrentSession();
+    }
+
+    //=============================================================
+
 
     /**
      * 列表
@@ -57,7 +97,7 @@ public class SeckillSessionController {
     /**
      * 保存
      */
-    @RequestMapping("/save")
+    //@RequestMapping("/save")
     @RequiresPermissions("coupon:seckillsession:save")
     public R save(@RequestBody SeckillSessionEntity seckillSession){
 		seckillSessionService.save(seckillSession);
@@ -82,7 +122,7 @@ public class SeckillSessionController {
     @RequestMapping("/delete")
     @RequiresPermissions("coupon:seckillsession:delete")
     public R delete(@RequestBody Long[] ids){
-		seckillSessionService.removeByIds(Arrays.asList(ids));
+		seckillSessionService.removeSessions(Arrays.asList(ids));
 
         return R.ok();
     }

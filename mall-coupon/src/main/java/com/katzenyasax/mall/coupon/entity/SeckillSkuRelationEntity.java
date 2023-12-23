@@ -54,4 +54,5 @@ public class SeckillSkuRelationEntity implements Serializable {
 	 */
 	private Integer seckillSort;
 
+
 }

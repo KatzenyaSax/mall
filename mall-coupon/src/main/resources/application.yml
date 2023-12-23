@@ -11,6 +11,10 @@ spring:
         password: nacos
         username: nacos
         namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+  data:
+    redis:
+      port: 6379
+      host: 192.168.74.130
   application:
     name: mall-coupon
 

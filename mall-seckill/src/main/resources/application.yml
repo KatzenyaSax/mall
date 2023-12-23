@@ -1,0 +1,40 @@
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.74.130:8848
+        username: nacos
+        password: nacos
+        namespace: 311853ea-26c0-46e5-83e9-5d5923e1a333
+    sentinel:
+      transport:
+        dashboard: localhost:6698
+        port: 8719
+  application:
+    name: mall-seckill
+  thymeleaf:
+    cache: false
+  task:
+    execution:
+      pool:
+        core-size: 20
+        max-size: 50
+
+  data:
+    redis:
+      port: 6379
+      host: 192.168.74.130
+
+
+server:
+  port: 10600
+
+
+
+mall:
+  thread:
+    core-size:  20
+    max-size: 200
+    keep-alive-time:  10
+
+
