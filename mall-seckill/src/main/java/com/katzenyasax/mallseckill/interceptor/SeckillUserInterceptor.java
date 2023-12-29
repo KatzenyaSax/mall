@@ -35,14 +35,14 @@ public class SeckillUserInterceptor implements HandlerInterceptor {
         Object thisSession= request.getSession().getAttribute(AuthConstant.USER_LOGIN);
         if(thisSession!= null){
             //若session中有名为loginUser的cookie，表示用户已登录
-            //要将用户信息通过threadLocal的方式交给下游服务其
+            //要将用户信息通过threadLocal的方式交给下游服务
             MemberTO to= JSON.parseObject(JSON.toJSONString(thisSession), MemberTO.class);
             seckillThreadLocal.set(to);
             return true;
         }
         //未登录，则直接返回true，提交订单必须要先登录，重定向到登录页面
         else {
-            System.out.println("SeckillInterceptor: NO LOGIN USER! will redirect to login.html");
+            System.out.println("SeckillInterceptor: NO LOGIN USER! will redirect to login.html, request URL:"+request.getRequestURI());
             response.sendRedirect("http://auth.katzenyasax-mall.com/login.html");
             return false;
         }

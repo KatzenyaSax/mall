@@ -1,5 +1,7 @@
 package com.katzenyasax.mall.order.listener;
 
+
+import com.katzenyasax.common.to.SeckillSubmitOrderTO;
 import com.katzenyasax.mall.order.service.OrderService;
 import com.rabbitmq.client.Channel;
 import org.springframework.amqp.core.Message;
@@ -8,32 +10,28 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
-
 @Component
-@RabbitListener(queues = "order.queue.post")
-public class PostListener {
+//@RabbitListener(queues = "order.queue.seckill")
+public class SeckillListener {
 
     @Autowired
     OrderService orderService;
 
-
     /**
-     * 监听order.queue.post队列，拿取order信息
+     * 监听order.queue.seckill队列，拿取SeckillSubmitOrderTO类型的对象实例
      */
     @RabbitHandler
-    public void listenerOrder(Message message, Long order, Channel channel){
-        System.out.println("Order::PostListener: 从队列 order.queue.post 收到订单"+message.getMessageProperties().getDeliveryTag()+":"+order);
-        System.out.println("将查看该订单是否已处理，若未处理则按照过期处理......");
-        try {
-            //处理订单当前状态
-            orderService.dealWithOrderStatus(order);
+    public void listenSeckill(Message message, SeckillSubmitOrderTO to, Channel channel){
+        System.out.println("Order::SeckillListener: 从队列 order.queue.seckill 收到消息: "+to);
+        try{
+            orderService.seckillConfirmOrder(to);
             channel.basicAck(
                     message.getMessageProperties().getDeliveryTag()     //消息的tag
                     , false                                         //是否批量确认
             );
-        } catch (Exception e){
-            System.out.println("Order::PostListener: 处理订单失败");
+        }catch (Exception e){
+            System.out.println("Order::SeckillListener: 处理秒杀订单失败");
         }
     }
+
 }

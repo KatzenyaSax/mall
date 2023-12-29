@@ -1,10 +1,11 @@
 package com.katzenyasax.mall.order.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.katzenyasax.common.to.SeckillSubmitOrderTO;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.mall.order.entity.OrderEntity;
-import com.katzenyasax.mall.order.vo.OrderConfirmVo;
-import com.katzenyasax.mall.order.vo.OrderSubmitVo;
+import com.katzenyasax.mall.order.vo.OrderConfirmVO;
+import com.katzenyasax.mall.order.vo.OrderSubmitVO;
 import com.katzenyasax.mall.order.vo.SubmitOrderResponseVo;
 
 import java.util.Map;
@@ -20,14 +21,17 @@ public interface OrderService extends IService<OrderEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
 
-    OrderConfirmVo orderConfirm(Long id);
+    OrderConfirmVO orderConfirm(Long id);
 
-    SubmitOrderResponseVo submitOrder(OrderSubmitVo vo);
+    SubmitOrderResponseVo submitOrder(OrderSubmitVO vo);
 
     void dealWithOrderStatus(Long order);
 
     PageUtils getMemberOrder(Long id, Long memberId);
 
     Boolean aliPayOrder(String orderSn);
+
+    OrderConfirmVO seckillConfirmOrder(SeckillSubmitOrderTO to);
+
 }
 

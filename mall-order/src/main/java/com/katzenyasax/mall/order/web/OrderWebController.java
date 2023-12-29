@@ -3,15 +3,15 @@ package com.katzenyasax.mall.order.web;
 
 import com.alibaba.fastjson.JSON;
 import com.katzenyasax.common.to.MemberTO;
+import com.katzenyasax.common.to.SeckillSubmitOrderTO;
 import com.katzenyasax.mall.order.interceptor.OrderInterceptor;
 import com.katzenyasax.mall.order.service.OrderService;
-import com.katzenyasax.mall.order.vo.OrderConfirmVo;
-import com.katzenyasax.mall.order.vo.OrderSubmitVo;
+import com.katzenyasax.mall.order.vo.OrderConfirmVO;
+import com.katzenyasax.mall.order.vo.OrderSubmitVO;
 import com.katzenyasax.mall.order.vo.SubmitOrderResponseVo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -35,7 +35,7 @@ public class OrderWebController {
         MemberTO memberTO = OrderInterceptor.orderThreadLocal.get();
         System.out.println(JSON.toJSONString("OrderWebController::toTrade::Get member: "+memberTO));
         //获取orderConfirmVo
-        OrderConfirmVo vo=orderService.orderConfirm(memberTO.getId());
+        OrderConfirmVO vo=orderService.orderConfirm(memberTO.getId());
         model.addAttribute("confirmOrderData",vo);
         return "confirm";
     }
@@ -45,7 +45,7 @@ public class OrderWebController {
      * 提交订单
      */
     @RequestMapping("/submitOrder")
-    public String submitOrder(Model model, OrderSubmitVo vo, RedirectAttributes redirectAttributes){
+    public String submitOrder(Model model, OrderSubmitVO vo, RedirectAttributes redirectAttributes){
         MemberTO memberTO = OrderInterceptor.orderThreadLocal.get();
         System.out.println(vo);
         //获取下单状态
@@ -80,6 +80,19 @@ public class OrderWebController {
     public String aliPayOrder(@RequestParam String orderSn){
         orderService.aliPayOrder(orderSn);
         return "redirect:http://member.katzenyasax-mall.com/memberOrder.html";
+    }
+
+
+    /**
+     * 秒杀商品确认
+     */
+    @RequestMapping("/seckillToTrade")
+    public String seckillToTrade(@RequestParam String to,Model model){
+        SeckillSubmitOrderTO thisTo=JSON.parseObject(to,SeckillSubmitOrderTO.class);
+        OrderConfirmVO orderConfirmVo = orderService.seckillConfirmOrder(thisTo);
+        orderConfirmVo.setIsSeckillTrade(true);
+        model.addAttribute("confirmOrderData",orderConfirmVo);
+        return "confirm";
     }
 
 

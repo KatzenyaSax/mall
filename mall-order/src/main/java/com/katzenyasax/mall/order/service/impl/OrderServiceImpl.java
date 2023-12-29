@@ -7,12 +7,9 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.katzenyasax.common.constant.CartConstant;
-import com.katzenyasax.common.constant.OrderConstant;
 import com.katzenyasax.common.constant.OrderTokenConstant;
-import com.katzenyasax.common.to.MemberTO;
-import com.katzenyasax.common.to.OrderItemTO;
-import com.katzenyasax.common.to.SpuInfoTO;
-import com.katzenyasax.common.to.WareOrderDetailTO;
+import com.katzenyasax.common.constant.SeckillConstant;
+import com.katzenyasax.common.to.*;
 import com.katzenyasax.common.utils.PageUtils;
 import com.katzenyasax.common.utils.Query;
 import com.katzenyasax.common.utils.R;
@@ -46,7 +43,7 @@ import java.util.stream.Collectors;
 @Service("orderService")
 public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> implements OrderService {
 
-    public static ThreadLocal<OrderSubmitVo> submitVoThreadLocal =new ThreadLocal<>();
+    public static ThreadLocal<OrderSubmitVO> submitVoThreadLocal =new ThreadLocal<>();
 
     @Autowired
     RedisTemplate redisTemplate;
@@ -92,9 +89,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
      *
      */
     @Override
-    public OrderConfirmVo orderConfirm(Long id) {
+    public OrderConfirmVO orderConfirm(Long id) {
         //初始化
-        OrderConfirmVo finale=new OrderConfirmVo();
+        OrderConfirmVO finale=new OrderConfirmVO();
         finale.setMemberAddressVos(new ArrayList<>());
         finale.setItems(new ArrayList<>());
         finale.setStocks(new HashMap<>());
@@ -200,7 +197,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
     @Override
     @Transactional
     //@GlobalTransactional
-    public SubmitOrderResponseVo submitOrder(OrderSubmitVo vo) {
+    public SubmitOrderResponseVo submitOrder(OrderSubmitVO vo) {
         /**
          * 代理对象
          * 专用于本地事务间的互相调用
@@ -219,6 +216,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
          *      令牌：orderToken=bb8742a8-ff40-471a-8bc2-2cd186e3d0a1
          *      支付价格：payPrice=461
          *      remarks=null（无用）
+         *
+         *
+         * 秒杀业务增加：
+         *      remarks=seckill时，表示为秒杀订单，无需验价
          */
 
         //结果封装，初始化
@@ -264,19 +265,23 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
              */
             order.setSourceType(0);
 
+
             /**
+             * 只有当isSeckillTrade不为true时才进行验价
              * 所有商品的价格，和原先的总价进行验证
              * 如果两者差价小于0.01，代表两者至少小数点后两位之前是相等的，则可以接受
              */
-            BigDecimal newestPayPrice=this.buildNewestPayPrice(items);
-            if(Math.abs(vo.getPayPrice().subtract(newestPayPrice.add(order.getFreightAmount())).doubleValue())<0.01) {
-                //若二者差值小于0.01，可以接受
-                order.setPayAmount(newestPayPrice.add(order.getFreightAmount()));
-                finale.setCode(0);
-            } else {
-                //则表示前后价格不一，直接打回前端要求重新提交
-                finale.setCode(2);
-                return finale;
+            if(!vo.getIsSeckillTrade()) {
+                BigDecimal newestPayPrice = this.buildNewestPayPrice(items);
+                if (Math.abs(vo.getPayPrice().subtract(newestPayPrice.add(order.getFreightAmount())).doubleValue()) < 0.01) {
+                    //若二者差值小于0.01，可以接受
+                    order.setPayAmount(newestPayPrice.add(order.getFreightAmount()));
+                    finale.setCode(0);
+                } else {
+                    //则表示前后价格不一，直接打回前端要求重新提交
+                    finale.setCode(2);
+                    return finale;
+                }
             }
 
             /**
@@ -465,6 +470,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         }
     }
 
+
+
+
     /**
      * @param items
      * @param newId
@@ -516,7 +524,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
      */
     public OrderEntity buildOrderEntity(){
 
-        OrderSubmitVo vo = submitVoThreadLocal.get();
+        OrderSubmitVO vo = submitVoThreadLocal.get();
         Long userId=OrderInterceptor.orderThreadLocal.get().getId();
 
         //1.基础信息
@@ -616,6 +624,120 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         }
 
         return finale;
+    }
+
+
+
+    /**
+     * 确认seckill订单
+     *
+     */
+    @Override
+    public OrderConfirmVO seckillConfirmOrder(SeckillSubmitOrderTO to) {
+
+        //初始化
+        OrderConfirmVO finale=new OrderConfirmVO();
+        finale.setMemberAddressVos(new ArrayList<>());
+        finale.setItems(new ArrayList<>());
+        finale.setStocks(new HashMap<>());
+        finale.setCount(0);
+        finale.setTotal(BigDecimal.ZERO);
+
+        Long userId=to.getMemberId();
+
+        /**
+         * 秒杀商品
+         */
+        //从redis中拿到的该商品
+        String skuJSON = redisTemplate.boundHashOps(SeckillConstant.SECKILL_SKU_PREFIX + to.getPromotionSessionId())
+                .get(to.getSkuId().toString())
+                .toString();
+        SeckillSkuRelationTO thisRelation = JSON.parseObject(
+                skuJSON
+                , SeckillSkuRelationTO.class
+        );
+
+
+        List<OrderItemVo> items=new ArrayList<>();
+        //该秒杀商品
+        OrderItemVo thisSeckillItem=new OrderItemVo();
+        //封装数据
+        thisSeckillItem.setSkuId(to.getSkuId());
+        thisSeckillItem.setTitle(thisRelation.getSkuInfoTO().getSkuTitle());
+        thisSeckillItem.setImage(thisSeckillItem.getImage());
+
+        /** 属性skuAttrValues */
+
+        thisSeckillItem.setPrice(thisRelation.getSeckillPrice());   //折扣价
+        thisSeckillItem.setCount(Integer.parseInt(to.getNum().toString()));
+        thisSeckillItem.setTotalPrice(thisRelation.getSeckillPrice().multiply(BigDecimal.valueOf(to.getNum())));        //总价
+
+        Map<String, BigDecimal> weights = productFeign.allSpuWeights();
+        for (Map.Entry<String, BigDecimal> stringBigDecimalEntry : weights.entrySet()) {    //重量
+            if(stringBigDecimalEntry.getKey().equals(to.getSkuId().toString())){
+                thisSeckillItem.setWeight(stringBigDecimalEntry.getValue());
+            }
+        }
+
+        items.add(thisSeckillItem);
+
+        finale.setItems(items);
+
+
+        /**
+         * 2.会员地址列表
+         *
+         * 远程调用member服务
+         */
+        List<MemberAddressVo> memberAddressVos = new ArrayList<>();
+        memberFeign.getByMemberId(userId.toString())
+                .forEach(address->{
+                            memberAddressVos.add(JSON.parseObject(JSON.toJSONString(address),MemberAddressVo.class));
+                        }
+                );
+        finale.setMemberAddressVos(memberAddressVos);
+
+
+        /**
+         * 3.令牌
+         */
+        //获取一个uuid令牌
+        String orderToken = UUID.randomUUID().toString();
+        finale.setOrderToken(orderToken);
+        //将令牌存入redis，格式为k:orderToken:: 用户id     v:token
+        redisTemplate.opsForValue().set(
+                OrderTokenConstant.ORDER_TOKEN+userId.toString()
+                ,orderToken
+                ,30
+                , TimeUnit.MINUTES
+        );
+
+
+        /**
+         * 4.商品总数 & 商品总价
+         */
+        items.forEach(item->{
+            finale.setCount(finale.getCount()+ item.getCount());
+            finale.setTotal(finale.getTotal().add(item.getTotalPrice()));
+        });
+        finale.setPayPrice(finale.getTotal());
+
+
+        /**
+         * 5.是否有货
+         */
+        Map<Long, Boolean> stocks = wareFeign.getSkuStocks();
+        items.forEach(item->{
+            if(stocks.get(item.getSkuId())==null){
+                stocks.put(item.getSkuId(),Boolean.FALSE);
+            }
+        });
+        finale.setStocks(stocks);
+
+
+        return finale;
+
+
     }
 
 

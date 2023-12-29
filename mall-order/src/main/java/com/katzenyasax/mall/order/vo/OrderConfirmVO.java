@@ -14,7 +14,7 @@ import java.util.Map;
  **/
 
 @Data
-public class OrderConfirmVo {
+public class OrderConfirmVO {
 
 
     /** 会员收获地址列表 **/
@@ -37,5 +37,10 @@ public class OrderConfirmVo {
     private BigDecimal total;
 
     private BigDecimal payPrice;
+
+    /**
+     * 是否为秒杀订单
+     */
+    private Boolean isSeckillTrade = false;
 
  }

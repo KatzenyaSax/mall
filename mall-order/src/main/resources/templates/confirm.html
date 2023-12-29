@@ -743,6 +743,7 @@
 		<input id="addrInput" type="hidden" name="addrId" />
 		<input id="payPriceInput" type="hidden" name="payPrice">
         <input name="orderToken" th:value="${confirmOrderData.orderToken}" type="hidden"/>
+        <input name="isSeckillTrade" th:value="${confirmOrderData.isSeckillTrade}" type="hidden" />
         <button class="tijiao" type="submit">提交订单</button>
     </form>
 </div>

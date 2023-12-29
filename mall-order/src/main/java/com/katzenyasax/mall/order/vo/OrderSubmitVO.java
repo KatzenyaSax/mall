@@ -12,7 +12,7 @@ import java.math.BigDecimal;
  **/
 
 @Data
-public class OrderSubmitVo {
+public class OrderSubmitVO {
 
     /** 收获地址的id **/
     private Long addrId;
@@ -30,6 +30,9 @@ public class OrderSubmitVo {
 
     /** 订单备注 **/
     private String remarks;
+
+    /** 是否为seckill商品 **/
+    private Boolean isSeckillTrade =false;
 
     //用户相关的信息，直接去session中取出即可
 }

@@ -26,6 +26,15 @@ spring:
       host: 192.168.74.130
 
 
+  rabbitmq:
+    addresses: 192.168.74.130
+    port: 5672
+    virtual-host: /
+
+
+
+
+
 server:
   port: 10600
 

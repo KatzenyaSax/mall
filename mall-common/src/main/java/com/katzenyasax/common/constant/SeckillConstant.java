@@ -11,4 +11,16 @@ public class SeckillConstant {
 
 
 
+
+    public static final String SECKILL_ERROR_OUT_OF_TIME="Recent time is not in the session time";
+
+    public static final String SECKILL_ERROR_TOO_MUCH_BOUGHT="Bought too much, over the limit";
+
+    public static final String SECKILL_ERROR_THIS_USER_HAS_BOUGHT_THIS_SKU="This user has bought this sku";
+
+    public static final String SECKILL_ERROR_SEMAPHORE_OVER="The left stock is over";
+
+    public static final String SECKILL_SUCCESS="Success";
+
+
 }

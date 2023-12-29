@@ -50,7 +50,20 @@
             <version>1.0-SNAPSHOT</version>
         </dependency>
 
+        <!-- rabbitMQ整合依赖 -->
+        <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-amqp -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
 
+        <!-- SpringSession 依赖 -->
+        <!-- https://mvnrepository.com/artifact/org.springframework.session/spring-session-data-redis -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+            <version>3.1.3</version>
+        </dependency>
 
 
     </dependencies>

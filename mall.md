@@ -139,7 +139,9 @@
 
 
 
+###使用idea连接docker
 
+开启
 
 
 
@@ -19862,6 +19864,9 @@ feign接口：
       public List<SeckillSkuRelationTO> getCurrentSeckillSku() {
           List<SeckillSessionTO> tos = couponFeign.selectCurrentSession();
           //最近的一次，可能是正在进行的场次，也有可能是马上开始的场次
+          if (tos.isEmpty()){
+              return new ArrayList<>();
+          }
           SeckillSessionTO session=tos.get(0);
           //key
           String key = SeckillConstant.SECKILL_SKU_PREFIX + session.getId();
@@ -20040,6 +20045,44 @@ p321
 
 必须要登录，才能进行秒杀。可以到order模块偷。
 
+但是需要引入springSession：
+
+1.依赖
+```xml
+      <!-- SpringSession 依赖 -->
+      <!-- https://mvnrepository.com/artifact/org.springframework.session/spring-session-data-redis -->
+      <dependency>
+        <groupId>org.springframework.session</groupId>
+        <artifactId>spring-session-data-redis</artifactId>
+        <version>3.1.3</version>
+      </dependency>
+
+```
+
+2.application
+```yml
+      data:
+        redis:
+          host: 192.168.74.130
+          port: 6379
+```
+
+3.启动类加上：
+```java
+      @EnableRedisHttpSession
+```
+
+4.从auth模块或cart模块偷一个SessionConfiguration，让session分布式化
+
+5.从product模块偷ThisThreadPool和ThisThreadPollConfigurationProperties，随后重启服务后配置application：
+```yml
+    mall:
+      thread:
+        core-size:  20
+        max-size: 200
+        keep-alive-time:  10  
+```
+
 拦截器：
 ```java
       @Component
@@ -20144,6 +20187,8 @@ p321
       }
 ```
 
+手动上线的路径：http://localhost:5500/coupon/seckillsession/uploadSession?sessionIds=
+
 之后会在redis中存一个以Katzenyasax-mall::seckill:sekSemaphore::promotionSessionId为名的hash，存储sku的信号量
 
 
@@ -20161,7 +20206,492 @@ p322
 
 点击立即抢购后的url是：http://seckill.katzenyasax-mall.com/kill?killId=6-67&key=undefined&num=1
 
-除此之外
+进到seckill模块的kill后，进行校验看此次购买行为是否合法，若合法，应向order模块发一些该订单所需要的必要数据（例如订单号orderSn、用户id、场次信息promotionSessionId、该商品skuId、购买数量num）
+
+将其封装为一个对象SeckillSubmitOrderTO：
+```java
+      @Data
+      public class SeckillSubmitOrderTO {
+          /**
+           * 订单号
+           */
+          private String orderSn;
+          /**
+           * 用户id
+           */
+          private Long memberId;
+          /**
+           * 场次
+           */
+          private Long promotionSessionId;
+          /**
+           * skuId
+           */
+          private Long skuId;
+          /**
+           * 购买数量
+           */
+          private Long num;
+      }
+```
+
+随后开始逻辑，对应的方法定义为
+```java
+      public R kill(String killId, String key, Long num);
+```
+
+
+
+### 校验秒杀是否合法
+
+首先校验是否合法，即校验1、是否在秒杀场次内；2、购买个数是否超过了限制；3、该用户是否已经购买过；4、信号量是否已经耗尽
+
+```java
+      //信息
+      Long thisSessionId = Long.parseLong(killId.split("-")[0]);
+      Long thisSkuId = Long.parseLong(killId.split("-")[1]);
+      MemberTO thisMember = SeckillUserInterceptor.seckillThreadLocal.get();
+      //从redis获取场次信息
+      SeckillSessionTO thisSession = JSON.parseObject(
+              redisTemplate.opsForValue().get(SeckillConstant.SECKILL_SESSION + thisSessionId).toString()
+              , SeckillSessionTO.class
+      );
+      //从redis获取sku信息
+      SeckillSkuRelationTO thisSkuRelation = JSON.parseObject(
+              redisTemplate.boundHashOps(SeckillConstant.SECKILL_SKU_PREFIX + thisSessionId).get(thisSkuIdtoString()).toString()
+              , SeckillSkuRelationTO.class
+      );
+      /**
+       * 验证是否在秒杀时间内
+       */
+      if(!(new Date().before(thisSession.getEndTime()) && new Date().after(thisSession.getStartTime()))){
+          return R.ok().put("code",SeckillConstant.SECKILL_ERROR_OUT_OF_TIME);
+      }
+      /**
+       * 验证商品数量是否合理
+       */
+      if(thisSkuRelation.getSeckillCount().compareTo(BigDecimal.valueOf(num)) == -1 ){
+          return R.ok().put("code",SeckillConstant.SECKILL_ERROR_TOO_MUCH_BOUGHT);
+      }
+      /**
+       * 验证该用户是否已经购买过该商品
+       * 可以用setIfAbsent，通过占位一个  SeckillConstant.SECKILL_IF_USER_BOUGHT:用户id-场次id-skuId
+       * 如果未占到，说明之前已经占位过，表示该用户已经购买过
+       */
+      if(!redisTemplate.opsForValue().setIfAbsent(
+              SeckillConstant.SECKILL_IF_USER_BOUGHT+thisMember.getId()+"-"+thisSessionId+"-"+thisSkuId
+              ,true
+      )){
+          return R.ok().put("code",SeckillConstant.SECKILL_ERROR_THIS_USER_HAS_BOUGHT_THIS_SKU);
+      }
+      /**
+       * 验证信号量
+       */
+      Long nowSemaphore = Long.parseLong(redisTemplate.boundHashOps(SeckillConstant.SECKILL_SKU_SEMAPHORE +thisSessionId).get(thisSkuId.toString()).toString());
+      if (nowSemaphore==0){
+          //秒杀商品充足已被抢完
+          return R.ok().put("code",SeckillConstant.SECKILL_ERROR_SEMAPHORE_OVER);
+      }
+```
+
+若任意一项不符合，直接返回对应的错误提示到controller
+
+
+### 扣除信号量
+
+进行到此时，可以确认此次购买有效，进行信号量的扣除：
+```java
+      /**
+       * 扣除信号量
+       */
+      nowSemaphore-=1;
+      //存redis
+      redisTemplate.boundHashOps(SeckillConstant.SECKILL_SKU_SEMAPHORE + thisSessionId).put(thisSkuId.toString()nowSemaphore.toString());
+
+```
+
+
+### 消息队列
+
+
+#### 引入消息队列
+
+先引入一下rabbbitMQ
+
+1.引入依赖：
+
+      <!-- rabbitMQ整合依赖 -->
+      <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-amqp -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-amqp</artifactId>
+       </dependency>
+
+只要引入依赖后，RabbitAutoConfiguration会自动生效
+
+2.application中配置ip、端口和虚拟主机：
+
+      spring:
+          rabbitmq:
+            addresses: 192.168.74.130
+            port: 5672
+            virtual-host: /
+
+3.启动类中加注解，开启rabbit功能：
+
+      @EnableRabbit
+
+整合完毕
+
+
+
+
+#### 创建组件
+
+首先要明确组件，依然应当遵循之前的命名规则，即：领域.组件类型.作用(.附加说明)
+
+
+随后在seckill模块自动创建组件:
+```java
+      @Configuration
+      public class MqComponentConfig {
+          /**
+           * 创建交换机order.exchange.seckill
+           */
+          @Bean
+          public Exchange seckillExchangeOrder(){
+              //public TopicExchange(String name, boolean durable, boolean autoDelete, Map<String, Object> arguments)
+              return new TopicExchange(
+                      "order.exchange.seckill"           //交换机名
+                      ,true                           //持久化
+                      ,false                          //自动删除
+              );
+          }
+          /**
+           * 创建队列order.queue.seckill
+           */
+          /**
+           * 创建订单队列order.queue.post，用于order消息的发送
+           */
+          @Bean
+          public Queue seckillQueueOrder(){
+              // public Queue(String name, boolean durable, boolean exclusive, boolean autoDelete, @Nullable Map<String, Object> arguments)
+              return new Queue(
+                      "order.queue.seckill"
+                      ,true
+                      ,false
+                      ,false
+              );
+          }
+          /**
+           * 创建交换机和队列的绑定关系
+           */
+          /**
+           * 创建exchange和消息queue的绑定
+           */
+          @Bean
+          public Binding seckillBinding(){
+              return new Binding(
+                      "order.queue.seckill"                             //目的地是消息队列
+                      , Binding.DestinationType.QUEUE                 //目的地的类型是队列（QUEUE）
+                      ,"order.exchange.seckill"                  //中转交换机
+                      ,"order.key.seckill"                //路由键
+                      ,null                       //自定义参数（可以不填）
+              );
+          }
+      }
+```
+
+
+### 封装数据
+
+```java
+      /**
+       * 现在已确认该用户购买了该商品，接下来要发消息
+       */
+      //订单号
+      String orderSn = IdWorker.getTimeId();
+      //封装数据
+      SeckillSubmitOrderTO seckillSubmitOrderTO=new SeckillSubmitOrderTO();
+      seckillSubmitOrderTO.setOrderSn(orderSn);
+      seckillSubmitOrderTO.setMemberId(thisMember.getId());
+      seckillSubmitOrderTO.setPromotionSessionId(thisSessionId);
+      seckillSubmitOrderTO.setSkuId(thisSkuId);
+      seckillSubmitOrderTO.setNum(num);
+```
+
+
+#### 发消息
+
+组件声明好后，就可以发消息了，封装消息并发送：
+```java
+      /**
+       * 现在已确认该用户购买了该商品，接下来要发消息
+       */
+      //订单号
+      String orderSn = IdWorker.getTimeId();
+      //封装数据
+      SeckillSubmitOrderTO seckillSubmitOrderTO=new SeckillSubmitOrderTO();
+      seckillSubmitOrderTO.setOrderSn(orderSn);
+      seckillSubmitOrderTO.setMemberId(thisMember.getId());
+      seckillSubmitOrderTO.setPromotionSessionId(thisSessionId);
+      seckillSubmitOrderTO.setSkuId(thisSkuId);
+      seckillSubmitOrderTO.setNum(num);
+      //发消息
+      try{
+          rabbitTemplate.convertAndSend(
+                  "order.exchange.seckill"
+                  ,"order.key.seckill"
+                  ,seckillSubmitOrderTO
+          );
+          System.out.println(
+                  "Seckill::WebService 向交换机 order.exchange.seckill 以路由键 order.key.seckill 发送了消息："
+                          + seckillSubmitOrderTO
+          );
+      } catch (Exception e){
+          System.out.println("Seckill::WebService 向交换机 order.exchange.seckill 以路由键 order.key.seckill 发消息时发送错误");
+      }
+```
+
+
+#### 监听消息
+
+在order模块声明一个监听器
+```java
+      @Component
+      @RabbitListener(queues = "order.queue.seckill")
+      public class SeckillListener {
+          @Autowired
+          OrderService orderService;
+          /**
+           * 监听order.queue.seckill队列，拿取SeckillSubmitOrderTO类型的对象实例
+           */
+          @RabbitHandler
+          public void listenSeckill(Message message, SeckillSubmitOrderTO to, Channel channel){
+              System.out.println("Order::SeckillListener: 从队列 order.queue.seckill 收到消息: "+to);
+              try{
+                  orderService.seckillSubmitOrder(to);
+                  channel.basicAck(
+                          message.getMessageProperties().getDeliveryTag()     //消息的tag
+                          , false                                         //是否批量确认
+                  );
+              }catch (Exception e){
+                  System.out.println("Order::SeckillListener: 处理秒杀订单失败");
+              }
+          }
+      }
+```
+
+#### 取消发消息的方式，直接使用重定向传输数据
+
+
+
+
+
+
+
+
+### 处理秒杀订单
+
+order模块读取消息后，应当对其进行处理，方法：
+```java
+      /**
+     * 提交seckill订单
+     *
+     * @return
+     */
+    @Override
+    public OrderConfirmVo seckillConfirmOrder(SeckillSubmitOrderTO to) {
+        //初始化
+        OrderConfirmVo finale=new OrderConfirmVo();
+        finale.setMemberAddressVos(new ArrayList<>());
+        finale.setItems(new ArrayList<>());
+        finale.setStocks(new HashMap<>());
+        finale.setCount(0);
+        finale.setTotal(BigDecimal.ZERO);
+        Long userId=to.getMemberId();
+        /**
+         * 秒杀商品
+         */
+        //从redis中拿到的该商品
+        String skuJSON = redisTemplate.boundHashOps(SeckillConstant.SECKILL_SKU_PREFIX + to.getPromotionSessionId())
+                .get(to.getSkuId().toString())
+                .toString();
+        SeckillSkuRelationTO thisRelation = JSON.parseObject(
+                skuJSON
+                , SeckillSkuRelationTO.class
+        );
+        List<OrderItemVo> items=new ArrayList<>();
+        //该秒杀商品
+        OrderItemVo thisSeckillItem=new OrderItemVo();
+        //封装数据
+        thisSeckillItem.setSkuId(to.getSkuId());
+        thisSeckillItem.setTitle(thisRelation.getSkuInfoTO().getSkuTitle());
+        thisSeckillItem.setImage(thisSeckillItem.getImage());
+        /** 属性skuAttrValues */
+        thisSeckillItem.setPrice(thisRelation.getSeckillPrice());   //折扣价
+        thisSeckillItem.setCount(Integer.parseInt(to.getNum().toString()));
+        thisSeckillItem.setTotalPrice(thisRelation.getSeckillPrice().multiply(BigDecimal.valueOf(to.getNum())));        //总价
+        Map<String, BigDecimal> weights = productFeign.allSpuWeights();
+        for (Map.Entry<String, BigDecimal> stringBigDecimalEntry : weights.entrySet()) {    //重量
+            if(stringBigDecimalEntry.getKey().equals(to.getSkuId().toString())){
+                thisSeckillItem.setWeight(stringBigDecimalEntry.getValue());
+            }
+        }
+        finale.setItems(items);
+        /**
+         * 2.会员地址列表
+         *
+         * 远程调用member服务
+         */
+        List<MemberAddressVo> memberAddressVos = new ArrayList<>();
+        memberFeign.getByMemberId(userId.toString())
+                .forEach(address->{
+                            memberAddressVos.add(JSON.parseObject(JSON.toJSONString(address),MemberAddressVo.class));
+                        }
+                );
+        finale.setMemberAddressVos(memberAddressVos);
+        /**
+         * 3.令牌
+         */
+        //获取一个uuid令牌
+        String orderToken = UUID.randomUUID().toString();
+        finale.setOrderToken(orderToken);
+        //将令牌存入redis，格式为k:orderToken:: 用户id     v:token
+        redisTemplate.opsForValue().set(
+                OrderTokenConstant.ORDER_TOKEN+userId.toString()
+                ,orderToken
+                ,30
+                , TimeUnit.MINUTES
+        );
+        /**
+         * 4.商品总数 & 商品总价
+         */
+        items.forEach(item->{
+            finale.setCount(finale.getCount()+ item.getCount());
+            finale.setTotal(finale.getTotal().add(item.getTotalPrice()));
+        });
+        finale.setPayPrice(finale.getTotal());
+        /**
+         * 5.是否有货
+         */
+        Map<Long, Boolean> stocks = wareFeign.getSkuStocks();
+        items.forEach(item->{
+            if(stocks.get(item.getSkuId())==null){
+                stocks.put(item.getSkuId(),Boolean.FALSE);
+            }
+        });
+        finale.setStocks(stocks);
+        return finale;
+    }
+```
+
+
+
+
+
+
+
+
+### 接口重定向
+
+将seckill模块controller的kill方法抽取到另一个@Controller注解的接口容器RedirectController：
+```java
+      @Controller
+      public class RedirectController {
+          @Autowired
+          WebService webService;
+          /**
+           * 秒杀接口
+           */
+          @GetMapping("/kill")
+          public String kill(@RequestParam String killId, @RequestParam String key, @RequestParam Long num, Model model, RedirectAttributes redirectAttributes){
+              String skuId = killId.split("-")[1];
+              R res = webService.kill(killId, key, num);
+              String code = res.get("code").toString();
+              //若失败，重定向回该商品的详情页面
+              if(!code.equals(SeckillConstant.SECKILL_SUCCESS)){
+                  redirectAttributes.addFlashAttribute("code",code);
+                  return "redirect:http://item.katzenyasax-mall.com/"+skuId+".html";
+              }
+              //若成功，重定向到order模块进行处理
+              SeckillSubmitOrderTO to = JSON.parseObject(res.get("data").toString(), SeckillSubmitOrderTO.class);
+              redirectAttributes.addAttribute("to",JSON.toJSONString(to));
+              return "redirect:http://order.katzenyasax-mall.com/seckillToTrade";
+          }
+      }
+```
+
+注意重定向时携带的数据名字尽量相同
+
+随后来到order模块的seckillToTrade接口：
+```java
+      /**
+       * 秒杀商品购买
+       */
+      @RequestMapping("/seckillToTrade")
+      public String seckillToTrade(@RequestParam String to,Model model){
+          SeckillSubmitOrderTO thisTo=JSON.parseObject(to,SeckillSubmitOrderTO.class);
+          OrderConfirmVo orderConfirmVo = orderService.seckillConfirmOrder(thisTo);
+          model.addAttribute("confirmOrderData",orderConfirmVo);
+          return "confirm";
+      }
+```
+
+
+重定向之后，会自动接入常规的秒杀流程
+
+但是会出现强制恢复常规价格的问题。
+
+
+
+### 强制验价问题
+
+由于上一步，点击抢购后，发送有关信息（SeckillSubmit）并跳转到的是confirm界面，由前端发送相关信息到页面（即submitOrder），而该界面再次确认时是默认强制进行验价的，所以可以考虑在OrderSubmitVO中添加一个词条isSeckillTrade表示是否为秒杀订单，若鉴定为真则不再进行强制验价。
+
+如此一来，需要添加词条的实体类有：1、OrderConfirmVO（seckillToTrade接口跳转到confirm页面提供的信息）；2、OrderSubmitVO（submitOrder接口接收前端的信息）
+
+注意可以打上默认为false，防止之前的方法中出现空指针异常，即
+```java
+      /**
+       * 是否为秒杀订单
+       */
+      private Boolean isSeckillTrade = false;
+```
+
+在seckillToTrade的controller注明OrderConfirmVO：
+```java
+      orderConfirmVo.setIsSeckillTrade(true);
+```
+
+随后在confirm的前端上判断词条，并进行返回，在返回上加一条：
+```html
+      <input name="isSeckillTrade" th:value="${confirmOrderData.isSeckillTrade}" type="hidden" />
+```
+
+随后OrderSubmitVO的回传值应该已经收到了isSeckillTrade的值，接下来改写一下submitOrder方法，改一下验价的逻辑
+```java
+      /**
+       * 只有当isSeckillTrade不为true时才进行验价
+       * 所有商品的价格，和原先的总价进行验证
+       * 如果两者差价小于0.01，代表两者至少小数点后两位之前是相等的，则可以接受
+       */
+      if(!vo.getIsSeckillTrade()) {
+          BigDecimal newestPayPrice = this.buildNewestPayPrice(items);
+          if (Math.abs(vo.getPayPrice().subtract(newestPayPrice.add(order.getFreightAmount())).doubleVa()) < 0.01) {
+              //若二者差值小于0.01，可以接受
+              order.setPayAmount(newestPayPrice.add(order.getFreightAmount()));
+              finale.setCode(0);
+          } else {
+              //则表示前后价格不一，直接打回前端要求重新提交
+              finale.setCode(2);
+              return finale;
+          }
+      }
+```
+
+结果是确实绕过了强制验价
+
 
 
 
